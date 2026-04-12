@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA Diagnostic</title>
+    <style>
+        body { font-family: monospace; padding: 20px; max-width: 800px; margin: 0 auto; background: #1a1a2e; color: #eee; }
+        h1 { color: #F04000; }
+        .check { padding: 8px 12px; margin: 4px 0; border-radius: 6px; }
+        .pass { background: #1b4332; color: #95d5b2; }
+        .fail { background: #3d0000; color: #ff6b6b; }
+        .warn { background: #3d3d00; color: #ffd93d; }
+        .info { background: #1a1a3e; color: #a0a0ff; }
+        pre { background: #0d0d1a; padding: 10px; border-radius: 6px; overflow-x: auto; font-size: 12px; max-height: 300px; overflow-y: auto; }
+        button { background: #F04000; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 16px; margin: 10px 0; }
+        button:hover { background: #d03800; }
+    </style>
+</head>
+<body>
+    <h1>PWA Install Diagnostic</h1>
+    <p>This page checks every PWA requirement for the install prompt.</p>
+    <button onclick="runDiagnostics()">Run Full Diagnostic</button>
+    <div id="results"></div>
+
+    <script>
+        const results = document.getElementById('results');
+
+        function log(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `check ${type}`;
+            div.innerHTML = `${type === 'pass' ? '✅' : type === 'fail' ? '❌' : type === 'warn' ? '⚠️' : 'ℹ️'} ${msg}`;
+            results.appendChild(div);
+        }
+
+        function logPre(title, data) {
+            const div = document.createElement('div');
+            div.innerHTML = `<strong>${title}:</strong><pre>${typeof data === 'string' ? data : JSON.stringify(data, null, 2)}</pre>`;
+            results.appendChild(div);
+        }
+
+        async function runDiagnostics() {
+            results.innerHTML = '';
+            log('Starting PWA diagnostic...', 'info');
+
+            // 1. HTTPS check
+            log('<strong>1. HTTPS Check</strong>', 'info');
+            if (location.protocol === 'https:') {
+                log('Page served over HTTPS', 'pass');
+            } else if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+                log('Running on localhost (HTTPS not required)', 'pass');
+            } else {
+                log('NOT served over HTTPS - PWA install requires HTTPS!', 'fail');
+            }
+
+            // 2. Manifest check
+            log('<strong>2. Manifest Check</strong>', 'info');
+            const manifestLink = document.querySelector('link[rel="manifest"]');
+            if (!manifestLink) {
+                // Check the main page
+                try {
+                    const pageResp = await fetch('/');
+                    const pageHtml = await pageResp.text();
+                    const hasManifestInMain = pageHtml.includes('rel="manifest"');
+                    if (hasManifestInMain) {
+                        log('Manifest link found in main page HTML (not this debug page)', 'warn');
+                    } else {
+                        log('No &lt;link rel="manifest"&gt; found in main page!', 'fail');
+                    }
+                } catch(e) {
+                    log('Could not check main page for manifest link: ' + e.message, 'fail');
+                }
+            } else {
+                log('Manifest link tag found: ' + manifestLink.href, 'pass');
+            }
+
+            try {
+                const manifestResp = await fetch('/manifest.json');
+                log(`Manifest HTTP status: ${manifestResp.status}`, manifestResp.ok ? 'pass' : 'fail');
+                log(`Manifest Content-Type: ${manifestResp.headers.get('content-type')}`, 'info');
+
+                if (manifestResp.ok) {
+                    const manifest = await manifestResp.json();
+                    logPre('Manifest contents', manifest);
+
+                    // Required fields
+                    if (manifest.name || manifest.short_name) {
+                        log(`name: "${manifest.name}", short_name: "${manifest.short_name}"`, 'pass');
+                    } else {
+                        log('Missing name AND short_name', 'fail');
+                    }
+
+                    if (manifest.start_url) {
+                        log(`start_url: "${manifest.start_url}"`, 'pass');
+                        // Check if start_url is reachable
+                        try {
+                            const startResp = await fetch(manifest.start_url, { redirect: 'manual' });
+                            log(`start_url response: ${startResp.status} ${startResp.type}`, startResp.status < 400 ? 'pass' : 'fail');
+                        } catch(e) {
+                            log(`start_url NOT reachable: ${e.message}`, 'fail');
+                        }
+                    } else {
+                        log('Missing start_url', 'fail');
+                    }
+
+                    if (['standalone', 'fullscreen', 'minimal-ui'].includes(manifest.display)) {
+                        log(`display: "${manifest.display}"`, 'pass');
+                    } else {
+                        log(`display must be standalone/fullscreen/minimal-ui, got: "${manifest.display}"`, 'fail');
+                    }
+
+                    // Icons check
+                    if (manifest.icons && manifest.icons.length > 0) {
+                        log(`Icons: ${manifest.icons.length} defined`, 'pass');
+
+                        const has192 = manifest.icons.some(i => i.sizes && i.sizes.includes('192'));
+                        const has512 = manifest.icons.some(i => i.sizes && i.sizes.includes('512'));
+                        log(`Has 192x192 icon: ${has192}`, has192 ? 'pass' : 'fail');
+                        log(`Has 512x512 icon: ${has512}`, has512 ? 'pass' : 'fail');
+
+                        // Check each icon purpose
+                        for (const icon of manifest.icons) {
+                            const purpose = icon.purpose || 'any';
+                            const validPurposes = ['any', 'maskable', 'monochrome'];
+                            const purposes = purpose.split(/\s+/);
+                            const allValid = purposes.every(p => validPurposes.includes(p));
+                            if (purposes.length > 1) {
+                                log(`Icon ${icon.sizes} purpose "${purpose}" - MULTIPLE purposes in one entry is DEPRECATED and breaks Chrome`, 'fail');
+                            } else if (!allValid) {
+                                log(`Icon ${icon.sizes} purpose "${purpose}" - INVALID`, 'fail');
+                            } else {
+                                log(`Icon ${icon.sizes} purpose "${purpose}" - OK`, 'pass');
+                            }
+                        }
+
+                        // Check icon accessibility
+                        for (const icon of manifest.icons) {
+                            try {
+                                const iconResp = await fetch(icon.src, { method: 'HEAD' });
+                                log(`Icon ${icon.src}: HTTP ${iconResp.status}`, iconResp.ok ? 'pass' : 'fail');
+                            } catch(e) {
+                                log(`Icon ${icon.src}: FAILED to fetch - ${e.message}`, 'fail');
+                            }
+                        }
+
+                        // Check if there's at least one "any" purpose icon (required for install)
+                        const hasAnyPurpose = manifest.icons.some(i => {
+                            const p = (i.purpose || 'any');
+                            return p === 'any';
+                        });
+                        log(`Has icon with purpose "any": ${hasAnyPurpose}`, hasAnyPurpose ? 'pass' : 'fail');
+                    } else {
+                        log('No icons defined in manifest', 'fail');
+                    }
+                }
+            } catch(e) {
+                log(`Failed to fetch/parse manifest: ${e.message}`, 'fail');
+            }
+
+            // 3. Service Worker check
+            log('<strong>3. Service Worker Check</strong>', 'info');
+            if ('serviceWorker' in navigator) {
+                log('Service Worker API supported', 'pass');
+
+                // Check existing registrations
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                log(`Existing SW registrations: ${registrations.length}`, registrations.length > 0 ? 'pass' : 'warn');
+                for (const reg of registrations) {
+                    log(`  SW scope: ${reg.scope}, active: ${!!reg.active}, installing: ${!!reg.installing}, waiting: ${!!reg.waiting}`, 'info');
+                    if (reg.active) {
+                        log(`  Active SW scriptURL: ${reg.active.scriptURL}`, 'info');
+                        log(`  Active SW state: ${reg.active.state}`, 'pass');
+                    }
+                }
+
+                // Try registering SW from this diagnostic page
+                try {
+                    log('Attempting to register /sw.js...', 'info');
+                    const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                    log(`SW registered! Scope: ${reg.scope}`, 'pass');
+                    if (reg.active) log(`SW is ACTIVE: ${reg.active.scriptURL}`, 'pass');
+                    if (reg.installing) log(`SW is INSTALLING`, 'warn');
+                    if (reg.waiting) log(`SW is WAITING`, 'warn');
+                } catch(e) {
+                    log(`SW registration FAILED: ${e.message}`, 'fail');
+                }
+
+                // Check sw.js accessibility
+                try {
+                    const swResp = await fetch('/sw.js');
+                    log(`sw.js HTTP status: ${swResp.status}`, swResp.ok ? 'pass' : 'fail');
+                    log(`sw.js Content-Type: ${swResp.headers.get('content-type')}`, 'info');
+                    const swText = await swResp.text();
+                    log(`sw.js size: ${swText.length} bytes`, swText.length > 100 ? 'pass' : 'fail');
+                    // Check for fetch event handler (required for install prompt)
+                    const hasFetchHandler = swText.includes("addEventListener('fetch") || swText.includes('addEventListener("fetch');
+                    log(`sw.js has fetch event handler: ${hasFetchHandler}`, hasFetchHandler ? 'pass' : 'fail');
+                } catch(e) {
+                    log(`Failed to fetch sw.js: ${e.message}`, 'fail');
+                }
+            } else {
+                log('Service Worker API NOT supported in this browser', 'fail');
+            }
+
+            // 4. beforeinstallprompt check
+            log('<strong>4. Install Prompt Check</strong>', 'info');
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+            log(`Already installed (standalone mode): ${isStandalone}`, isStandalone ? 'warn' : 'pass');
+
+            if (isStandalone) {
+                log('App appears to already be installed - beforeinstallprompt will NOT fire', 'warn');
+            }
+
+            // Check localStorage dismiss
+            const dismissVal = localStorage.getItem('jkm-pwa-dismiss');
+            if (dismissVal) {
+                const dismissDate = new Date(parseInt(dismissVal));
+                const daysSince = (Date.now() - parseInt(dismissVal)) / (1000 * 60 * 60 * 24);
+                log(`PWA dismiss cookie set: ${dismissDate.toISOString()} (${daysSince.toFixed(1)} days ago)`, daysSince < 7 ? 'warn' : 'info');
+                if (daysSince < 7) {
+                    log('Dismiss cooldown ACTIVE (7 days) - banner will be hidden by app code', 'warn');
+                }
+            } else {
+                log('No dismiss cookie set', 'pass');
+            }
+
+            // Listen for beforeinstallprompt
+            log('Listening for beforeinstallprompt event (wait 10 seconds)...', 'info');
+            let promptFired = false;
+            const promptHandler = (e) => {
+                e.preventDefault();
+                promptFired = true;
+                log('🎉 beforeinstallprompt FIRED! Install banner CAN be shown!', 'pass');
+                log(`Event platforms: ${JSON.stringify(e.platforms)}`, 'info');
+            };
+            window.addEventListener('beforeinstallprompt', promptHandler);
+
+            await new Promise(r => setTimeout(r, 10000));
+
+            if (!promptFired) {
+                log('beforeinstallprompt did NOT fire after 10 seconds', 'fail');
+                log('Possible reasons:', 'info');
+                log('  - App may already be installed', 'info');
+                log('  - User previously dismissed the browser install prompt', 'info');
+                log('  - Browser engagement heuristic not met (try visiting twice)', 'info');
+                log('  - Manifest or SW has issues (check above)', 'info');
+                log('  - Browser does not support PWA install (Firefox, Safari)', 'info');
+            }
+
+            window.removeEventListener('beforeinstallprompt', promptHandler);
+
+            // 5. Browser info
+            log('<strong>5. Browser Info</strong>', 'info');
+            log(`User Agent: ${navigator.userAgent}`, 'info');
+            const isChrome = /Chrome\//.test(navigator.userAgent) && !/Edg\//.test(navigator.userAgent);
+            const isEdge = /Edg\//.test(navigator.userAgent);
+            const isFirefox = /Firefox\//.test(navigator.userAgent);
+            const isSafari = /Safari\//.test(navigator.userAgent) && !isChrome && !isEdge;
+            log(`Browser: ${isChrome ? 'Chrome' : isEdge ? 'Edge' : isFirefox ? 'Firefox' : isSafari ? 'Safari' : 'Other'}`, 'info');
+            if (isFirefox) log('Firefox does NOT support beforeinstallprompt', 'warn');
+            if (isSafari) log('Safari does NOT support beforeinstallprompt', 'warn');
+
+            // 6. Main app JS check
+            log('<strong>6. Main App JS Bundle Check</strong>', 'info');
+            try {
+                const pageResp = await fetch('/');
+                const pageHtml = await pageResp.text();
+                const jsMatch = pageHtml.match(/app-[A-Za-z0-9_-]+\.js/);
+                if (jsMatch) {
+                    log(`Main JS bundle: ${jsMatch[0]}`, 'pass');
+                    const jsResp = await fetch(`/build/assets/${jsMatch[0]}`);
+                    log(`JS bundle HTTP: ${jsResp.status}`, jsResp.ok ? 'pass' : 'fail');
+                    if (jsResp.ok) {
+                        const jsText = await jsResp.text();
+                        const hasBIP = jsText.includes('beforeinstallprompt');
+                        const hasSWRegister = jsText.includes('serviceWorker.register');
+                        const hasPWABanner = jsText.includes('Install JK Michaels');
+                        const hasPROD = jsText.includes('registerServiceWorker');
+                        log(`JS has beforeinstallprompt listener: ${hasBIP}`, hasBIP ? 'pass' : 'fail');
+                        log(`JS has SW register call: ${hasSWRegister}`, hasSWRegister ? 'pass' : 'fail');
+                        log(`JS has PWA install banner text: ${hasPWABanner}`, hasPWABanner ? 'pass' : 'fail');
+                        log(`JS has registerServiceWorker function: ${hasPROD}`, hasPROD ? 'pass' : 'fail');
+
+                        // Check if PROD guard exists
+                        // In production build, import.meta.env.PROD becomes true
+                        // So the code should just call registerServiceWorker() without condition
+                        const hasProdCheck = jsText.includes('.PROD');
+                        log(`JS still has .PROD check (should be replaced with true): ${hasProdCheck}`, hasProdCheck ? 'warn' : 'pass');
+                    }
+                } else {
+                    log('Could not find app JS bundle in page HTML', 'fail');
+                }
+            } catch(e) {
+                log(`Failed to check main page: ${e.message}`, 'fail');
+            }
+
+            log('<strong>Diagnostic complete.</strong>', 'info');
+        }
+    </script>
+</body>
+</html>

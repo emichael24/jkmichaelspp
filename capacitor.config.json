@@ -1,0 +1,60 @@
+{
+    "appId": "com.jkmichaels.mastery",
+    "appName": "JK Michaels",
+    "webDir": "public",
+    "server": {
+        "androidScheme": "https",
+        "iosScheme": "https"
+    },
+    "plugins": {
+        "SplashScreen": {
+            "launchShowDuration": 2000,
+            "launchAutoHide": true,
+            "backgroundColor": "#4F46E5",
+            "androidSplashResourceName": "splash",
+            "androidScaleType": "CENTER_CROP",
+            "showSpinner": true,
+            "androidSpinnerStyle": "large",
+            "iosSpinnerStyle": "small",
+            "spinnerColor": "#FFFFFF",
+            "splashFullScreen": true,
+            "splashImmersive": true
+        },
+        "PushNotifications": {
+            "presentationOptions": ["badge", "sound", "alert"]
+        },
+        "Camera": {
+            "permissions": ["camera", "photos"]
+        },
+        "Filesystem": {
+            "permissions": ["publicStorage"]
+        },
+        "Network": {},
+        "StatusBar": {
+            "style": "DARK",
+            "backgroundColor": "#4F46E5"
+        },
+        "Keyboard": {
+            "resize": "body",
+            "style": "DARK",
+            "resizeOnFullScreen": true
+        }
+    },
+    "android": {
+        "allowMixedContent": false,
+        "captureInput": true,
+        "webContentsDebuggingEnabled": false,
+        "backgroundColor": "#FFFFFF",
+        "buildOptions": {
+            "keystorePath": "release.keystore",
+            "keystoreAlias": "jkmichaels"
+        }
+    },
+    "ios": {
+        "contentInset": "automatic",
+        "allowsLinkPreview": true,
+        "scrollEnabled": true,
+        "backgroundColor": "#FFFFFF",
+        "scheme": "JKMichaels"
+    }
+}
