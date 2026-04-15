@@ -1,11 +1,13 @@
 <script setup>
 import { ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import AdminLayout from '@/Layouts/AdminLayout.vue';
 
 const props = defineProps({
     plans: Array,
 });
+
+defineOptions({ layout: AdminLayout });
 
 const isModalOpen = ref(false);
 const selectedPlan = ref(null);
@@ -15,6 +17,22 @@ const form = useForm({
     email: '',
     organization_name: '',
 });
+
+const editForms = ref({});
+
+function planForm(plan) {
+    if (!editForms.value[plan.id]) {
+        editForms.value[plan.id] = useForm({
+            paystack_plan_code: plan.paystack_plan_code || '',
+        });
+    }
+    return editForms.value[plan.id];
+}
+
+function savePlan(plan) {
+    const f = planForm(plan);
+    f.put(route('admin.subscriptions.plans.update', plan.id));
+}
 
 function openInvoiceModal(plan) {
     selectedPlan.value = plan;
@@ -33,12 +51,10 @@ function generateInvoice() {
 </script>
 
 <template>
-    <AuthenticatedLayout>
-        <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">SaaS Subscription Plans</h2>
-        </template>
+    <div class="py-6">
+        <h2 class="font-semibold text-xl text-surface-900 leading-tight mb-6 px-6">SaaS Subscription Plans</h2>
 
-        <div class="py-12">
+        <div class="py-6">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 
                 <div v-if="$page.props.flash.success" class="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative">
@@ -54,6 +70,9 @@ function generateInvoice() {
                                 <span class="text-4xl font-extrabold">${{ plan.price }}</span>
                                 <span class="text-gray-500">/{{ plan.billing_period === 'year' ? 'yr' : 'mo' }}</span>
                             </div>
+                            <p v-if="plan.trial_period_days" class="mt-2 text-center text-sm text-green-600">
+                                {{ plan.trial_period_days }}-day trial available
+                            </p>
 
                             <ul class="mt-6 space-y-3">
                                 <li v-for="feature in plan.features" :key="feature.id" class="flex items-start">
@@ -67,6 +86,22 @@ function generateInvoice() {
                             <div class="mt-8 text-center">
                                 <button @click="openInvoiceModal(plan)" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
                                     Generate B2B Invoice Link
+                                </button>
+                            </div>
+
+                            <div class="mt-4">
+                                <label class="block text-xs font-semibold text-gray-500 mb-2">Paystack Plan Code</label>
+                                <input
+                                    v-model="planForm(plan).paystack_plan_code"
+                                    type="text"
+                                    class="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                                    placeholder="PLN_xxxxx"
+                                >
+                                <button
+                                    @click="savePlan(plan)"
+                                    class="mt-2 w-full bg-gray-800 hover:bg-gray-900 text-white font-semibold py-2 px-4 rounded text-sm"
+                                >
+                                    Save Plan Code
                                 </button>
                             </div>
                         </div>
@@ -109,5 +144,5 @@ function generateInvoice() {
                 </div>
             </div>
         </div>
-    </AuthenticatedLayout>
+    </div>
 </template>

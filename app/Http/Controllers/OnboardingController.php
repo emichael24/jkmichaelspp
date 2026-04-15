@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Course;
 use App\Models\Question;
 use App\Models\QuestionResponse;
+use App\Models\QuizAttempt;
 use App\Models\UserGamification;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -34,9 +35,9 @@ class OnboardingController extends Controller
                 'id'       => $q->id,
                 'stem'     => $q->stem,
                 'domain'   => $q->domain,
-                'options'  => collect($q->options)->map(fn ($o, $i) => [
-                    'index' => $i,
-                    'text'  => is_array($o) ? ($o['text'] ?? $o) : $o,
+                'options'  => collect($q->options)->values()->map(fn ($o, $i) => [
+                    'id'   => is_array($o) ? ($o['id'] ?? chr(65 + $i)) : chr(65 + $i),
+                    'text' => is_array($o) ? ($o['text'] ?? '') : (string) $o,
                 ])->values(),
             ]);
 
@@ -85,27 +86,61 @@ class OnboardingController extends Controller
                 $request->validate([
                     'responses'        => 'required|array',
                     'responses.*.question_id'  => 'required|integer|exists:questions,id',
-                    'responses.*.selected'     => 'required|integer',
+                    'responses.*.selected'     => 'required|string',
                 ]);
 
                 $correct = 0;
                 $total   = count($request->responses);
+                $domainScores = [];
+
+                $attempt = QuizAttempt::create([
+                    'user_id' => $user->id,
+                    'quizzable_type' => 'diagnostic',
+                    'quizzable_id' => $user->id,
+                    'status' => 'completed',
+                    'total_count' => $total,
+                    'started_at' => now(),
+                    'completed_at' => now(),
+                ]);
 
                 foreach ($request->responses as $resp) {
                     $question = Question::find($resp['question_id']);
-                    $isCorrect = $resp['selected'] === $question->correct_option;
+                    $selected = (string) $resp['selected'];
+                    $correctIds = collect($question->correct_answer_ids)->map(fn ($id) => (string) $id)->sort()->values();
+                    $isCorrect = $correctIds->count() === 1 && $correctIds->first() === $selected;
                     if ($isCorrect) $correct++;
+
+                    $domainScores[$question->domain]['total'] = ($domainScores[$question->domain]['total'] ?? 0) + 1;
+                    $domainScores[$question->domain]['correct'] = ($domainScores[$question->domain]['correct'] ?? 0) + ($isCorrect ? 1 : 0);
 
                     QuestionResponse::create([
                         'user_id'     => $user->id,
                         'question_id' => $resp['question_id'],
-                        'quiz_attempt_id' => null,
-                        'selected_option' => $resp['selected'],
+                        'quiz_attempt_id' => $attempt->id,
+                        'selected_answer_ids' => [$selected],
                         'is_correct'      => $isCorrect,
                         'time_spent_seconds' => 30,
                         'confidence_level'   => 'medium',
                     ]);
                 }
+
+                $scorePct = $total > 0 ? round(($correct / $total) * 100, 2) : 0;
+                $domainScores = collect($domainScores)->map(function ($data) {
+                    $totalCount = $data['total'] ?? 0;
+                    $correctCount = $data['correct'] ?? 0;
+                    return [
+                        'correct' => $correctCount,
+                        'total' => $totalCount,
+                        'pct' => $totalCount > 0 ? round(($correctCount / $totalCount) * 100, 1) : 0,
+                    ];
+                })->toArray();
+
+                $attempt->update([
+                    'score_pct' => $scorePct,
+                    'correct_count' => $correct,
+                    'time_spent_seconds' => $total * 30,
+                    'domain_scores' => $domainScores,
+                ]);
 
                 return response()->json([
                     'success' => true,

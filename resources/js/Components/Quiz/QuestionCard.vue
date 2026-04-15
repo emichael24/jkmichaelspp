@@ -12,7 +12,7 @@
                 </span>
             </div>
             <div class="flex items-center gap-2">
-                <span v-if="question.type !== 'single_choice'" class="text-xs text-surface-500 bg-surface-100 px-2 py-0.5 rounded-full">
+                <span v-if="question.type !== 'multiple_choice'" class="text-xs text-surface-500 bg-surface-100 px-2 py-0.5 rounded-full">
                     {{ typeLabel }}
                 </span>
                 <button
@@ -44,7 +44,7 @@
             />
 
             <!-- Type hint -->
-            <p v-if="question.type === 'multiple_choice'" class="mt-3 text-xs text-surface-500 italic">
+            <p v-if="question.type === 'multiple_select'" class="mt-3 text-xs text-surface-500 italic">
                 Select all that apply
             </p>
         </div>
@@ -124,15 +124,15 @@ const emit = defineEmits(['select', 'flag', 'confidence']);
 
 const typeLabel = computed(() => {
     const map = {
-        single_choice: 'Single Choice',
-        multiple_choice: 'Multiple Choice',
+        multiple_choice: 'Single Answer',
+        multiple_select: 'Multiple Select',
         true_false: 'True/False',
+        scenario: 'Scenario',
+        situational_judgment: 'Situational Judgment',
+        formula: 'Formula',
         fill_blank: 'Fill in the Blank',
         ordering: 'Ordering',
         matching: 'Matching',
-        hotspot: 'Hotspot',
-        drag_drop: 'Drag & Drop',
-        case_study: 'Case Study',
     };
     return map[props.question.type] || props.question.type;
 });
@@ -144,7 +144,7 @@ const confidenceLevels = [
 ];
 
 function handleSelect(optionId) {
-    const isMultiple = props.question.type === 'multiple_choice';
+    const isMultiple = props.question.type === 'multiple_select';
 
     if (isMultiple) {
         const newIds = props.selectedIds.includes(optionId)

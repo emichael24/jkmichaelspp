@@ -1,57 +1,60 @@
 <template>
     <Head :title="lesson.title" />
 
-    <div class="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)]">
-        <!-- Sidebar: Course curriculum (desktop) -->
+    <div class="flex min-h-[calc(100vh-4rem)] flex-col lg:flex-row">
         <aside
             :class="[
                 'hidden lg:flex flex-col w-80 border-r border-surface-200 bg-white shrink-0',
                 'sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto',
             ]"
         >
-            <!-- Course title -->
-            <div class="p-4 border-b border-surface-100">
-                <Link :href="`/courses/${course.slug}`" class="flex items-center gap-2 text-sm text-surface-500 hover:text-primary-600 transition-colors mb-2">
-                    <ArrowLeft class="w-4 h-4" />
+            <div class="border-b border-surface-100 p-4">
+                <Link :href="`/courses/${course.slug}`" class="mb-2 flex items-center gap-2 text-sm text-surface-500 transition-colors hover:text-primary-600">
+                    <ArrowLeft class="h-4 w-4" />
                     Back to course
                 </Link>
-                <h2 class="font-semibold text-surface-900 text-sm leading-tight">{{ course.title }}</h2>
+                <h2 class="text-sm font-semibold leading-tight text-surface-900">{{ course.title }}</h2>
             </div>
 
-            <!-- Modules & Lessons -->
-            <nav class="flex-1 overflow-y-auto p-3 space-y-2">
+            <nav class="flex-1 space-y-2 overflow-y-auto p-3">
                 <div v-for="mod in modules" :key="mod.id">
                     <button
                         @click="toggleModule(mod.id)"
-                        class="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold text-surface-500 uppercase tracking-wider hover:bg-surface-50 rounded-lg transition-colors"
+                        class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wider text-surface-500 transition-colors hover:bg-surface-50"
                     >
                         <span class="truncate">{{ mod.title }}</span>
-                        <ChevronDown
-                            :class="['w-4 h-4 transition-transform', expandedModules.includes(mod.id) ? 'rotate-180' : '']"
-                        />
+                        <ChevronDown :class="['h-4 w-4 transition-transform', expandedModules.includes(mod.id) ? 'rotate-180' : '']" />
                     </button>
+
                     <div v-if="expandedModules.includes(mod.id)" class="mt-1 space-y-0.5">
-                        <Link
+                        <component
+                            :is="l.can_access ? Link : 'div'"
                             v-for="l in mod.lessons"
                             :key="l.id"
-                            :href="`/courses/${course.slug}/lessons/${l.id}`"
+                            :href="l.can_access ? `/courses/${course.slug}/lessons/${l.id}` : undefined"
                             :class="[
-                                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all',
+                                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all',
                                 l.id === lesson.id
-                                    ? 'bg-primary-50 text-primary-700 font-medium'
-                                    : 'text-surface-600 hover:bg-surface-50',
+                                    ? 'bg-primary-50 font-medium text-primary-700'
+                                    : l.can_access
+                                        ? 'text-surface-600 hover:bg-surface-50'
+                                        : 'bg-surface-50/70 text-surface-400',
                             ]"
                         >
                             <div :class="lessonStatusIcon(l.id)" />
-                            <span class="truncate flex-1">{{ l.title }}</span>
-                        </Link>
+                            <div class="min-w-0 flex-1">
+                                <span class="block truncate">{{ l.title }}</span>
+                                <span v-if="l.is_locked && l.availability_label" class="text-[11px] text-surface-400">
+                                    {{ l.availability_label }}
+                                </span>
+                            </div>
+                        </component>
                     </div>
                 </div>
             </nav>
 
-            <!-- Overall progress -->
-            <div class="p-4 border-t border-surface-100">
-                <div class="flex items-center justify-between mb-2">
+            <div class="border-t border-surface-100 p-4">
+                <div class="mb-2 flex items-center justify-between">
                     <span class="text-xs font-medium text-surface-500">Course Progress</span>
                     <span class="text-xs font-semibold text-primary-600">{{ overallProgress }}%</span>
                 </div>
@@ -59,81 +62,120 @@
             </div>
         </aside>
 
-        <!-- Main content -->
-        <div class="flex-1 min-w-0">
-            <!-- Top bar: lesson title + actions -->
-            <div class="sticky top-0 z-10 bg-white/80 backdrop-blur-xl border-b border-surface-200/60">
-                <div class="flex items-center justify-between px-4 sm:px-6 py-3">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <!-- Mobile back -->
-                        <Link :href="`/courses/${course.slug}`" class="lg:hidden p-1 hover:bg-surface-100 rounded-lg transition-colors">
-                            <ArrowLeft class="w-5 h-5 text-surface-500" />
+        <div class="min-w-0 flex-1">
+            <div class="sticky top-0 z-10 border-b border-surface-200/60 bg-white/80 backdrop-blur-xl">
+                <div class="flex items-center justify-between px-4 py-3 sm:px-6">
+                    <div class="flex min-w-0 items-center gap-3">
+                        <Link :href="`/courses/${course.slug}`" class="rounded-lg p-1 transition-colors hover:bg-surface-100 lg:hidden">
+                            <ArrowLeft class="h-5 w-5 text-surface-500" />
                         </Link>
                         <div class="min-w-0">
-                            <p class="text-xs text-surface-400 truncate">{{ lesson.module_title }}</p>
-                            <h1 class="font-semibold text-surface-900 text-sm sm:text-base truncate">{{ lesson.title }}</h1>
+                            <p class="truncate text-xs text-surface-400">{{ lesson.module_title }}</p>
+                            <h1 class="truncate text-sm font-semibold text-surface-900 sm:text-base">{{ lesson.title }}</h1>
+                            <p v-if="lesson.availability_label" class="mt-0.5 truncate text-xs text-surface-400">
+                                {{ lesson.availability_label }}
+                            </p>
                         </div>
                     </div>
+
                     <div class="flex items-center gap-2">
-                        <!-- Bookmark -->
                         <button
                             @click="toggleBookmark"
                             :class="[
-                                'p-2 rounded-lg transition-all',
+                                'rounded-lg p-2 transition-all',
                                 isBookmarked
-                                    ? 'text-warning-500 bg-warning-50 hover:bg-warning-100'
+                                    ? 'bg-warning-50 text-warning-500 hover:bg-warning-100'
                                     : 'text-surface-400 hover:bg-surface-100 hover:text-surface-600',
                             ]"
                             title="Bookmark this lesson"
                         >
-                            <BookmarkIcon class="w-5 h-5" :fill="isBookmarked ? 'currentColor' : 'none'" />
+                            <BookmarkIcon class="h-5 w-5" :fill="isBookmarked ? 'currentColor' : 'none'" />
                         </button>
 
-                        <!-- Complete button -->
                         <Button
                             v-if="progress.status !== 'completed'"
                             variant="success"
                             size="sm"
                             :icon="CheckCircle"
-                            @click="markComplete"
                             :loading="completing"
+                            @click="markComplete"
                         >
                             Mark Complete
                         </Button>
                         <Badge v-else variant="success" size="sm">
-                            <CheckCircle class="w-3.5 h-3.5 mr-1" />
+                            <CheckCircle class="mr-1 h-3.5 w-3.5" />
                             Completed
                         </Badge>
                     </div>
                 </div>
 
-                <!-- Progress bar -->
                 <ProgressBar :percentage="progress.progress_pct" size="xs" color="primary" class="px-0" />
             </div>
 
-            <!-- Content tabs -->
             <div class="border-b border-surface-200 bg-white">
-                <div class="flex items-center gap-1 px-4 sm:px-6 overflow-x-auto scrollbar-hide">
+                <div class="scrollbar-hide flex items-center gap-1 overflow-x-auto px-4 sm:px-6">
                     <button
                         v-for="tab in availableTabs"
                         :key="tab.id"
                         @click="activeTab = tab.id"
                         :class="[
-                            'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap',
+                            'flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-all',
                             activeTab === tab.id
                                 ? 'border-primary-500 text-primary-600'
-                                : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-300',
+                                : 'border-transparent text-surface-500 hover:border-surface-300 hover:text-surface-700',
                         ]"
                     >
-                        <component :is="tab.icon" class="w-4 h-4" />
+                        <component :is="tab.icon" class="h-4 w-4" />
                         {{ tab.label }}
                     </button>
                 </div>
             </div>
 
-            <!-- Tab content -->
-            <div class="p-4 sm:p-6 lg:p-8 max-w-4xl">
-                <!-- Read tab -->
+            <div class="max-w-4xl p-4 sm:p-6 lg:p-8">
+                <div v-if="hasStudyTools" class="mb-5 rounded-xl border border-surface-200 bg-surface-50 p-4">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <p class="text-sm font-semibold text-surface-800">Study Tools</p>
+                            <p class="text-xs text-surface-500">Turn key terms into flashcards and save lessons for offline access.</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <Link
+                                :href="`/flashcards?course_id=${course.id}`"
+                                class="rounded-lg border border-surface-200 px-3 py-2 text-xs font-semibold text-surface-600 hover:bg-white"
+                            >
+                                View Flashcards
+                            </Link>
+                            <Button
+                                v-if="hasKeyTerms"
+                                variant="primary"
+                                size="sm"
+                                :loading="creatingFlashcards"
+                                @click="createFlashcards"
+                            >
+                                Create Flashcards
+                            </Button>
+                            <Button
+                                v-if="!downloadedLesson"
+                                variant="secondary"
+                                size="sm"
+                                :loading="downloadingLesson"
+                                @click="downloadLesson"
+                            >
+                                Save Offline
+                            </Button>
+                            <Button
+                                v-else
+                                variant="ghost"
+                                size="sm"
+                                :loading="downloadingLesson"
+                                @click="removeOffline"
+                            >
+                                Remove Offline
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
                 <ReadContent
                     v-if="activeTab === 'read'"
                     :text-content="lesson.text_content"
@@ -142,7 +184,6 @@
                     :duration-minutes="lesson.duration_minutes"
                 />
 
-                <!-- Watch tab -->
                 <VideoPlayer
                     v-if="activeTab === 'watch'"
                     :video-url="lesson.video_url"
@@ -153,7 +194,6 @@
                     @position-update="onVideoPositionUpdate"
                 />
 
-                <!-- Listen tab -->
                 <AudioPlayer
                     v-if="activeTab === 'listen'"
                     :audio-url="lesson.audio_url"
@@ -161,7 +201,6 @@
                     :lesson-title="lesson.title"
                 />
 
-                <!-- PDF tab -->
                 <PdfViewer
                     v-if="activeTab === 'pdf'"
                     :pdf-url="lesson.pdf_url"
@@ -170,41 +209,63 @@
                     :lesson-id="lesson.id"
                 />
 
-                <!-- Notes tab -->
-                <LessonNotes
-                    v-if="activeTab === 'notes'"
-                    :notes="notes"
-                    :lesson-id="lesson.id"
-                />
+                <div v-if="activeTab === 'scorm'" class="space-y-4">
+                    <div class="rounded-xl border border-surface-200 bg-surface-50 px-4 py-3 text-sm text-surface-600">
+                        Interactive lesson progress saves automatically while the package is in use.
+                    </div>
+
+                    <ScormPlayer
+                        :lesson-id="lesson.id"
+                        :entry-path="lesson.scorm_path"
+                        :version="lesson.scorm_version || '1.2'"
+                        :initial-status="lesson.scorm_progress?.lesson_status || 'not attempted'"
+                        :initial-score="lesson.scorm_progress?.score_raw"
+                        :initial-location="lesson.scorm_progress?.lesson_location || ''"
+                        :initial-suspend-data="lesson.scorm_progress?.suspend_data"
+                        @scorm-progress="handleScormProgress"
+                        @scorm-completed="handleScormCompleted"
+                    />
+                </div>
+
+                <LessonNotes v-if="activeTab === 'notes'" :notes="notes" :lesson-id="lesson.id" />
             </div>
 
-            <!-- Bottom navigation: Prev / Next -->
-            <div class="sticky bottom-0 bg-white/80 backdrop-blur-xl border-t border-surface-200/60 px-4 sm:px-6 py-3">
-                <div class="flex items-center justify-between max-w-4xl">
+            <div class="sticky bottom-0 border-t border-surface-200/60 bg-white/80 px-4 py-3 backdrop-blur-xl sm:px-6">
+                <div class="flex max-w-4xl items-center justify-between">
                     <Link
-                        v-if="prevLesson"
+                        v-if="prevLesson?.can_access"
                         :href="`/courses/${course.slug}/lessons/${prevLesson.id}`"
-                        class="flex items-center gap-2 text-sm text-surface-600 hover:text-primary-600 transition-colors"
+                        class="flex items-center gap-2 text-sm text-surface-600 transition-colors hover:text-primary-600"
                     >
-                        <ChevronLeft class="w-4 h-4" />
+                        <ChevronLeft class="h-4 w-4" />
                         <span class="hidden sm:inline">{{ prevLesson.title }}</span>
                         <span class="sm:hidden">Previous</span>
                     </Link>
+                    <div v-else-if="prevLesson" class="flex items-center gap-2 text-sm text-surface-400">
+                        <ChevronLeft class="h-4 w-4" />
+                        <span class="hidden sm:inline">{{ prevLesson.title }}</span>
+                        <span class="sm:hidden">Previous</span>
+                    </div>
                     <div v-else />
 
-                    <span class="text-xs text-surface-400 font-medium">
+                    <span class="text-xs font-medium text-surface-400">
                         {{ currentIndex + 1 }} / {{ allLessons.length }}
                     </span>
 
                     <Link
-                        v-if="nextLesson"
+                        v-if="nextLesson?.can_access"
                         :href="`/courses/${course.slug}/lessons/${nextLesson.id}`"
-                        class="flex items-center gap-2 text-sm text-surface-600 hover:text-primary-600 transition-colors"
+                        class="flex items-center gap-2 text-sm text-surface-600 transition-colors hover:text-primary-600"
                     >
                         <span class="hidden sm:inline">{{ nextLesson.title }}</span>
                         <span class="sm:hidden">Next</span>
-                        <ChevronRight class="w-4 h-4" />
+                        <ChevronRight class="h-4 w-4" />
                     </Link>
+                    <div v-else-if="nextLesson" class="flex items-center gap-2 text-sm text-surface-400">
+                        <span class="hidden sm:inline">{{ nextLesson.title }}</span>
+                        <span class="sm:hidden">Next</span>
+                        <ChevronRight class="h-4 w-4" />
+                    </div>
                     <div v-else />
                 </div>
             </div>
@@ -213,7 +274,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ProgressBar from '@/Components/UI/ProgressBar.vue';
@@ -224,6 +285,8 @@ import VideoPlayer from '@/Components/Lesson/VideoPlayer.vue';
 import AudioPlayer from '@/Components/Lesson/AudioPlayer.vue';
 import PdfViewer from '@/Components/Lesson/PdfViewer.vue';
 import LessonNotes from '@/Components/Lesson/LessonNotes.vue';
+import ScormPlayer from '@/Components/ScormPlayer.vue';
+import { saveLessonOffline, getOfflineLesson, removeOfflineLesson, cacheLessonAssets } from '@/pwa';
 import {
     ArrowLeft, BookmarkIcon, CheckCircle, ChevronDown, ChevronLeft, ChevronRight,
     FileText, Play, Headphones, File, StickyNote,
@@ -245,36 +308,56 @@ const props = defineProps({
     modules: Array,
 });
 
-// Tab management
 const availableTabs = computed(() => {
     const tabs = [];
+
     if (props.lesson.text_content || props.lesson.summary) {
         tabs.push({ id: 'read', label: 'Read', icon: FileText });
     }
+
     if (props.lesson.video_url) {
         tabs.push({ id: 'watch', label: 'Watch', icon: Play });
     }
+
     if (props.lesson.audio_url) {
         tabs.push({ id: 'listen', label: 'Listen', icon: Headphones });
     }
+
     if (props.lesson.pdf_url || props.lesson.slides_url) {
         tabs.push({ id: 'pdf', label: 'PDF / Slides', icon: File });
     }
+
+    if (props.lesson.scorm_path) {
+        tabs.push({ id: 'scorm', label: 'Interactive', icon: Play });
+    }
+
     tabs.push({ id: 'notes', label: 'Notes', icon: StickyNote });
+
     return tabs;
 });
 
 const activeTab = ref(availableTabs.value[0]?.id || 'read');
+const creatingFlashcards = ref(false);
+const downloadingLesson = ref(false);
+const downloadedLesson = ref(false);
 
-// Module expansion
+const hasKeyTerms = computed(() => Array.isArray(props.lesson?.key_terms) && props.lesson.key_terms.length > 0);
+const hasStudyTools = computed(() => hasKeyTerms.value || props.lesson?.text_content || props.lesson?.video_url || props.lesson?.audio_url);
+
+onMounted(async () => {
+    const existing = await getOfflineLesson(props.lesson.id);
+    downloadedLesson.value = !!existing;
+});
+
 const expandedModules = ref(
     props.modules
-        .filter(m => m.lessons.some(l => l.id === props.lesson.id))
-        .map(m => m.id)
+        .filter((module) => module.lessons.some((lessonItem) => lessonItem.id === props.lesson.id))
+        .map((module) => module.id)
 );
 
 function toggleModule(id) {
     const idx = expandedModules.value.indexOf(id);
+
     if (idx >= 0) {
         expandedModules.value.splice(idx, 1);
     } else {
@@ -282,42 +365,110 @@ function toggleModule(id) {
     }
 }
 
-// Lesson progress status icon
 function lessonStatusIcon(lessonId) {
-    const p = props.lessonProgress?.[lessonId];
-    if (p?.status === 'completed') {
-        return 'w-2.5 h-2.5 rounded-full bg-success-500 shrink-0';
+    const lessonState = props.lessonProgress?.[lessonId];
+
+    if (lessonState?.status === 'completed') {
+        return 'h-2.5 w-2.5 shrink-0 rounded-full bg-success-500';
     }
-    if (p?.status === 'in_progress') {
-        return 'w-2.5 h-2.5 rounded-full bg-primary-500 shrink-0 animate-pulse';
+
+    if (lessonState?.status === 'in_progress') {
+        return 'h-2.5 w-2.5 shrink-0 rounded-full bg-primary-500 animate-pulse';
     }
-    return 'w-2.5 h-2.5 rounded-full bg-surface-300 shrink-0';
+
+    return 'h-2.5 w-2.5 shrink-0 rounded-full bg-surface-300';
 }
 
-// Overall progress
 const overallProgress = computed(() => {
-    if (!props.lessonProgress || !props.allLessons.length) return 0;
-    const completed = Object.values(props.lessonProgress).filter(p => p.status === 'completed').length;
+    if (!props.lessonProgress || !props.allLessons.length) {
+        return 0;
+    }
+
+    const completed = Object.values(props.lessonProgress).filter((item) => item.status === 'completed').length;
     return Math.round((completed / props.allLessons.length) * 100);
 });
 
-// Bookmark toggle
 function toggleBookmark() {
     router.post(`/lessons/${props.lesson.id}/bookmark`, {}, { preserveScroll: true });
 }
 
-// Mark complete
 const completing = ref(false);
 
 function markComplete() {
     completing.value = true;
+
     router.post(`/lessons/${props.lesson.id}/complete`, {}, {
         preserveScroll: true,
-        onFinish: () => completing.value = false,
+        onFinish: () => {
+            completing.value = false;
+        },
     });
 }
 
-// Video position tracking
+function createFlashcards() {
+    if (!hasKeyTerms.value) {
+        return;
+    }
+
+    creatingFlashcards.value = true;
+
+    router.post(`/lessons/${props.lesson.id}/flashcards`, {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            creatingFlashcards.value = false;
+        },
+    });
+}
+
+async function downloadLesson() {
+    downloadingLesson.value = true;
+    try {
+        await saveLessonOffline(props.lesson.id, {
+            title: props.lesson.title,
+            summary: props.lesson.summary,
+            text_content: props.lesson.text_content,
+            key_terms: props.lesson.key_terms,
+            video_url: props.lesson.video_url,
+            audio_url: props.lesson.audio_url,
+            pdf_url: props.lesson.pdf_url,
+            slides_url: props.lesson.slides_url,
+            size: null,
+        });
+        await cacheLessonAssets(props.lesson);
+        downloadedLesson.value = true;
+    } finally {
+        downloadingLesson.value = false;
+    }
+}
+
+async function removeOffline() {
+    downloadingLesson.value = true;
+    try {
+        await removeOfflineLesson(props.lesson.id);
+        downloadedLesson.value = false;
+    } finally {
+        downloadingLesson.value = false;
+    }
+}
+
+function refreshLessonProgress() {
+    router.reload({
+        only: ['progress', 'lessonProgress'],
+        preserveScroll: true,
+        preserveState: true,
+    });
+}
+
+function handleScormProgress(payload) {
+    if (payload?.completed) {
+        refreshLessonProgress();
+    }
+}
+
+function handleScormCompleted() {
+    refreshLessonProgress();
+}
+
 let positionDebounce = null;
 
 function onVideoPositionUpdate(position) {
@@ -326,6 +477,6 @@ function onVideoPositionUpdate(position) {
         router.post(`/lessons/${props.lesson.id}/progress`, {
             video_position_sec: position,
         }, { preserveScroll: true, preserveState: true });
-    }, 5000); // Debounce 5s
+    }, 5000);
 }
 </script>

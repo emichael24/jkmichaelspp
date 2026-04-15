@@ -53,10 +53,17 @@ class DashboardController extends Controller
 
         // Upcoming meetings
         $upcomingMeetings = Meeting::where('organizer_id', $sponsorId)
-            ->where('start_time', '>', now())
-            ->orderBy('start_time')
+            ->where('scheduled_at', '>', now())
+            ->orderBy('scheduled_at')
             ->limit(3)
-            ->get();
+            ->get()
+            ->map(fn ($meeting) => [
+                'id'               => $meeting->id,
+                'title'            => $meeting->title,
+                'scheduled_at'     => $meeting->scheduled_at,
+                'duration_minutes' => $meeting->duration_minutes,
+                'meeting_url'      => $meeting->meeting_url,
+            ]);
 
         // Average scorecard score
         $avgScore = SponsorScorecard::where('sponsor_id', $sponsorId)->avg('overall_score');

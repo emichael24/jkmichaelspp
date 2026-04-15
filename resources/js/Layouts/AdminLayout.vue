@@ -157,6 +157,8 @@
         <!-- More menu sheet -->
         <BottomNavMore :open="moreOpen" :items="moreMenuItems" @close="moreOpen = false" />
 
+        <OfflineBanner />
+
         <!-- PWA Install Prompt -->
         <PwaInstallPrompt />
     </div>
@@ -194,6 +196,7 @@ import {
 import AdminSidebarItem from './Partials/AdminSidebarItem.vue';
 import MobileNavItem from './Partials/MobileNavItem.vue';
 import BottomNavMore from './Partials/BottomNavMore.vue';
+import OfflineBanner from '@/Components/OfflineBanner.vue';
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user || {});
@@ -227,6 +230,7 @@ const navItems = computed(() => [
 const systemNavItems = computed(() => [
     { icon: Shield, label: 'Roles & Permissions', href: '/admin/roles', active: currentUrl.value.startsWith('/admin/roles') },
     { icon: ScrollText, label: 'Audit Logs', href: '/admin/audit', active: currentUrl.value.startsWith('/admin/audit') },
+    { icon: CheckSquare, label: 'Launch Checklist', href: '/admin/launch-checklist', active: currentUrl.value.startsWith('/admin/launch-checklist') },
     { icon: Settings, label: 'Settings', href: '/admin/settings', active: currentUrl.value.startsWith('/admin/settings') },
 ]);
 
@@ -249,6 +253,7 @@ const moreMenuItems = computed(() => [
     { icon: Bot, label: 'AI Insights', href: '/admin/erp/ai/insights', active: currentUrl.value.startsWith('/admin/erp/ai') },
     { icon: Shield, label: 'Roles', href: '/admin/roles', active: currentUrl.value.startsWith('/admin/roles') },
     { icon: ScrollText, label: 'Audit Logs', href: '/admin/audit', active: currentUrl.value.startsWith('/admin/audit') },
+    { icon: CheckSquare, label: 'Launch Checklist', href: '/admin/launch-checklist', active: currentUrl.value.startsWith('/admin/launch-checklist') },
     { icon: Settings, label: 'Settings', href: '/admin/settings', active: currentUrl.value.startsWith('/admin/settings') },
 ]);
 

@@ -1,42 +1,45 @@
 <template>
     <Head :title="course?.title || 'Course'" />
 
-    <div v-if="course" class="max-w-5xl mx-auto space-y-6">
-        <!-- Back link -->
-        <Link href="/courses" class="inline-flex items-center gap-1.5 text-sm text-surface-500 hover:text-primary-600 transition-colors">
-            <ArrowLeft class="w-4 h-4" />
+    <div v-if="course" class="mx-auto max-w-5xl space-y-6">
+        <Link href="/courses" class="inline-flex items-center gap-1.5 text-sm text-surface-500 transition-colors hover:text-primary-600">
+            <ArrowLeft class="h-4 w-4" />
             Back to courses
         </Link>
 
-        <!-- Hero -->
-        <div class="bg-white rounded-2xl border border-surface-200/60 shadow-sm overflow-hidden">
-            <div class="relative h-48 sm:h-64 bg-gradient-to-br from-primary-600 to-primary-800 overflow-hidden">
+        <div class="overflow-hidden rounded-2xl border border-surface-200/60 bg-white shadow-sm">
+            <div class="relative h-48 overflow-hidden bg-gradient-to-br from-primary-600 to-primary-800 sm:h-64">
                 <img
                     v-if="course.thumbnail"
                     :src="`/storage/${course.thumbnail}`"
                     :alt="course.title"
-                    class="w-full h-full object-cover opacity-30"
+                    class="h-full w-full object-cover opacity-30"
                 />
+
                 <div class="absolute inset-0 flex items-end">
-                    <div class="p-6 sm:p-8 w-full">
-                        <Badge v-if="course.category" variant="primary" size="sm" class="mb-3 bg-white/20 text-white border-0">
+                    <div class="w-full p-6 sm:p-8">
+                        <Badge v-if="course.category" variant="primary" size="sm" class="mb-3 border-0 bg-white/20 text-white">
                             {{ course.category?.name || course.category }}
                         </Badge>
-                        <h1 class="text-2xl sm:text-3xl font-display font-bold text-white mb-2">
-                            {{ course.title }}
-                        </h1>
+
+                        <h1 class="mb-2 text-2xl font-bold text-white sm:text-3xl">{{ course.title }}</h1>
+
                         <div class="flex flex-wrap items-center gap-4 text-sm text-primary-200">
                             <span class="flex items-center gap-1.5">
-                                <Layers class="w-4 h-4" />
-                                {{ course.modules_count || 0 }} modules · {{ course.lessons_count || 0 }} lessons
+                                <Layers class="h-4 w-4" />
+                                {{ course.modules_count || 0 }} modules - {{ course.lessons_count || 0 }} lessons
                             </span>
                             <span class="flex items-center gap-1.5">
-                                <Clock class="w-4 h-4" />
+                                <Clock class="h-4 w-4" />
                                 {{ course.duration_hours ? course.duration_hours + ' hours' : 'Self-paced' }}
                             </span>
                             <span class="flex items-center gap-1.5">
-                                <Users class="w-4 h-4" />
+                                <Users class="h-4 w-4" />
                                 {{ course.enrollments_count || course.total_enrollments || 0 }} learners
+                            </span>
+                            <span v-if="ratings.total" class="flex items-center gap-1.5">
+                                <Star class="h-4 w-4 fill-current text-warning-300" />
+                                {{ ratingAverage.toFixed(1) }} from {{ ratings.total }} ratings
                             </span>
                         </div>
                     </div>
@@ -44,68 +47,91 @@
             </div>
 
             <div class="p-6 sm:p-8">
-                <div class="flex flex-col sm:flex-row gap-6">
+                <div class="flex flex-col gap-6 sm:flex-row">
                     <div class="flex-1">
-                        <p class="text-surface-600 leading-relaxed">{{ course.description }}</p>
+                        <p class="leading-relaxed text-surface-600">{{ course.description }}</p>
 
-                        <!-- What you'll learn -->
+                        <div v-if="previewVideo" class="mt-6">
+                            <h3 class="mb-3 font-semibold text-surface-900">Course Preview</h3>
+                            <div class="overflow-hidden rounded-2xl border border-surface-200/70 bg-surface-950">
+                                <iframe
+                                    v-if="previewVideo.type === 'embed'"
+                                    :src="previewVideo.url"
+                                    class="aspect-video w-full"
+                                    allow="autoplay; fullscreen; picture-in-picture"
+                                    allowfullscreen
+                                />
+                                <video
+                                    v-else
+                                    :src="previewVideo.url"
+                                    class="aspect-video w-full"
+                                    controls
+                                    playsinline
+                                />
+                            </div>
+                        </div>
+
                         <div v-if="course.learning_outcomes?.length" class="mt-6">
-                            <h3 class="font-semibold text-surface-900 mb-3">What you'll learn</h3>
-                            <div class="grid sm:grid-cols-2 gap-2">
+                            <h3 class="mb-3 font-semibold text-surface-900">What you'll learn</h3>
+                            <div class="grid gap-2 sm:grid-cols-2">
                                 <div
                                     v-for="(outcome, i) in course.learning_outcomes"
                                     :key="i"
                                     class="flex items-start gap-2.5 p-2"
                                 >
-                                    <div class="w-5 h-5 rounded-full bg-success-50 flex items-center justify-center shrink-0 mt-0.5">
-                                        <Check class="w-3 h-3 text-success-600" />
+                                    <div class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success-50">
+                                        <Check class="h-3 w-3 text-success-600" />
                                     </div>
                                     <span class="text-sm text-surface-700">{{ outcome }}</span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Prerequisites -->
                         <div v-if="course.prerequisites?.length" class="mt-6">
-                            <h3 class="font-semibold text-surface-900 mb-3">Prerequisites</h3>
+                            <h3 class="mb-3 font-semibold text-surface-900">Prerequisites</h3>
                             <ul class="space-y-1.5">
                                 <li v-for="(prereq, i) in course.prerequisites" :key="i" class="flex items-center gap-2 text-sm text-surface-600">
-                                    <div class="w-1.5 h-1.5 rounded-full bg-surface-400 shrink-0" />
+                                    <div class="h-1.5 w-1.5 shrink-0 rounded-full bg-surface-400" />
                                     {{ prereq }}
                                 </li>
                             </ul>
                         </div>
 
-                        <!-- Author -->
-                        <div v-if="course.author" class="mt-6 pt-6 border-t border-surface-100">
-                            <h3 class="font-semibold text-surface-900 mb-3">Instructor</h3>
+                        <div v-if="course.author" class="mt-6 border-t border-surface-100 pt-6">
+                            <h3 class="mb-3 font-semibold text-surface-900">Instructor</h3>
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold text-sm">
+                                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
                                     {{ (course.author.first_name?.[0] || '') + (course.author.last_name?.[0] || '') }}
                                 </div>
                                 <div>
-                                    <p class="font-medium text-surface-800 text-sm">{{ course.author.first_name }} {{ course.author.last_name }}</p>
+                                    <p class="text-sm font-medium text-surface-800">{{ course.author.first_name }} {{ course.author.last_name }}</p>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Enroll card -->
-                    <div class="sm:w-72 shrink-0">
-                        <div class="bg-surface-50 rounded-xl p-5 border border-surface-200/60 sticky top-24">
+                    <div class="shrink-0 sm:w-72">
+                        <div class="sticky top-24 rounded-xl border border-surface-200/60 bg-surface-50 p-5">
                             <div v-if="!isEnrolled" class="text-center">
-                                <p v-if="course.price > 0" class="text-3xl font-display font-bold text-surface-900 mb-1">
-                                    <span v-if="course.discount_price" class="text-lg line-through text-surface-400 mr-2">₦{{ Number(course.price).toLocaleString() }}</span>
-                                    ₦{{ Number(course.discount_price || course.price).toLocaleString() }}
-                                </p>
-                                <p v-else class="text-lg font-semibold text-success-600 mb-1">Free</p>
-                                <Button variant="primary" size="lg" class="w-full mt-3" @click="enroll">
-                                    {{ course.price > 0 ? 'Enroll Now' : 'Start Learning' }}
-                                </Button>
+                                <div v-if="hasEnrollment" class="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-left text-sm text-warning-800">
+                                    <p class="font-semibold">Enrollment {{ enrollmentStatus === 'suspended' ? 'paused' : 'expired' }}</p>
+                                    <p class="mt-1 text-xs text-warning-700">You currently cannot access this course.</p>
+                                </div>
+                                <div v-else>
+                                    <p v-if="course.price > 0" class="mb-1 text-3xl font-bold text-surface-900">
+                                        <span v-if="course.discount_price" class="mr-2 text-lg text-surface-400 line-through">{{ displayCurrency }} {{ Number(course.price).toLocaleString() }}</span>
+                                        {{ displayCurrency }} {{ Number(course.discount_price || course.price).toLocaleString() }}
+                                    </p>
+                                    <p v-else class="mb-1 text-lg font-semibold text-success-600">Free</p>
+                                    <Button variant="primary" size="lg" class="mt-3 w-full" @click="enroll">
+                                        {{ course.price > 0 ? 'Enroll Now' : 'Start Learning' }}
+                                    </Button>
+                                </div>
                             </div>
+
                             <div v-else class="text-center">
                                 <CircularProgress :percentage="enrollment?.progress_pct || 0" :size="80" :stroke-width="6" color="primary" class="mx-auto mb-3" />
-                                <p class="text-sm text-surface-500 mb-3">{{ enrollment?.progress_pct || 0 }}% complete</p>
+                                <p class="mb-3 text-sm text-surface-500">{{ enrollment?.progress_pct || 0 }}% complete</p>
                                 <Link :href="nextLessonUrl" class="block">
                                     <Button variant="primary" size="lg" class="w-full" :icon="Play">
                                         Continue Learning
@@ -113,21 +139,25 @@
                                 </Link>
                             </div>
 
-                            <div class="mt-5 pt-5 border-t border-surface-200 space-y-3">
+                            <div class="mt-5 space-y-3 border-t border-surface-200 pt-5">
+                                <div v-if="ratings.total" class="flex items-center gap-3 text-sm text-surface-600">
+                                    <Star class="h-4 w-4 fill-warning-500 text-warning-500" />
+                                    <span>{{ ratingAverage.toFixed(1) }} average rating</span>
+                                </div>
                                 <div class="flex items-center gap-3 text-sm text-surface-600">
-                                    <BookOpen class="w-4 h-4 text-surface-400" />
+                                    <BookOpen class="h-4 w-4 text-surface-400" />
                                     <span>{{ course.lessons_count || 0 }} lessons</span>
                                 </div>
                                 <div class="flex items-center gap-3 text-sm text-surface-600">
-                                    <Clock class="w-4 h-4 text-surface-400" />
+                                    <Clock class="h-4 w-4 text-surface-400" />
                                     <span>{{ course.duration_hours ? course.duration_hours + ' hours' : 'Self-paced' }}</span>
                                 </div>
                                 <div class="flex items-center gap-3 text-sm text-surface-600">
-                                    <Award class="w-4 h-4 text-surface-400" />
+                                    <Award class="h-4 w-4 text-surface-400" />
                                     <span>Certificate on completion</span>
                                 </div>
                                 <div class="flex items-center gap-3 text-sm text-surface-600">
-                                    <span class="text-xs font-medium capitalize px-2 py-0.5 rounded-lg bg-surface-100 text-surface-600">{{ course.level }}</span>
+                                    <span class="rounded-lg bg-surface-100 px-2 py-0.5 text-xs font-medium capitalize text-surface-600">{{ course.level }}</span>
                                 </div>
                             </div>
                         </div>
@@ -136,11 +166,29 @@
             </div>
         </div>
 
-        <!-- Curriculum -->
-        <Card title="Curriculum">
+        <div class="border-b border-surface-200 bg-white rounded-2xl overflow-hidden">
+            <div class="scrollbar-hide flex items-center gap-1 overflow-x-auto px-4 sm:px-6">
+                <button
+                    v-for="tab in detailTabs"
+                    :key="tab.id"
+                    @click="activeTab = tab.id"
+                    :class="[
+                        'flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-all',
+                        activeTab === tab.id
+                            ? 'border-primary-500 text-primary-600'
+                            : 'border-transparent text-surface-500 hover:border-surface-300 hover:text-surface-700',
+                    ]"
+                >
+                    <component :is="tab.icon" class="h-4 w-4" />
+                    {{ tab.label }}
+                </button>
+            </div>
+        </div>
+
+        <Card v-if="activeTab === 'curriculum'" title="Curriculum">
             <template #header-actions>
                 <span class="text-sm text-surface-400">
-                    {{ course.modules_count || 0 }} modules · {{ course.lessons_count || 0 }} lessons
+                    {{ course.modules_count || 0 }} modules - {{ course.lessons_count || 0 }} lessons
                 </span>
             </template>
 
@@ -148,60 +196,57 @@
                 <div
                     v-for="(module, mi) in modules"
                     :key="module.id"
-                    class="border border-surface-200/60 rounded-xl overflow-hidden"
+                    class="overflow-hidden rounded-xl border border-surface-200/60"
                 >
-                    <!-- Module header -->
                     <button
-                        class="flex items-center justify-between w-full p-4 text-left hover:bg-surface-50 transition-colors"
+                        class="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-surface-50"
                         @click="toggleModule(module.id)"
                     >
                         <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-lg bg-primary-50 flex items-center justify-center text-primary-600 font-semibold text-sm">
+                            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-sm font-semibold text-primary-600">
                                 {{ mi + 1 }}
                             </div>
                             <div>
-                                <h4 class="font-semibold text-surface-900 text-sm">{{ module.title }}</h4>
-                                <p class="text-xs text-surface-400">{{ module.lessons?.length || 0 }} lessons · {{ module.duration_minutes ? module.duration_minutes + ' min' : '' }}</p>
+                                <h4 class="text-sm font-semibold text-surface-900">{{ module.title }}</h4>
+                                <p class="text-xs text-surface-400">{{ module.lessons?.length || 0 }} lessons - {{ module.duration_minutes ? module.duration_minutes + ' min' : '' }}</p>
                             </div>
                         </div>
-                        <ChevronDown
-                            :class="[
-                                'w-5 h-5 text-surface-400 transition-transform',
-                                expandedModules[module.id] ? 'rotate-180' : '',
-                            ]"
-                        />
+                        <ChevronDown :class="['h-5 w-5 text-surface-400 transition-transform', expandedModules[module.id] ? 'rotate-180' : '']" />
                     </button>
 
-                    <!-- Lessons list -->
                     <transition name="expand">
-                        <div v-if="expandedModules[module.id]" class="border-t border-surface-100 divide-y divide-surface-100">
+                        <div v-if="expandedModules[module.id]" class="divide-y divide-surface-100 border-t border-surface-100">
                             <component
-                                :is="isEnrolled || lesson.is_free_preview ? 'a' : 'div'"
+                                :is="lesson.can_access ? 'a' : 'div'"
                                 v-for="(lesson, li) in module.lessons"
                                 :key="lesson.id"
-                                :href="isEnrolled || lesson.is_free_preview ? `/courses/${course.slug}/lessons/${lesson.id}` : undefined"
-                                @click.prevent="isEnrolled || lesson.is_free_preview ? goToLesson(lesson.id) : null"
+                                :href="lesson.can_access ? `/courses/${course.slug}/lessons/${lesson.id}` : undefined"
+                                @click.prevent="lesson.can_access ? goToLesson(lesson.id) : null"
                                 :class="[
                                     'flex items-center gap-3 px-4 py-3 transition-colors',
-                                    isEnrolled || lesson.is_free_preview
-                                        ? 'hover:bg-primary-50 cursor-pointer'
-                                        : 'hover:bg-surface-50 opacity-80',
+                                    lesson.can_access
+                                        ? 'cursor-pointer hover:bg-primary-50'
+                                        : 'opacity-80 hover:bg-surface-50',
                                 ]"
                             >
                                 <div :class="[
-                                    'w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[11px] font-semibold',
+                                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold',
                                     lessonProgress[lesson.id]?.completed ? 'bg-success-500 text-white' : 'bg-surface-100 text-surface-400',
                                 ]">
-                                    <Check v-if="lessonProgress[lesson.id]?.completed" class="w-3.5 h-3.5" />
+                                    <Check v-if="lessonProgress[lesson.id]?.completed" class="h-3.5 w-3.5" />
                                     <span v-else>{{ li + 1 }}</span>
                                 </div>
-                                <div class="flex-1 min-w-0">
-                                    <p class="text-sm text-surface-700 truncate">{{ lesson.title }}</p>
+                                <div class="min-w-0 flex-1">
+                                    <p class="truncate text-sm text-surface-700">{{ lesson.title }}</p>
+                                    <p v-if="lesson.is_locked && lesson.availability_label" class="mt-0.5 text-xs text-surface-400">
+                                        {{ lesson.availability_label }}
+                                    </p>
                                 </div>
-                                <div class="flex items-center gap-2 shrink-0">
-                                    <component :is="lessonTypeIcon(lesson.content_type)" class="w-4 h-4 text-surface-300" />
+                                <div class="flex shrink-0 items-center gap-2">
+                                    <component :is="lessonTypeIcon(lesson.content_type)" class="h-4 w-4 text-surface-300" />
                                     <span class="text-xs text-surface-400">{{ lesson.duration_minutes ? lesson.duration_minutes + ' min' : '' }}</span>
                                     <Badge v-if="lesson.is_free_preview" variant="info" size="xs">Preview</Badge>
+                                    <Lock v-if="lesson.is_locked" class="h-4 w-4 text-surface-300" />
                                 </div>
                             </component>
                         </div>
@@ -210,39 +255,53 @@
             </div>
         </Card>
 
-        <!-- Resources -->
-        <Card v-if="resources?.length" title="Resources">
+        <Card v-if="activeTab === 'resources' && resources?.length" title="Resources">
             <div class="divide-y divide-surface-100">
                 <div v-for="resource in resources" :key="resource.id" class="flex items-center justify-between py-3">
                     <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-lg bg-primary-50 flex items-center justify-center">
-                            <FileText class="w-4 h-4 text-primary-600" />
+                        <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-50">
+                            <FileText class="h-4 w-4 text-primary-600" />
                         </div>
                         <div>
                             <p class="text-sm font-medium text-surface-800">{{ resource.title }}</p>
-                            <p class="text-xs text-surface-400 capitalize">{{ resource.type.replace('_', ' ') }}</p>
+                            <p class="text-xs capitalize text-surface-400">
+                                {{ resource.type.replace('_', ' ') }} - {{ formatBytes(resource.file_size_bytes) }}
+                            </p>
                         </div>
                     </div>
-                    <Button v-if="isEnrolled" variant="ghost" size="sm">
-                        <Download class="w-4 h-4" />
+                    <Button v-if="isEnrolled" variant="ghost" size="sm" @click="downloadResource(resource)">
+                        <Download class="h-4 w-4" />
                     </Button>
                 </div>
             </div>
+        </Card>
+
+        <Card v-if="activeTab === 'reviews'" title="Ratings & Reviews">
+            <CourseRating
+                :course-id="course.id"
+                :average="ratingAverage"
+                :distribution="ratings.distribution || {}"
+                :reviews="ratings.reviews || []"
+                :user-rating="ratings.userRating"
+                :total-ratings="ratings.total || 0"
+                :can-rate="isEnrolled"
+            />
         </Card>
     </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Card from '@/Components/UI/Card.vue';
 import Badge from '@/Components/UI/Badge.vue';
 import Button from '@/Components/UI/Button.vue';
 import CircularProgress from '@/Components/UI/CircularProgress.vue';
+import CourseRating from '@/Components/CourseRating.vue';
 import {
     ArrowLeft, Layers, Clock, Users, Check, Award, BookOpen,
-    ChevronDown, Play, FileText, Headphones, Video, Download,
+    ChevronDown, Play, FileText, Headphones, Video, Download, Star, Lock, List, Star as StarIcon,
 } from 'lucide-vue-next';
 
 defineOptions({ layout: AppLayout });
@@ -252,42 +311,124 @@ const props = defineProps({
     modules: { type: Array, default: () => [] },
     resources: { type: Array, default: () => [] },
     isEnrolled: { type: Boolean, default: false },
+    hasEnrollment: { type: Boolean, default: false },
+    enrollmentStatus: { type: String, default: null },
     enrollment: { type: Object, default: null },
     lessonProgress: { type: Object, default: () => ({}) },
+    ratings: {
+        type: Object,
+        default: () => ({
+            average: 0,
+            distribution: {},
+            reviews: [],
+            total: 0,
+            userRating: null,
+        }),
+    },
 });
 
 const expandedModules = reactive({});
+const ratingAverage = computed(() => Number(props.ratings?.average || 0));
+const displayCurrency = computed(() => (props.course.currency || 'NGN').toUpperCase());
+const activeTab = ref('curriculum');
 
-const toggleModule = (id) => {
+const detailTabs = computed(() => {
+    const tabs = [
+        { id: 'curriculum', label: 'Curriculum', icon: List },
+    ];
+
+    if (props.resources?.length) {
+        tabs.push({ id: 'resources', label: 'Resources', icon: FileText });
+    }
+
+    tabs.push({ id: 'reviews', label: 'Reviews', icon: StarIcon });
+
+    return tabs;
+});
+
+function toggleModule(id) {
     expandedModules[id] = !expandedModules[id];
-};
+}
 
-const lessonTypeIcon = (type) => {
+function lessonTypeIcon(type) {
     const map = { video: Video, audio: Headphones, text: FileText, pdf: FileText, slides: FileText };
     return map[type] || Play;
-};
+}
 
-const enroll = () => {
+function enroll() {
     router.post(`/courses/${props.course.id}/enroll`);
-};
+}
 
-const goToLesson = (lessonId) => {
+function goToLesson(lessonId) {
     router.visit(`/courses/${props.course.slug}/lessons/${lessonId}`);
-};
+}
 
-const nextLessonUrl = (() => {
-    // Find the first incomplete lesson
+function downloadResource(resource) {
+    if (!resource?.id) {
+        return;
+    }
+
+    router.visit(`/courses/${props.course.slug}/resources/${resource.id}/download`);
+}
+
+function formatBytes(bytes) {
+    if (!bytes) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    return `${(bytes / Math.pow(1024, index)).toFixed(1)} ${units[index]}`;
+}
+
+const nextLessonUrl = computed(() => {
     for (const mod of props.modules) {
         for (const lesson of mod.lessons || []) {
+            if (!lesson.can_access) {
+                continue;
+            }
+
             if (!props.lessonProgress[lesson.id]?.completed) {
                 return `/courses/${props.course.slug}/lessons/${lesson.id}`;
             }
         }
     }
-    // Fallback to first lesson
-    const firstLesson = props.modules?.[0]?.lessons?.[0];
-    return firstLesson ? `/courses/${props.course.slug}/lessons/${firstLesson.id}` : `/courses/${props.course.slug}`;
-})();
+
+    for (const mod of props.modules) {
+        const accessibleLesson = (mod.lessons || []).find((lesson) => lesson.can_access);
+        if (accessibleLesson) {
+            return `/courses/${props.course.slug}/lessons/${accessibleLesson.id}`;
+        }
+    }
+
+    return `/courses/${props.course.slug}`;
+});
+
+const previewVideo = computed(() => resolvePreviewVideo(props.course.preview_video));
+
+function resolvePreviewVideo(url) {
+    if (!url) {
+        return null;
+    }
+
+    if (url.includes('youtube.com/watch?v=')) {
+        try {
+            const videoId = new URL(url).searchParams.get('v');
+            return videoId ? { type: 'embed', url: `https://www.youtube.com/embed/${videoId}` } : null;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    if (url.includes('youtu.be/')) {
+        const videoId = url.split('youtu.be/')[1]?.split('?')[0];
+        return videoId ? { type: 'embed', url: `https://www.youtube.com/embed/${videoId}` } : null;
+    }
+
+    if (url.includes('vimeo.com/')) {
+        const videoId = url.split('vimeo.com/')[1]?.split('?')[0];
+        return videoId ? { type: 'embed', url: `https://player.vimeo.com/video/${videoId}` } : null;
+    }
+
+    return { type: 'video', url };
+}
 </script>
 
 <style scoped>
@@ -295,10 +436,12 @@ const nextLessonUrl = (() => {
     transition: all 0.3s ease;
     overflow: hidden;
 }
+
 .expand-enter-from, .expand-leave-to {
     max-height: 0;
     opacity: 0;
 }
+
 .expand-enter-to, .expand-leave-from {
     max-height: 600px;
     opacity: 1;

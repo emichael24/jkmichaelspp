@@ -81,6 +81,60 @@
             </div>
         </div>
 
+        <!-- Weakness Clusters -->
+        <div v-show="activeTab === 'weaknesses'" class="space-y-6">
+            <div class="bg-white rounded-xl border border-surface-200 p-6">
+                <h3 class="font-semibold text-surface-900 mb-4">Difficulty Breakdown</h3>
+                <div class="space-y-3">
+                    <div v-for="d in weaknessClusters.difficulty_breakdown" :key="d.difficulty" class="flex items-center justify-between">
+                        <span class="text-sm text-surface-700 capitalize">{{ d.difficulty }}</span>
+                        <span class="text-sm text-surface-600">{{ d.wrong }}/{{ d.total }} wrong ({{ d.accuracy_pct }}% accuracy)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="weaknessClusters.clusters?.length" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div v-for="(cluster, idx) in weaknessClusters.clusters" :key="idx" class="bg-white rounded-xl border border-surface-200 p-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <p class="text-sm text-surface-500">Weakness Cluster</p>
+                            <h4 class="font-semibold text-surface-900">{{ cluster.domain }} · {{ cluster.subtopic }}</h4>
+                        </div>
+                        <span class="text-sm font-semibold text-danger-600">{{ cluster.wrong_count }}/{{ cluster.total_count }} wrong</span>
+                    </div>
+                    <div class="w-full h-2.5 bg-surface-100 rounded-full mb-3">
+                        <div class="h-full rounded-full bg-danger-500" :style="{ width: `${100 - cluster.accuracy_pct}%` }"></div>
+                    </div>
+                    <p class="text-xs text-surface-500 mb-3">Accuracy: {{ cluster.accuracy_pct }}%</p>
+
+                    <div v-if="cluster.difficulty_breakdown?.length" class="space-y-2 mb-3">
+                        <div v-for="d in cluster.difficulty_breakdown" :key="d.difficulty" class="flex items-center justify-between text-xs">
+                            <span class="capitalize text-surface-500">{{ d.difficulty }}</span>
+                            <span class="text-surface-600">{{ d.wrong }}/{{ d.total }} wrong</span>
+                        </div>
+                    </div>
+
+                    <div v-if="cluster.lessons?.length" class="mt-3">
+                        <p class="text-xs font-semibold text-surface-600 mb-2">Recommended Lessons</p>
+                        <div class="space-y-1.5">
+                            <Link
+                                v-for="lesson in cluster.lessons"
+                                :key="lesson.id"
+                                :href="`/courses/${mockExam.course?.slug || ''}/lessons/${lesson.id}`"
+                                class="text-sm text-primary-600 hover:text-primary-700"
+                            >
+                                {{ lesson.title }}
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-else class="bg-white rounded-xl border border-surface-200 p-6 text-sm text-surface-500">
+                No weakness clusters were detected for this attempt.
+            </div>
+        </div>
+
         <!-- Time Analysis -->
         <div v-show="activeTab === 'time'" class="space-y-6">
             <div class="bg-white rounded-xl border border-surface-200 p-6">
@@ -267,6 +321,7 @@ const props = defineProps({
     improvementPlan: Object,
     timeAnalysis: Object,
     confidenceAnalysis: Object,
+    weaknessClusters: { type: Object, default: () => ({ clusters: [], difficulty_breakdown: [] }) },
 })
 
 const activeTab = ref('domains')
@@ -274,6 +329,7 @@ const questionFilter = ref('all')
 
 const tabs = [
     { key: 'domains', label: 'Domain Analysis' },
+    { key: 'weaknesses', label: 'Weaknesses' },
     { key: 'time', label: 'Time Analysis' },
     { key: 'confidence', label: 'Confidence' },
     { key: 'plan', label: '7-Day Plan' },

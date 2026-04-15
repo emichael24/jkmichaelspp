@@ -36,6 +36,8 @@ class EnrollmentController extends Controller
             'all'       => CourseEnrollment::where('user_id', $user->id)->count(),
             'active'    => CourseEnrollment::where('user_id', $user->id)->where('status', 'active')->count(),
             'completed' => CourseEnrollment::where('user_id', $user->id)->where('status', 'completed')->count(),
+            'expired'   => CourseEnrollment::where('user_id', $user->id)->where('status', 'expired')->count(),
+            'suspended' => CourseEnrollment::where('user_id', $user->id)->where('status', 'suspended')->count(),
         ];
 
         return Inertia::render('Courses/MyCourses', [

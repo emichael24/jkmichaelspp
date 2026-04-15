@@ -69,13 +69,30 @@
                     <option value="beginner">Beginner</option>
                     <option value="intermediate">Intermediate</option>
                     <option value="advanced">Advanced</option>
-                    <option value="expert">Expert</option>
                 </select>
                 <select v-model="filterForm.type" class="rounded-xl border-surface-200 text-sm px-3 py-1.5" @change="applyFilters">
                     <option value="">All Types</option>
-                    <option value="free">Free</option>
-                    <option value="premium">Premium</option>
+                    <option value="self_paced">Self-paced</option>
+                    <option value="live">Live</option>
                     <option value="certified">Certified</option>
+                    <option value="bootcamp">Bootcamp</option>
+                </select>
+                <select v-model="filterForm.price" class="rounded-xl border-surface-200 text-sm px-3 py-1.5" @change="applyFilters">
+                    <option value="">All Prices</option>
+                    <option value="free">Free</option>
+                    <option value="paid">Paid</option>
+                </select>
+                <select v-model="filterForm.duration" class="rounded-xl border-surface-200 text-sm px-3 py-1.5" @change="applyFilters">
+                    <option value="">Any Duration</option>
+                    <option value="short">Short (<= 2h)</option>
+                    <option value="medium">Medium (2-6h)</option>
+                    <option value="long">Long (6h+)</option>
+                </select>
+                <select v-model="filterForm.rating" class="rounded-xl border-surface-200 text-sm px-3 py-1.5" @change="applyFilters">
+                    <option value="">Any Rating</option>
+                    <option value="4">4 stars & up</option>
+                    <option value="3">3 stars & up</option>
+                    <option value="2">2 stars & up</option>
                 </select>
                 <select v-model="filterForm.sort" class="rounded-xl border-surface-200 text-sm px-3 py-1.5" @change="applyFilters">
                     <option value="">Newest</option>
@@ -91,6 +108,25 @@
                 >
                     Clear all filters
                 </button>
+            </div>
+
+            <div class="mt-3 flex flex-wrap items-center gap-3">
+                <Input
+                    v-model="filterForm.price_min"
+                    type="number"
+                    min="0"
+                    placeholder="Min price"
+                    size="sm"
+                    @update:modelValue="debouncedFilter"
+                />
+                <Input
+                    v-model="filterForm.price_max"
+                    type="number"
+                    min="0"
+                    placeholder="Max price"
+                    size="sm"
+                    @update:modelValue="debouncedFilter"
+                />
             </div>
         </div>
 
@@ -159,6 +195,11 @@ const filterForm = reactive({
     category: props.filters.category || '',
     level: props.filters.level || '',
     type: props.filters.type || '',
+    price: props.filters.price || '',
+    price_min: props.filters.price_min || '',
+    price_max: props.filters.price_max || '',
+    rating: props.filters.rating || '',
+    duration: props.filters.duration || '',
     sort: props.filters.sort || '',
 });
 
@@ -174,12 +215,19 @@ const applyFilters = () => {
         category: filterForm.category || undefined,
         level: filterForm.level || undefined,
         type: filterForm.type || undefined,
+        price: filterForm.price || undefined,
+        price_min: filterForm.price_min || undefined,
+        price_max: filterForm.price_max || undefined,
+        rating: filterForm.rating || undefined,
+        duration: filterForm.duration || undefined,
         sort: filterForm.sort || undefined,
     }, { preserveState: true, replace: true });
 };
 
 const hasActiveFilters = computed(() => {
-    return filterForm.search || filterForm.category || filterForm.level || filterForm.type || filterForm.sort;
+    return filterForm.search || filterForm.category || filterForm.level || filterForm.type
+        || filterForm.price || filterForm.price_min || filterForm.price_max
+        || filterForm.rating || filterForm.duration || filterForm.sort;
 });
 
 const clearFilters = () => {
@@ -187,6 +235,11 @@ const clearFilters = () => {
     filterForm.category = '';
     filterForm.level = '';
     filterForm.type = '';
+    filterForm.price = '';
+    filterForm.price_min = '';
+    filterForm.price_max = '';
+    filterForm.rating = '';
+    filterForm.duration = '';
     filterForm.sort = '';
     applyFilters();
 };

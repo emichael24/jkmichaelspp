@@ -231,23 +231,7 @@ class CourseController extends Controller
 
     public function storeLesson(Request $request, Module $module)
     {
-        $validated = $request->validate([
-            'title'                 => 'required|string|max:255',
-            'content_type'          => 'required|in:text,video,audio,pdf,slides,mixed',
-            'text_content'          => 'nullable|string',
-            'summary'               => 'nullable|string',
-            'key_terms'             => 'nullable|array',
-            'video_url'             => 'nullable|url',
-            'video_duration_seconds'=> 'nullable|integer|min:0',
-            'video_transcript'      => 'nullable|string',
-            'audio_url'             => 'nullable|url',
-            'audio_duration_seconds'=> 'nullable|integer|min:0',
-            'pdf_url'               => 'nullable|string',
-            'slides_url'            => 'nullable|string',
-            'duration_minutes'      => 'nullable|integer|min:0',
-            'is_free_preview'       => 'boolean',
-            'is_downloadable'       => 'boolean',
-        ]);
+        $validated = $this->validateLesson($request);
 
         $validated['sort_order'] = $module->lessons()->count() + 1;
 
@@ -270,24 +254,7 @@ class CourseController extends Controller
 
     public function updateLesson(Request $request, Lesson $lesson)
     {
-        $validated = $request->validate([
-            'title'                 => 'required|string|max:255',
-            'content_type'          => 'required|in:text,video,audio,pdf,slides,mixed',
-            'text_content'          => 'nullable|string',
-            'summary'               => 'nullable|string',
-            'key_terms'             => 'nullable|array',
-            'video_url'             => 'nullable|url',
-            'video_duration_seconds'=> 'nullable|integer|min:0',
-            'video_transcript'      => 'nullable|string',
-            'audio_url'             => 'nullable|url',
-            'audio_duration_seconds'=> 'nullable|integer|min:0',
-            'pdf_url'               => 'nullable|string',
-            'slides_url'            => 'nullable|string',
-            'duration_minutes'      => 'nullable|integer|min:0',
-            'is_free_preview'       => 'boolean',
-            'is_downloadable'       => 'boolean',
-            'is_published'          => 'boolean',
-        ]);
+        $validated = $this->validateLesson($request, true);
 
         $lesson->update($validated);
 
@@ -355,5 +322,44 @@ class CourseController extends Controller
         $resource->delete();
 
         return back()->with('success', 'Resource deleted.');
+    }
+
+    private function validateLesson(Request $request, bool $isUpdate = false): array
+    {
+        $validated = $request->validate([
+            'title'                       => 'required|string|max:255',
+            'content_type'                => 'required|in:text,video,audio,pdf,slides,mixed',
+            'text_content'                => 'nullable|string',
+            'summary'                     => 'nullable|string',
+            'key_terms'                   => 'nullable|array',
+            'video_url'                   => 'nullable|url',
+            'video_duration_seconds'      => 'nullable|integer|min:0',
+            'video_transcript'            => 'nullable|string',
+            'audio_url'                   => 'nullable|url',
+            'audio_duration_seconds'      => 'nullable|integer|min:0',
+            'pdf_url'                     => 'nullable|string',
+            'slides_url'                  => 'nullable|string',
+            'scorm_path'                  => 'nullable|string|max:500',
+            'scorm_version'               => 'nullable|in:1.2,2004',
+            'duration_minutes'            => 'nullable|integer|min:0',
+            'is_free_preview'             => 'boolean',
+            'is_downloadable'             => 'boolean',
+            'unlock_type'                 => 'nullable|in:immediate,date,days_after_enrollment',
+            'unlock_at'                   => 'nullable|date',
+            'unlock_days_after_enrollment' => 'nullable|integer|min:1|max:365',
+            'is_published'                => $isUpdate ? 'boolean' : 'sometimes|boolean',
+        ]);
+
+        $validated['unlock_type'] = $validated['unlock_type'] ?? 'immediate';
+
+        if ($validated['unlock_type'] !== 'date') {
+            $validated['unlock_at'] = null;
+        }
+
+        if ($validated['unlock_type'] !== 'days_after_enrollment') {
+            $validated['unlock_days_after_enrollment'] = null;
+        }
+
+        return $validated;
     }
 }

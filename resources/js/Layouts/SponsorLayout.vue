@@ -158,6 +158,8 @@
 
         <BottomNavMore :open="moreOpen" :items="moreMenuItems" @close="moreOpen = false" />
 
+        <OfflineBanner />
+
         <!-- PWA Install Prompt -->
         <PwaInstallPrompt />
     </div>
@@ -183,6 +185,7 @@ import {
 import SidebarItem from './Partials/SidebarItem.vue';
 import MobileNavItem from './Partials/MobileNavItem.vue';
 import BottomNavMore from './Partials/BottomNavMore.vue';
+import OfflineBanner from '@/Components/OfflineBanner.vue';
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user || {});

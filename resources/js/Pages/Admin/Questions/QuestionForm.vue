@@ -160,13 +160,15 @@
                             <div>
                                 <label class="block text-sm font-medium text-surface-700 mb-1.5">Type *</label>
                                 <select v-model="form.type" class="w-full rounded-xl border-surface-200 text-sm">
-                                    <option value="single_choice">Single Choice</option>
-                                    <option value="multiple_choice">Multiple Choice</option>
+                                    <option value="multiple_choice">Single Answer (Multiple Choice)</option>
+                                    <option value="multiple_select">Multiple Select</option>
                                     <option value="true_false">True / False</option>
+                                    <option value="scenario">Scenario</option>
+                                    <option value="situational_judgment">Situational Judgment</option>
+                                    <option value="formula">Formula</option>
                                     <option value="fill_blank">Fill in the Blank</option>
                                     <option value="ordering">Ordering</option>
                                     <option value="matching">Matching</option>
-                                    <option value="case_study">Case Study</option>
                                 </select>
                             </div>
                             <div>
@@ -202,9 +204,10 @@
                         <h2 class="text-base font-semibold text-surface-900 mb-4">Publishing</h2>
                         <select v-model="form.status" class="w-full rounded-xl border-surface-200 text-sm">
                             <option value="draft">Draft</option>
-                            <option value="in_review">In Review</option>
+                            <option value="review">In Review</option>
+                            <option value="approved">Approved</option>
                             <option value="published">Published</option>
-                            <option value="retired">Retired</option>
+                            <option value="archived">Archived</option>
                         </select>
                     </div>
 
@@ -257,7 +260,7 @@ const form = useForm({
     course_id: props.question?.course_id || props.preselectedCourse || '',
     domain: props.question?.domain || '',
     subtopic: props.question?.subtopic || '',
-    type: props.question?.type || 'single_choice',
+    type: props.question?.type || 'multiple_choice',
     difficulty: props.question?.difficulty || 'medium',
     bloom_level: props.question?.bloom_level || '',
     stem: props.question?.stem || '',
@@ -283,7 +286,7 @@ function removeOption(idx) {
 }
 
 function toggleCorrect(optId) {
-    if (form.type === 'single_choice' || form.type === 'true_false') {
+    if (form.type !== 'multiple_select') {
         form.correct_answer_ids = [optId];
     } else {
         if (form.correct_answer_ids.includes(optId)) {

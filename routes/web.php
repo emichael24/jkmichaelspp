@@ -31,6 +31,7 @@ use App\Http\Controllers\Facilitator\WeeklyPlanController as FacilitatorWeeklyPl
 use App\Http\Controllers\Facilitator\AnnouncementController as FacilitatorAnnouncementController;
 use App\Http\Controllers\Facilitator\InterventionController as FacilitatorInterventionController;
 use App\Http\Controllers\Facilitator\AssignmentController as FacilitatorAssignmentController;
+use App\Http\Controllers\Facilitator\GradebookController as FacilitatorGradebookController;
 use App\Http\Controllers\Facilitator\MeetingController as FacilitatorMeetingController;
 use App\Http\Controllers\InternshipController;
 use App\Http\Controllers\InternshipSubmissionController;
@@ -147,6 +148,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/courses', [CourseController::class, 'index'])->name('courses.index');
     Route::get('/courses/{course:slug}', [CourseController::class, 'show'])->name('courses.show');
     Route::post('/courses/{course}/enroll', [CourseController::class, 'enroll'])->name('courses.enroll');
+    Route::get('/courses/{course:slug}/resources/{resource}/download', [CourseController::class, 'downloadResource'])
+        ->name('courses.resources.download');
 
     // My Courses / Enrollments
     Route::get('/my-courses', [EnrollmentController::class, 'index'])->name('enrollments.index');
@@ -156,6 +159,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/lessons/{lesson}/progress', [LessonController::class, 'updateProgress'])->name('lessons.progress');
     Route::post('/lessons/{lesson}/complete', [LessonController::class, 'complete'])->name('lessons.complete');
     Route::post('/lessons/{lesson}/bookmark', [LessonController::class, 'toggleBookmark'])->name('lessons.bookmark');
+    Route::post('/lessons/{lesson}/flashcards', [LessonController::class, 'createFlashcards'])->name('lessons.flashcards');
     Route::get('/lessons/{lesson}/download/{type}', [LessonController::class, 'download'])->name('lessons.download');
 
     // Bookmarks
@@ -263,6 +267,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/orders/{uuid}', [OrderController::class, 'show'])->name('orders.show');
     Route::post('/cart/validate-discount', [OrderController::class, 'validateDiscount'])->name('cart.validateDiscount');
 
+    // Subscriptions (Learner)
+    Route::get('/subscriptions', [\App\Http\Controllers\SubscriptionController::class, 'index'])->name('subscriptions.index');
+    Route::post('/subscriptions/{plan}/subscribe', [\App\Http\Controllers\SubscriptionController::class, 'subscribe'])->name('subscriptions.subscribe');
+    Route::post('/subscriptions/{plan}/paystack/initialize', [\App\Http\Controllers\SubscriptionController::class, 'initializePaystack'])->name('subscriptions.paystack.initialize');
+    Route::get('/subscriptions/paystack/callback', [\App\Http\Controllers\SubscriptionController::class, 'paystackCallback'])->name('subscriptions.paystack.callback');
+
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::put('/notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
@@ -358,6 +368,7 @@ Route::middleware(['auth', 'role:platform_admin'])
         // Subscriptions
         Route::get('/subscriptions/plans', [\App\Http\Controllers\Admin\SubscriptionPlanController::class, 'index'])->name('admin.subscriptions.plans');
         Route::post('/subscriptions/invoice-link', [\App\Http\Controllers\Admin\SubscriptionPlanController::class, 'generateInvoiceLink'])->name('admin.subscriptions.invoice');
+        Route::put('/subscriptions/plans/{plan}', [\App\Http\Controllers\Admin\SubscriptionPlanController::class, 'update'])->name('admin.subscriptions.plans.update');
 
         // Course Media Uploads (Chunked Video & SCORM)
         Route::post('/media/video', [CourseMediaController::class, 'uploadVideo'])->name('admin.media.video.upload');
@@ -446,6 +457,11 @@ Route::middleware(['auth', 'role:platform_admin'])
         Route::get('/reports/compliance', [AdminReportController::class, 'compliance'])->name('admin.reports.compliance');
         Route::get('/reports/department', [AdminReportController::class, 'department'])->name('admin.reports.department');
         Route::get('/reports/internship', [AdminReportController::class, 'internship'])->name('admin.reports.internship');
+        Route::get('/launch-checklist', [\App\Http\Controllers\Admin\LaunchChecklistController::class, 'index'])->name('admin.launch.checklist');
+        Route::put('/launch-checklist/{item}', [\App\Http\Controllers\Admin\LaunchChecklistController::class, 'update'])->name('admin.launch.checklist.update');
+        Route::put('/enrollments/{enrollment}/status', [\App\Http\Controllers\Admin\EnrollmentController::class, 'updateStatus'])->name('admin.enrollments.status');
+        Route::post('/enrollments/auto-expire', [\App\Http\Controllers\Admin\EnrollmentController::class, 'autoExpireByDeadline'])->name('admin.enrollments.auto-expire');
+        Route::put('/enrollments/bulk', [\App\Http\Controllers\Admin\EnrollmentController::class, 'bulkUpdate'])->name('admin.enrollments.bulk');
 
         // Settings
         Route::get('/settings', [AdminSettingsController::class, 'index'])->name('admin.settings.index');
@@ -507,6 +523,7 @@ Route::middleware(['auth', 'role:facilitator'])
         Route::get('/cohorts/{cohort}', [FacilitatorCohortController::class, 'show'])->name('facilitator.cohorts.show');
         Route::get('/cohorts/{cohort}/edit', [FacilitatorCohortController::class, 'edit'])->name('facilitator.cohorts.edit');
         Route::put('/cohorts/{cohort}', [FacilitatorCohortController::class, 'update'])->name('facilitator.cohorts.update');
+        Route::get('/cohorts/{cohort}/gradebook', [FacilitatorGradebookController::class, 'index'])->name('facilitator.gradebook.index');
 
         // Cohort Members
         Route::post('/cohorts/{cohort}/members', [FacilitatorCohortController::class, 'addMember'])->name('facilitator.cohorts.addMember');

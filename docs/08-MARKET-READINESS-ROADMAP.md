@@ -1,7 +1,7 @@
 # JK Michaels Platform - Market Readiness Roadmap
 
-**Prepared:** April 12, 2026
-**Scope reviewed:** `docs/01-07`, `docs/GAP-ANALYSIS-REPORT.md`, `docs/09-MASTERSTUDY-FEATURE-PARITY-MATRIX.md`, `composer.json`, `package.json`, `routes/web.php`, `tests/*`, `capacitor.config.json`
+**Prepared:** April 13, 2026
+**Scope reviewed:** `docs/01-07`, `docs/GAP-ANALYSIS-REPORT.md`, `docs/09-MASTERSTUDY-FEATURE-PARITY-MATRIX.md`, `docs/10-SPRINT-BACKLOG.md`, `composer.json`, `package.json`, `routes/web.php`, `tests/*`, `capacitor.config.json`
 
 ## 1. Executive Summary
 
@@ -42,15 +42,16 @@ Benchmark summary:
 
 | Status | Count |
 |---|---:|
-| Verified | 23 |
-| Partial | 17 |
-| Missing | 19 |
+| Verified | 28 |
+| Partial | 14 |
+| Missing | 17 |
 
 Important benchmark conclusions:
 
 - The benchmark docx is directionally useful, but no longer accurate as a source of truth.
 - Several features it marks as "implemented" are only partial in the repo today.
 - Several features it marks as "missing" now have meaningful foundations in code, especially AI tooling, subscriptions, memberships, SCORM, and meeting-platform support.
+- The latest implementation pass closed several launch-critical gaps: learner ratings, certificate download, SCORM learner delivery, drip scheduling, and facilitator gradebook.
 
 What this changes in practice:
 
@@ -61,6 +62,7 @@ What this changes in practice:
   - taxes and trials if public ecommerce is in launch scope,
   - gradebook and manual enrollment if facilitator-led delivery is core,
   - drip content, course expiry, course trailer, and SCORM completion if content delivery quality is a differentiator.
+- The sprint-level execution order now lives in `docs/10-SPRINT-BACKLOG.md`.
 
 ## 3. Strategic Gaps To Close
 
@@ -89,7 +91,7 @@ These are the gaps that most directly block a credible market release.
 
 ### D. Platform and operations gaps
 
-- No visible CI pipeline.
+- CI exists, but it is still minimal and does not cover the full critical path.
 - Very limited automated test coverage.
 - Documentation claims exceed implemented platform capabilities.
 - Monitoring, observability, queue strategy, backups, and incident handling are not yet codified in repo-level workflows.
@@ -109,7 +111,7 @@ Objective: make the repo trustworthy and shippable.
 
 Must complete:
 
-- Add CI for install, build, and test.
+- Expand CI for install, build, and test enforcement.
 - Expand automated coverage around auth, enrollment, quiz attempts, mock attempts, purchases, certificates, and role access.
 - Align docs with the actual implemented stack and mark aspirational items clearly.
 - Define seeded demo data for stakeholder reviews.
@@ -217,7 +219,7 @@ Exit criteria:
 
 This is the recommended implementation order for the next work cycle.
 
-1. CI workflow
+1. CI expansion and enforcement
 2. Critical-path automated tests
 3. Full onboarding rebuild
 4. Learner dashboard intelligence upgrade
@@ -291,14 +293,10 @@ These should not delay the first market-ready release unless they are core to th
 
 ## 8. Notes On Benchmarking
 
-The repo contains `MasterStudy LMS Features vs. Your Current Project.pdf`, but the available local shell tooling in this workspace could not extract the PDF text directly.
+The benchmark for this roadmap is now explicitly grounded in:
 
-This roadmap therefore uses:
+1. `MasterStudy LMS Features vs. Your Current Project.docx`,
+2. `docs/09-MASTERSTUDY-FEATURE-PARITY-MATRIX.md`, and
+3. `docs/10-SPRINT-BACKLOG.md`
 
-1. the internal documentation set,
-2. the existing repo gap analysis, and
-3. market-standard expectations for a MasterStudy-class LMS
-
-as the practical benchmark for prioritization.
-
-If direct page-by-page PDF extraction becomes available, this roadmap should be updated with an explicit parity matrix.
+The roadmap should therefore be read together with the parity matrix and sprint backlog, not as a standalone feature list.

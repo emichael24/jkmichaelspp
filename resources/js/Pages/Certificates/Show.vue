@@ -41,7 +41,7 @@
         <div class="flex justify-center gap-3">
             <a :href="`/certificates/${certificate.uuid}/download`"
                class="px-6 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700">
-                <Download class="w-4 h-4 inline mr-2" /> Download PDF
+                <Download class="w-4 h-4 inline mr-2" /> Download Certificate
             </a>
             <a :href="`/certificates/${certificate.uuid}/verify`"
                class="px-6 py-2 bg-surface-100 text-surface-700 rounded-lg text-sm font-medium hover:bg-surface-200">

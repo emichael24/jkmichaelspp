@@ -23,16 +23,22 @@ class PaystackService
     {
         $reference = $params['reference'] ?? 'JKM-' . strtoupper(Str::random(12));
 
+        $payload = [
+            'email'     => $params['email'],
+            'amount'    => (int) round($params['amount'] * 100), // kobo
+            'reference' => $reference,
+            'callback_url' => $params['callback_url'] ?? config('services.paystack.callback_url'),
+            'metadata'  => $params['metadata'] ?? [],
+            'currency'  => $params['currency'] ?? 'NGN',
+            'channels'  => $params['channels'] ?? ['card', 'bank', 'ussd', 'qr', 'bank_transfer'],
+        ];
+
+        if (! empty($params['plan'])) {
+            $payload['plan'] = $params['plan'];
+        }
+
         $response = Http::withToken($this->secretKey)
-            ->post("{$this->baseUrl}/transaction/initialize", [
-                'email'     => $params['email'],
-                'amount'    => (int) round($params['amount'] * 100), // kobo
-                'reference' => $reference,
-                'callback_url' => $params['callback_url'] ?? config('services.paystack.callback_url'),
-                'metadata'  => $params['metadata'] ?? [],
-                'currency'  => $params['currency'] ?? 'NGN',
-                'channels'  => $params['channels'] ?? ['card', 'bank', 'ussd', 'qr', 'bank_transfer'],
-            ]);
+            ->post("{$this->baseUrl}/transaction/initialize", $payload);
 
         $data = $response->json();
 
@@ -59,6 +65,43 @@ class PaystackService
 
         if (! $response->successful() || ! ($data['status'] ?? false)) {
             throw new \RuntimeException('Paystack verification failed: ' . ($data['message'] ?? 'Unknown error'));
+        }
+
+        return $data['data'];
+    }
+
+    /**
+     * Create a Paystack customer.
+     */
+    public function createCustomer(array $params): array
+    {
+        $response = Http::withToken($this->secretKey)
+            ->post("{$this->baseUrl}/customer", $params);
+
+        $data = $response->json();
+
+        if (! $response->successful() || ! ($data['status'] ?? false)) {
+            throw new \RuntimeException('Paystack customer creation failed: ' . ($data['message'] ?? 'Unknown error'));
+        }
+
+        return $data['data'];
+    }
+
+    /**
+     * Create a subscription for a customer and plan.
+     */
+    public function createSubscription(string $customerCode, string $planCode): array
+    {
+        $response = Http::withToken($this->secretKey)
+            ->post("{$this->baseUrl}/subscription", [
+                'customer' => $customerCode,
+                'plan' => $planCode,
+            ]);
+
+        $data = $response->json();
+
+        if (! $response->successful() || ! ($data['status'] ?? false)) {
+            throw new \RuntimeException('Paystack subscription creation failed: ' . ($data['message'] ?? 'Unknown error'));
         }
 
         return $data['data'];

@@ -38,7 +38,7 @@ class QuestionController extends Controller
             'total'     => Question::count(),
             'published' => Question::published()->count(),
             'draft'     => Question::where('status', 'draft')->count(),
-            'review'    => Question::where('status', 'in_review')->count(),
+            'review'    => Question::where('status', 'review')->count(),
         ];
 
         // Distinct domains from DB
@@ -82,7 +82,7 @@ class QuestionController extends Controller
             'course_id'               => 'required|exists:courses,id',
             'domain'                  => 'nullable|string|max:255',
             'subtopic'                => 'nullable|string|max:255',
-            'type'                    => 'required|in:single_choice,multiple_choice,true_false,fill_blank,ordering,matching,hotspot,drag_drop,case_study',
+            'type'                    => 'required|in:multiple_choice,multiple_select,true_false,scenario,situational_judgment,formula,fill_blank,ordering,matching',
             'difficulty'              => 'required|in:easy,medium,hard,expert',
             'bloom_level'             => 'nullable|in:remember,understand,apply,analyze,evaluate,create',
             'stem'                    => 'required|string',
@@ -99,7 +99,7 @@ class QuestionController extends Controller
             'linked_lesson_id'        => 'nullable|exists:lessons,id',
             'time_estimate_seconds'   => 'nullable|integer|min:0',
             'tags'                    => 'nullable|array',
-            'status'                  => 'required|in:draft,in_review,published,retired',
+            'status'                  => 'required|in:draft,review,approved,published,archived',
         ]);
 
         $question = Question::create($validated);
@@ -130,7 +130,7 @@ class QuestionController extends Controller
             'course_id'               => 'required|exists:courses,id',
             'domain'                  => 'nullable|string|max:255',
             'subtopic'                => 'nullable|string|max:255',
-            'type'                    => 'required|in:single_choice,multiple_choice,true_false,fill_blank,ordering,matching,hotspot,drag_drop,case_study',
+            'type'                    => 'required|in:multiple_choice,multiple_select,true_false,scenario,situational_judgment,formula,fill_blank,ordering,matching',
             'difficulty'              => 'required|in:easy,medium,hard,expert',
             'bloom_level'             => 'nullable|in:remember,understand,apply,analyze,evaluate,create',
             'stem'                    => 'required|string',
@@ -147,7 +147,7 @@ class QuestionController extends Controller
             'linked_lesson_id'        => 'nullable|exists:lessons,id',
             'time_estimate_seconds'   => 'nullable|integer|min:0',
             'tags'                    => 'nullable|array',
-            'status'                  => 'required|in:draft,in_review,published,retired',
+            'status'                  => 'required|in:draft,review,approved,published,archived',
         ]);
 
         $question->update($validated);

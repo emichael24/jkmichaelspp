@@ -20,13 +20,13 @@ class BillingController extends Controller
         $thirtyDaysAgo = now()->subDays(30);
 
         // Revenue summary
-        $totalRevenue = Payment::where('status', 'successful')->sum('amount');
-        $monthlyRevenue = Payment::where('status', 'successful')
+        $totalRevenue = Payment::where('status', 'success')->sum('amount');
+        $monthlyRevenue = Payment::where('status', 'success')
             ->where('created_at', '>=', $thirtyDaysAgo)->sum('amount');
         $totalOrders = Order::where('status', 'paid')->count();
 
         // Revenue by gateway
-        $revenueByGateway = Payment::where('status', 'successful')
+        $revenueByGateway = Payment::where('status', 'success')
             ->selectRaw('gateway, SUM(amount) as total, COUNT(*) as count')
             ->groupBy('gateway')
             ->get();
@@ -37,7 +37,7 @@ class BillingController extends Controller
             ->paginate(20);
 
         // Monthly revenue trend
-        $monthlyTrend = Payment::where('status', 'successful')
+        $monthlyTrend = Payment::where('status', 'success')
             ->where('created_at', '>=', now()->subMonths(12))
             ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, SUM(amount) as total")
             ->groupBy('month')

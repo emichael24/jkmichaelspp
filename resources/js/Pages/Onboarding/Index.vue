@@ -358,7 +358,7 @@ const stepLabels = [
                         <p class="text-xs text-surface-400 mb-6">{{ diagnosticQuestions.length }} questions across key domains</p>
 
                         <div class="space-y-3">
-                            <Button @click="diagnosticIdx = 0; selectDiagnosticAnswer(-1)" variant="primary" class="w-full !py-3" :disabled="diagnosticQuestions.length === 0">
+                            <Button @click="diagnosticIdx = 0" variant="primary" class="w-full !py-3" :disabled="diagnosticQuestions.length === 0">
                                 <Brain class="w-4 h-4 mr-2" /> Take Assessment
                             </Button>
                             <button @click="skipDiagnostic = true; currentStep = 5" class="w-full text-sm text-surface-400 hover:text-surface-600 py-2">
@@ -384,16 +384,16 @@ const stepLabels = [
                         <button
                             v-for="opt in currentDQ.options"
                             :key="opt.index"
-                            @click="selectDiagnosticAnswer(opt.index)"
-                            :class="[
-                                'w-full p-4 rounded-xl border-2 text-left transition-all text-sm',
-                                diagnosticAnswers[currentDQ.id] === opt.index
-                                    ? 'border-accent-500 bg-accent-50 text-accent-800'
-                                    : 'border-surface-200 text-surface-700 hover:border-accent-200 hover:bg-surface-50'
-                            ]"
-                        >
-                            <span class="font-medium">{{ String.fromCharCode(65 + opt.index) }}.</span> {{ opt.text }}
-                        </button>
+                        @click="selectDiagnosticAnswer(opt.id)"
+                        :class="[
+                            'w-full p-4 rounded-xl border-2 text-left transition-all text-sm',
+                            diagnosticAnswers[currentDQ.id] === opt.id
+                                ? 'border-accent-500 bg-accent-50 text-accent-800'
+                                : 'border-surface-200 text-surface-700 hover:border-accent-200 hover:bg-surface-50'
+                        ]"
+                    >
+                        <span class="font-medium">{{ opt.id }}.</span> {{ opt.text }}
+                    </button>
                     </div>
 
                     <div class="flex justify-between items-center mt-6">

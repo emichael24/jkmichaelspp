@@ -112,7 +112,7 @@ class Flashcard extends Model
     /**
      * Create flashcards from lesson key terms.
      */
-    public static function createFromKeyTerms(Lesson $lesson, array $keyTerms): array
+    public static function createFromKeyTerms(Lesson $lesson, array $keyTerms, ?int $userId = null): array
     {
         $cards = [];
 
@@ -127,6 +127,7 @@ class Flashcard extends Model
                     'lesson_id' => $lesson->id,
                     'front'     => $termText,
                     'source'    => 'lesson_term',
+                    'user_id'   => $userId,
                 ],
                 [
                     'course_id' => $lesson->module->course_id,

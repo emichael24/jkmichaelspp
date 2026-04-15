@@ -77,10 +77,16 @@
                                 'text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm',
                                 enrollment.status === 'completed'
                                     ? 'bg-success-500/80 text-white'
-                                    : 'bg-white/80 text-surface-700',
+                                    : enrollment.status === 'expired'
+                                        ? 'bg-danger-500/80 text-white'
+                                        : enrollment.status === 'suspended'
+                                            ? 'bg-warning-500/80 text-white'
+                                            : 'bg-white/80 text-surface-700',
                             ]"
                         >
-                            {{ enrollment.progress_pct }}%
+                            <span v-if="enrollment.status === 'expired'">Expired</span>
+                            <span v-else-if="enrollment.status === 'suspended'">Paused</span>
+                            <span v-else>{{ enrollment.progress_pct }}%</span>
                         </span>
                     </div>
                 </div>
@@ -123,11 +129,16 @@
                                 'inline-flex items-center gap-2 w-full justify-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-all',
                                 enrollment.status === 'completed'
                                     ? 'bg-success-50 text-success-700 hover:bg-success-100'
-                                    : 'bg-primary-600 text-white hover:bg-primary-700 shadow-sm shadow-primary-600/20',
+                                    : enrollment.status === 'expired' || enrollment.status === 'suspended'
+                                        ? 'bg-surface-100 text-surface-400 pointer-events-none'
+                                        : 'bg-primary-600 text-white hover:bg-primary-700 shadow-sm shadow-primary-600/20',
                             ]"
                         >
                             <component :is="enrollment.status === 'completed' ? CheckCircle : Play" class="w-4 h-4" />
-                            {{ enrollment.status === 'completed' ? 'Review Course' : 'Continue Learning' }}
+                            <span v-if="enrollment.status === 'completed'">Review Course</span>
+                            <span v-else-if="enrollment.status === 'expired'">Enrollment Expired</span>
+                            <span v-else-if="enrollment.status === 'suspended'">Enrollment Paused</span>
+                            <span v-else>Continue Learning</span>
                         </Link>
                     </div>
                 </div>
@@ -195,6 +206,8 @@ const statusTabs = computed(() => [
     { value: 'all', label: 'All', count: props.statusCounts.all },
     { value: 'active', label: 'In Progress', count: props.statusCounts.active },
     { value: 'completed', label: 'Completed', count: props.statusCounts.completed },
+    { value: 'expired', label: 'Expired', count: props.statusCounts.expired },
+    { value: 'suspended', label: 'Paused', count: props.statusCounts.suspended },
 ]);
 
 function switchStatus(status) {

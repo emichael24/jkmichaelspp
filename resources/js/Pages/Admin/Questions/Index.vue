@@ -66,9 +66,10 @@
                 <select v-model="filterForm.status" class="rounded-xl border-surface-200 text-sm px-3 py-2" @change="applyFilters">
                     <option value="">All Status</option>
                     <option value="draft">Draft</option>
-                    <option value="in_review">In Review</option>
+                    <option value="review">In Review</option>
+                    <option value="approved">Approved</option>
                     <option value="published">Published</option>
-                    <option value="retired">Retired</option>
+                    <option value="archived">Archived</option>
                 </select>
             </div>
         </div>
@@ -210,9 +211,15 @@ function deleteQuestion() {
 
 function typeLabel(t) {
     return {
-        single_choice: 'Single', multiple_choice: 'Multiple', true_false: 'T/F',
-        fill_blank: 'Fill', ordering: 'Order', matching: 'Match',
-        hotspot: 'Hotspot', drag_drop: 'D&D', case_study: 'Case',
+        multiple_choice: 'Single',
+        multiple_select: 'Multi',
+        true_false: 'T/F',
+        scenario: 'Scenario',
+        situational_judgment: 'SJT',
+        formula: 'Formula',
+        fill_blank: 'Fill',
+        ordering: 'Order',
+        matching: 'Match',
     }[t] || t;
 }
 
@@ -231,14 +238,15 @@ function statusClass(s) {
     const base = 'text-xs font-medium px-2 py-0.5 rounded-full';
     const map = {
         draft: 'bg-surface-100 text-surface-600',
-        in_review: 'bg-warning-50 text-warning-700',
+        review: 'bg-warning-50 text-warning-700',
+        approved: 'bg-primary-50 text-primary-700',
         published: 'bg-success-50 text-success-700',
-        retired: 'bg-danger-50 text-danger-700',
+        archived: 'bg-danger-50 text-danger-700',
     };
     return `${base} ${map[s] || 'bg-surface-100 text-surface-600'}`;
 }
 
 function statusLabel(s) {
-    return { draft: 'Draft', in_review: 'In Review', published: 'Published', retired: 'Retired' }[s] || s;
+    return { draft: 'Draft', review: 'In Review', approved: 'Approved', published: 'Published', archived: 'Archived' }[s] || s;
 }
 </script>

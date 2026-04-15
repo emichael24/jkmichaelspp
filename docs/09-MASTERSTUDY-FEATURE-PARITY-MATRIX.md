@@ -1,6 +1,6 @@
 # MasterStudy Feature Parity Matrix
 
-**Prepared:** April 12, 2026
+**Prepared:** April 13, 2026
 **Benchmark source:** `MasterStudy LMS Features vs. Your Current Project.docx`
 **Verification basis:** code inspection only (`routes`, `migrations`, `models`, `controllers`, `Vue pages/components`, `tests`)
 
@@ -24,21 +24,22 @@ Important limitation:
 
 | Status | Count |
 |---|---:|
-| Verified | 23 |
-| Partial | 17 |
-| Missing | 19 |
+| Verified | 28 |
+| Partial | 14 |
+| Missing | 17 |
 
 ### Accuracy of the benchmark docx
 
 | Docx section | Verified | Partial | Missing |
 |---|---:|---:|---:|
-| "Already Implemented" (28 features) | 22 | 6 | 0 |
-| "Missing" (31 features) | 1 | 11 | 19 |
+| "Already Implemented" (28 features) | 24 | 4 | 0 |
+| "Missing" (31 features) | 4 | 10 | 17 |
 
 ### What this means
 
 - The docx **overstates** completion for several existing features.
 - The docx is also **outdated** on several "missing" items, because the repo now has partial subscription, AI, SCORM, and meeting integration foundations.
+- The current implementation slice materially reduced the gap by wiring ratings, certificates, SCORM delivery, drip scheduling, and a facilitator gradebook into the product flow.
 - The biggest real gaps are in:
   - commercial maturity,
   - instructor operations,
@@ -53,9 +54,9 @@ Important limitation:
 | 2 | Multi-format Lessons (text, video, audio, PDF, slides) | Verified | `app/Http/Controllers/LessonController.php`, `resources/js/Pages/Lessons/Show.vue`, `resources/js/Components/Lesson/*`, `database/migrations/2026_02_26_300000_create_courses_tables.php` | Lesson viewer supports read/watch/listen/pdf tabs |
 | 3 | Advanced Quiz Builder (9 types) | Partial | `app/Http/Controllers/Admin/QuestionController.php`, `resources/js/Pages/Admin/Questions/QuestionForm.vue`, `database/migrations/2026_03_06_000001_create_assessment_tables.php` | Type support is inconsistent across migration, controller validation, and UI |
 | 4 | Assignments with Grading & Rubrics | Verified | `app/Http/Controllers/Facilitator/AssignmentController.php`, `resources/js/Pages/Facilitator/Assignments/*`, `database/migrations/2026_03_08_600000_create_grading_meetings_internship_tables.php` | Rubrics and grading flows are present |
-| 5 | Certificate System | Partial | `app/Http/Controllers/CertificateController.php`, `app/Services/CertificateService.php`, `resources/js/Pages/Certificates/*`, `database/migrations/2026_03_09_700000_create_submissions_reviews_portfolio_certificates_tables.php` | Issuance and verification exist, but download is still a placeholder |
+| 5 | Certificate System | Verified | `app/Http/Controllers/CertificateController.php`, `app/Services/CertificateService.php`, `resources/js/Pages/Certificates/*`, `resources/views/certificates/download.blade.php`, `database/migrations/2026_03_09_700000_create_submissions_reviews_portfolio_certificates_tables.php` | Issuance, verification, and downloadable certificate output are now wired end to end |
 | 6 | Course Progress Tracking | Verified | `app/Http/Controllers/LessonController.php`, `app/Http/Controllers/EnrollmentController.php`, `database/migrations/2026_02_26_300001_create_enrollment_and_progress_tables.php` | Lesson and enrollment progress are implemented |
-| 7 | Review & Rating System | Partial | `app/Http/Controllers/CourseRatingController.php`, `app/Models/CourseRating.php`, `resources/js/Components/CourseRating.vue`, `routes/web.php` | Rating APIs and component exist, but no evidence the rating UI is mounted on learner course detail |
+| 7 | Review & Rating System | Verified | `app/Http/Controllers/CourseRatingController.php`, `app/Models/CourseRating.php`, `resources/js/Components/CourseRating.vue`, `resources/js/Pages/Courses/Show.vue`, `routes/web.php` | Ratings are now mounted on the learner course detail page with create, update, and delete flow |
 | 8 | Categories & Filtering | Verified | `app/Http/Controllers/CourseController.php`, `app/Http/Controllers/Admin/CategoryController.php`, `resources/js/Pages/Courses/Index.vue`, `database/migrations/2026_02_26_300000_create_courses_tables.php` | Category, level, type, and sort filters exist |
 | 9 | Difficulty Levels | Verified | `courses.level` in `2026_02_26_300000_create_courses_tables.php`, course controllers/pages | Implemented at schema and UI level |
 | 10 | Course Duration | Verified | `courses.duration_hours`, `lessons.duration_minutes`, learner/admin pages | Implemented |
@@ -89,18 +90,18 @@ Important limitation:
 | 5 | Trial Courses | Missing | Subscription trials exist in `subscriptions.trial_ends_at`, but no course-trial access flow was found | Still missing for LMS courses |
 | 6 | Instructor Earnings & Commission | Missing | `app/Services/PaystackService.php` includes payout primitives, but no instructor earnings/commission workflow was found | Still missing |
 | 7 | Purchase History | Verified | `app/Http/Controllers/OrderController.php`, `resources/js/Pages/Orders/Index.vue`, `resources/js/Pages/Orders/Show.vue`, `routes/web.php` | This item is already implemented; the benchmark docx is outdated here |
-| 8 | Sequential Drip Content | Missing | No drip/unlock scheduling fields, services, or route flows found | Still missing |
+| 8 | Sequential Drip Content | Verified | `database/migrations/2026_04_13_220000_add_drip_fields_to_lessons_table.php`, `app/Models/Lesson.php`, `app/Http/Controllers/LessonController.php`, `app/Http/Controllers/Admin/CourseController.php`, `resources/js/Pages/Admin/Courses/Lessons/*`, `resources/js/Pages/Courses/Show.vue` | Lessons now support unlock rules by date or days-after-enrollment, and learner access is enforced in course and lesson flows |
 | 9 | Course Expiry & Pause | Partial | `course_enrollments.status` supports `expired`/`suspended`, `Subscription` models exist | Data model hints exist, but no verified learner/admin workflow for course expiry or pause/resume |
 | 10 | Dedicated Course Player | Partial | `resources/js/Pages/Lessons/Show.vue`, lesson media components | A lesson player exists, but not the dedicated distraction-free course player described by the benchmark |
-| 11 | Video Poster / Trailer | Partial | `courses.preview_video` in course migration, facilitator course validation includes `preview_video` | Trailer field exists, but it is not surfaced on the learner course detail page |
+| 11 | Video Poster / Trailer | Verified | `courses.preview_video` in course migration, facilitator course validation includes `preview_video`, `resources/js/Pages/Courses/Show.vue` | Preview video is now surfaced on the learner course detail page |
 | 12 | Upcoming Course Status | Missing | No `coming_soon` course status or interest/waitlist workflow found | Still missing |
-| 13 | SCORM Support | Partial | `app/Http/Controllers/Admin/CourseMediaController.php`, `app/Http/Controllers/ScormController.php`, `resources/js/Components/ScormPlayer.vue`, `routes/web.php` | Upload and runtime commit exist, but no evidence the SCORM player is actually mounted in the learner lesson flow |
+| 13 | SCORM Support | Verified | `app/Http/Controllers/Admin/CourseMediaController.php`, `app/Http/Controllers/ScormController.php`, `app/Http/Controllers/LessonController.php`, `resources/js/Components/ScormPlayer.vue`, `resources/js/Pages/Lessons/Show.vue`, `routes/web.php` | Upload, learner playback, runtime commit, and lesson-progress sync are now wired together |
 | 14 | Audio from External Sources | Missing | Generic `audio_url` support exists, but no Spotify/SoundCloud-specific integration was found | Still missing |
 | 15 | Live Streaming | Missing | Meetings and event links exist, but no built-in streaming stack or live classroom implementation was found | Still missing |
 | 16 | Zoom Conference Integration | Partial | `Meeting.platform`, `meeting_url`, facilitator/sponsor/admin meeting pages and controllers | External meeting links are supported, but no Zoom API/OAuth provisioning integration was verified |
 | 17 | Google Meet Integration | Partial | Same meeting platform/url evidence as above | External links only; no real Google Meet integration was verified |
 | 18 | Google Classrooms Integration | Missing | No Google Classroom models, services, sync jobs, or routes found | Still missing |
-| 19 | Gradebook | Missing | Assignment grading exists, but no centralized gradebook page/controller/model was found | Still missing |
+| 19 | Gradebook | Partial | `app/Http/Controllers/Facilitator/GradebookController.php`, `resources/js/Pages/Facilitator/Gradebook/Index.vue`, `routes/web.php` | A centralized facilitator gradebook now exists, but it is still assignment-centric and does not yet aggregate quizzes, mocks, or attendance |
 | 20 | Image Match Quiz Type | Missing | No `image_match` question type found in schema, controller, or UI | Still missing |
 | 21 | Image Choice Quiz Type | Missing | No `image_choice` question type found | Still missing |
 | 22 | Keywords Quiz Type | Missing | No keyword-answer question type found | Still missing |
@@ -128,16 +129,14 @@ These are the benchmark gaps that matter most commercially and operationally.
 
 ### B. Course delivery gaps
 
-- Drip content is missing.
 - Course expiry/pause is only partially represented in data models.
 - Dedicated course player is not at benchmark level.
-- Trailer/preview video is not surfaced on learner course pages.
 - Upcoming/coming-soon course status is missing.
-- SCORM is present but not fully integrated into learner delivery.
+- Native PDF export for certificates is still absent even though downloadable certificate output now exists.
 
 ### C. Instructor operations gaps
 
-- Gradebook is missing.
+- Gradebook is only partial.
 - Co-instructors are missing.
 - Instructor application workflow is missing.
 - Manual course enrollment is not fully implemented.
@@ -161,20 +160,17 @@ These are the most important cases where the codebase is present but not yet lau
    - `resources/js/Pages/Admin/Questions/QuestionForm.vue`
    - The supported question types and statuses do not line up cleanly.
 
-2. `Certificate System`
-   - `app/Http/Controllers/CertificateController.php`
-   - Download is still explicitly a placeholder.
+2. `Subscriptions / Trials`
+   - `app/Models/Traits/HasSubscriptions.php`
+   - `app/Models/Subscription.php`
+   - Trial logic is stronger at the model layer, but there is still no complete public recurring-checkout and entitlement experience.
 
-3. `Review & Rating System`
-   - `resources/js/Components/CourseRating.vue`
-   - `resources/js/Pages/Courses/Show.vue`
-   - The rating component exists, but there is no evidence it is mounted on the learner course page.
+3. `Gradebook`
+   - `app/Http/Controllers/Facilitator/GradebookController.php`
+   - `resources/js/Pages/Facilitator/Gradebook/Index.vue`
+   - The new gradebook is useful, but it is still limited to assignment performance plus course progress.
 
-4. `SCORM Support`
-   - `resources/js/Components/ScormPlayer.vue`
-   - No usage of the SCORM player component was found in learner pages.
-
-5. `Direct Messaging / Forums`
+4. `Direct Messaging / Forums`
    - Surfaces exist, but they appear lightweight compared with the benchmark expectation.
 
 ## 7. Recommended Benchmark-Driven Priorities
@@ -182,24 +178,23 @@ These are the most important cases where the codebase is present but not yet lau
 If the goal is to close the most commercially meaningful benchmark gaps, the next order should be:
 
 1. Finish partial launch-critical features already in repo:
-   - course ratings
-   - certificate delivery
    - quiz-builder consistency
-   - SCORM learner integration
    - subscriptions/memberships workflow
+   - gradebook expansion
+   - course expiry/pause rules
 2. Add the missing monetization features that affect revenue:
    - taxes
    - trial access
    - packaging rules
 3. Add instructor operations features that reduce admin overhead:
-   - gradebook
    - manual enrollment
    - progress reset
+   - co-instructors
+   - instructor application
 4. Improve course delivery parity:
-   - drip content
-   - course expiry/pause
    - dedicated course player
-   - course trailer
+   - coming-soon status
+   - richer completion/export options
 5. Add secondary engagement features only after the above:
    - lesson Q&A
    - wishlist
@@ -211,6 +206,7 @@ The benchmark gap is real, but it is more nuanced than the docx suggests.
 
 - Several "missing" features are no longer truly missing.
 - Several "implemented" features are not yet complete enough to count as market-ready.
+- The repo now clears several previously blocking parity gaps: learner ratings, downloadable certificates, SCORM learner delivery, drip scheduling, and a centralized facilitator gradebook are no longer theoretical.
 
 The practical gap is therefore not just adding net-new benchmark features. It is:
 

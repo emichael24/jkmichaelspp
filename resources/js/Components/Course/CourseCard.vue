@@ -42,7 +42,7 @@
                         <Layers class="w-3.5 h-3.5" />
                         {{ course.lessons_count || 0 }} lessons
                     </span>
-                    <span class="text-surface-300">·</span>
+                    <span class="text-surface-300">-</span>
                     <span class="flex items-center gap-1">
                         <Clock class="w-3.5 h-3.5" />
                         {{ course.duration_hours ? course.duration_hours + 'h' : 'Self-paced' }}
@@ -68,7 +68,7 @@
                         {{ course.progress }}%
                     </span>
                     <span v-else-if="course.price > 0" class="text-sm font-bold text-surface-900">
-                        ₦{{ Number(course.price).toLocaleString() }}
+                        {{ displayCurrency }} {{ displayPrice }}
                     </span>
                     <span v-else class="text-xs font-semibold text-success-600 bg-success-50 px-2 py-0.5 rounded-full">
                         Free
@@ -96,5 +96,12 @@ const difficultyLevel = computed(() => {
 const difficultyColor = computed(() => {
     const map = { 1: 'bg-success-500', 2: 'bg-warning-500', 3: 'bg-danger-500' };
     return map[difficultyLevel.value] || 'bg-success-500';
+});
+
+const displayCurrency = computed(() => (props.course.currency || 'NGN').toUpperCase());
+
+const displayPrice = computed(() => {
+    const price = Number(props.course.discount_price || props.course.price || 0);
+    return price.toLocaleString();
 });
 </script>

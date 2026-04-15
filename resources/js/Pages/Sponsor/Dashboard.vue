@@ -72,7 +72,7 @@
                                         </Badge>
                                     </div>
                                     <p class="text-xs text-surface-500 mb-2">
-                                        {{ intern.track }} · Week {{ intern.current_week }} of {{ intern.duration_weeks }}
+                                        {{ intern.track }} - Week {{ intern.current_week }} of {{ intern.duration_weeks }}
                                     </p>
                                     <div class="flex items-center gap-3">
                                         <ProgressBar :percentage="intern.progress_pct" color="primary" size="sm" class="flex-1" />
@@ -116,7 +116,7 @@
                                 </p>
                                 <p class="text-xs text-surface-500 mt-0.5">
                                     {{ sub.task?.enrollment?.user?.first_name }} {{ sub.task?.enrollment?.user?.last_name }}
-                                    · Submitted {{ formatDate(sub.submitted_at) }}
+                                    - Submitted {{ formatDate(sub.submitted_at) }}
                                 </p>
                             </div>
                             <Badge :variant="sub.status === 'submitted' ? 'warning' : 'primary'" size="sm">
@@ -177,13 +177,13 @@
                         >
                             <div class="flex items-start gap-3">
                                 <div class="w-10 h-12 rounded-lg bg-primary-100 flex flex-col items-center justify-center shrink-0">
-                                    <span class="text-[10px] font-bold text-primary-600 uppercase">{{ monthAbbr(meeting.start_time) }}</span>
-                                    <span class="text-lg font-bold text-primary-700 leading-none">{{ dayNum(meeting.start_time) }}</span>
+                                    <span class="text-[10px] font-bold text-primary-600 uppercase">{{ monthAbbr(meeting.scheduled_at) }}</span>
+                                    <span class="text-lg font-bold text-primary-700 leading-none">{{ dayNum(meeting.scheduled_at) }}</span>
                                 </div>
                                 <div class="flex-1 min-w-0">
                                     <p class="font-medium text-surface-900 text-sm truncate">{{ meeting.title }}</p>
                                     <p class="text-xs text-surface-500 mt-0.5">
-                                        {{ formatTime(meeting.start_time) }} · {{ meeting.duration_minutes }}min
+                                        {{ formatTime(meeting.scheduled_at) }} - {{ meeting.duration_minutes }}min
                                     </p>
                                     <a v-if="meeting.meeting_url" :href="meeting.meeting_url" target="_blank"
                                        class="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 mt-1 font-medium">
@@ -217,7 +217,7 @@
                                 </p>
                                 <p class="text-xs text-surface-400">
                                     {{ review.submission?.task?.enrollment?.user?.first_name }}
-                                    · {{ formatDate(review.reviewed_at) }}
+                                    - {{ formatDate(review.reviewed_at) }}
                                 </p>
                             </div>
                             <Badge :variant="review.decision === 'approved' ? 'success' : 'warning'" size="sm">

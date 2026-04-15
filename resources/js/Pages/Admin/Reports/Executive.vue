@@ -9,7 +9,7 @@ defineOptions({ layout: AdminLayout });
 const props = defineProps({ users: Object, courses: Object, revenue: Object, assessments: Object });
 
 const formatNumber = (v) => Number(v).toLocaleString();
-const formatCurrency = (v) => `₦${Number(v).toLocaleString()}`;
+const formatCurrency = (v) => `NGN ${Number(v).toLocaleString()}`;
 </script>
 
 <template>

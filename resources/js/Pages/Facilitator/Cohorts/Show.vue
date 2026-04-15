@@ -23,6 +23,9 @@
                 <a :href="`/facilitator/cohorts/${cohort.id}/interventions`" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-surface-200 rounded-lg hover:bg-surface-50 transition-colors">
                     <ShieldAlert class="w-4 h-4" /> Interventions
                 </a>
+                <a :href="`/facilitator/cohorts/${cohort.id}/gradebook`" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-surface-200 rounded-lg hover:bg-surface-50 transition-colors">
+                    <CheckCircle class="w-4 h-4" /> Gradebook
+                </a>
                 <a :href="`/facilitator/cohorts/${cohort.id}/edit`" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-600 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors">
                     <Settings class="w-4 h-4" /> Edit
                 </a>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Course;
 use App\Models\CourseRating;
 use Illuminate\Http\Request;
 
@@ -18,6 +19,12 @@ class CourseRatingController extends Controller
             'review' => 'nullable|string|max:2000',
         ]);
 
+        $course = Course::findOrFail($validated['course_id']);
+
+        if (! $course->isEnrolledBy($request->user())) {
+            return back()->with('error', 'Enroll in the course before leaving a rating.');
+        }
+
         CourseRating::updateOrCreate(
             [
                 'user_id' => auth()->id(),
@@ -29,17 +36,21 @@ class CourseRatingController extends Controller
             ]
         );
 
+        $this->syncAverage($course);
+
         return back()->with('success', 'Rating submitted successfully.');
     }
 
     /**
      * Delete a rating.
      */
-    public function destroy(int $courseId)
+    public function destroy(Course $course)
     {
         CourseRating::where('user_id', auth()->id())
-            ->where('course_id', $courseId)
+            ->where('course_id', $course->id)
             ->delete();
+
+        $this->syncAverage($course);
 
         return back()->with('success', 'Rating removed.');
     }
@@ -47,13 +58,13 @@ class CourseRatingController extends Controller
     /**
      * Get ratings for a course (JSON).
      */
-    public function getRatings(int $courseId)
+    public function getRatings(Course $course)
     {
-        $average = CourseRating::averageForCourse($courseId);
-        $distribution = CourseRating::distributionForCourse($courseId);
+        $average = CourseRating::averageForCourse($course->id);
+        $distribution = CourseRating::distributionForCourse($course->id);
         $total = array_sum($distribution);
 
-        $reviews = CourseRating::where('course_id', $courseId)
+        $reviews = CourseRating::where('course_id', $course->id)
             ->whereNotNull('review')
             ->with('user:id,first_name,last_name,avatar')
             ->orderByDesc('created_at')
@@ -65,6 +76,13 @@ class CourseRatingController extends Controller
             'distribution' => $distribution,
             'total' => $total,
             'reviews' => $reviews,
+        ]);
+    }
+
+    private function syncAverage(Course $course): void
+    {
+        $course->update([
+            'avg_rating' => CourseRating::averageForCourse($course->id) ?? 0,
         ]);
     }
 }

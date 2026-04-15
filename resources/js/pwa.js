@@ -181,6 +181,32 @@ export async function removeOfflineLesson(lessonId) {
     tx.objectStore('downloadedLessons').delete(lessonId);
 }
 
+export async function cacheLessonAssets(lesson) {
+    if (!('caches' in window)) return;
+
+    const urls = [
+        lesson?.video_url,
+        lesson?.audio_url,
+        lesson?.pdf_url,
+        lesson?.slides_url,
+    ].filter(Boolean);
+
+    if (!urls.length) return;
+
+    const cache = await caches.open('jkm-offline-assets');
+    const origin = window.location.origin;
+
+    for (const url of urls) {
+        try {
+            const resolved = new URL(url, origin);
+            if (resolved.origin !== origin) continue;
+            await cache.add(resolved.toString());
+        } catch (err) {
+            console.warn('[PWA] Failed to cache asset', url, err);
+        }
+    }
+}
+
 // Trigger background sync
 export async function requestBackgroundSync(tag = 'sync-progress') {
     const registration = await navigator.serviceWorker.ready;

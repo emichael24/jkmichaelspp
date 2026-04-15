@@ -180,6 +180,11 @@ class DashboardController extends Controller
         $dailyMissions = $missions['daily'] ?? [];
         $dailyCompleted = collect($dailyMissions)->where('status', 'completed')->count();
 
+        $passLikelihood = $readiness?->pass_likelihood ?? null;
+        $passLikelihoodMessage = $this->passLikelihoodMessage($passLikelihood);
+
+        $nextSteps = $this->buildNextSteps($continueCourse, $focusAreas, $examCountdown, $dueCards);
+
         return Inertia::render('Dashboard', [
             'user' => [
                 'first_name'    => $user->first_name,
@@ -199,10 +204,12 @@ class DashboardController extends Controller
                 'weeklyXp'      => $weeklyXp,
                 'activeCourses' => $activeCount,
                 'readiness'     => $readiness?->score_pct ?? 0,
-                'passLikelihood' => $readiness?->pass_likelihood ?? null,
+                'passLikelihood' => $passLikelihood,
                 'confidenceBand' => $readiness?->confidence_band ?? null,
+                'passLikelihoodMessage' => $passLikelihoodMessage,
             ],
             'todayPlan'      => $todayPlan,
+            'nextSteps'      => $nextSteps,
             'continueCourse' => $continueCourse,
             'courses'        => $courses,
             'dueCards'       => $dueCards,
@@ -287,5 +294,75 @@ class DashboardController extends Controller
         $mins = $minutes % 60;
 
         return $mins > 0 ? "{$hours}h {$mins}m" : "{$hours}h";
+    }
+
+    private function passLikelihoodMessage(?int $likelihood): ?string
+    {
+        if ($likelihood === null) {
+            return null;
+        }
+
+        if ($likelihood >= 75) {
+            return 'You are likely to pass. Keep your streak alive and polish weak areas.';
+        }
+
+        if ($likelihood >= 50) {
+            return 'You are on track. Focus on your weakest domains this week.';
+        }
+
+        return 'You need more coverage. Build a steady practice rhythm and review core lessons.';
+    }
+
+    private function buildNextSteps($continueCourse, $focusAreas, $examCountdown, int $dueCards): array
+    {
+        $steps = [];
+
+        if ($examCountdown && ! $examCountdown['is_past']) {
+            $steps[] = [
+                'title' => 'Exam Countdown',
+                'subtitle' => "{$examCountdown['days_left']} days remaining",
+                'url' => '/mock-exams',
+                'icon' => 'calendar',
+            ];
+        }
+
+        if ($focusAreas && $focusAreas->count()) {
+            $top = $focusAreas->first();
+            $steps[] = [
+                'title' => "Focus: {$top['domain']}",
+                'subtitle' => "{$top['accuracy']}% accuracy · {$top['total']} questions",
+                'url' => '/practice',
+                'icon' => 'target',
+            ];
+        }
+
+        if ($dueCards > 0) {
+            $steps[] = [
+                'title' => 'Review Flashcards',
+                'subtitle' => "{$dueCards} cards due",
+                'url' => '/practice/review',
+                'icon' => 'brain',
+            ];
+        }
+
+        if ($continueCourse) {
+            $steps[] = [
+                'title' => 'Continue Learning',
+                'subtitle' => $continueCourse['title'],
+                'url' => "/courses/{$continueCourse['slug']}",
+                'icon' => 'book-open',
+            ];
+        }
+
+        if (empty($steps)) {
+            $steps[] = [
+                'title' => 'Browse Courses',
+                'subtitle' => 'Find your next learning path',
+                'url' => '/courses',
+                'icon' => 'search',
+            ];
+        }
+
+        return array_slice($steps, 0, 3);
     }
 }

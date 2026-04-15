@@ -51,12 +51,13 @@
             </div>
 
             <!-- Pass likelihood -->
-            <div v-if="stats.passLikelihood" class="relative z-10 mt-3 flex items-center gap-2">
+            <div v-if="stats.passLikelihood" class="relative z-10 mt-3 flex flex-wrap items-center gap-2">
                 <span :class="['inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full', passLikelihoodStyle.bg]">
                     <component :is="passLikelihoodStyle.icon" class="w-3.5 h-3.5" />
                     {{ stats.passLikelihood }}% pass likelihood
                 </span>
                 <span v-if="stats.confidenceBand" class="text-white/50 text-xs">({{ stats.confidenceBand }})</span>
+                <span v-if="stats.passLikelihoodMessage" class="text-white/70 text-xs">{{ stats.passLikelihoodMessage }}</span>
             </div>
 
             <!-- XP bar -->
@@ -204,6 +205,26 @@
 
             <!-- Right sidebar -->
             <div class="space-y-6">
+                <!-- Next steps -->
+                <Card v-if="nextSteps.length" title="Next Steps" variant="elevated">
+                    <div class="space-y-3">
+                        <Link
+                            v-for="(item, i) in nextSteps"
+                            :key="i"
+                            :href="item.url || '#'"
+                            class="flex items-center gap-3 p-3 rounded-xl bg-surface-50 hover:bg-surface-100 transition-all"
+                        >
+                            <div class="w-8 h-8 rounded-lg bg-primary-50 flex items-center justify-center shrink-0">
+                                <component :is="planIcon(item.icon)" class="w-4 h-4 text-primary-600" />
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-surface-700 truncate">{{ item.title }}</p>
+                                <p class="text-xs text-surface-400 truncate">{{ item.subtitle }}</p>
+                            </div>
+                            <ChevronRight class="w-4 h-4 text-surface-300 shrink-0" />
+                        </Link>
+                    </div>
+                </Card>
                 <!-- Today's plan -->
                 <Card title="Today's Plan" variant="elevated">
                     <template #header-actions>
@@ -375,6 +396,7 @@ const props = defineProps({
     continueCourse: { type: Object, default: null },
     courses: { type: Array, default: () => [] },
     todayPlan: { type: Array, default: () => [] },
+    nextSteps: { type: Array, default: () => [] },
     dueCards: { type: Number, default: 0 },
     coachInsight: { type: String, default: null },
     recentBadges: { type: Array, default: () => [] },

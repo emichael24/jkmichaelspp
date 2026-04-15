@@ -30,9 +30,20 @@ class SubscriptionPlanController extends Controller
 
         // Typical flow for B2B Paystack invoice link:
         // We'd hit Paystack's API to create a Payment Request / Invoice.
-        
+
         $mockLink = "https://paystack.com/pay/b2b-invoice-" . uniqid();
 
         return redirect()->back()->with('success', "Invoice link generated: $mockLink");
+    }
+
+    public function update(Request $request, Plan $plan)
+    {
+        $validated = $request->validate([
+            'paystack_plan_code' => 'nullable|string|max:255',
+        ]);
+
+        $plan->update($validated);
+
+        return back()->with('success', 'Plan updated.');
     }
 }

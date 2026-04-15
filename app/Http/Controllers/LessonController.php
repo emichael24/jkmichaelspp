@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Course;
+use App\Models\Flashcard;
 use App\Models\Lesson;
 use App\Models\LessonProgress;
-use App\Models\UserNote;
+use App\Models\ScormProgress;
+use App\Models\SpacedRepetitionItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -20,77 +22,102 @@ class LessonController extends Controller
     {
         $user = Auth::user();
 
-        // Verify the user is enrolled
+        $lesson->loadMissing('module');
+        abort_unless($lesson->module && $lesson->module->course_id === $course->id, 404);
+
         $enrollment = $course->enrollmentFor($user);
-        if (! $enrollment && ! $lesson->is_free_preview) {
+        $canPreview = $lesson->is_free_preview && $lesson->isUnlockedFor($enrollment);
+
+        if ($enrollment && ! $this->enrollmentAllowsAccess($enrollment) && ! $canPreview) {
+            $message = $enrollment->status === 'suspended'
+                ? 'Your enrollment is paused. Please contact support.'
+                : 'Your enrollment has expired. Please contact support.';
+
+            return redirect()->route('courses.show', $course->slug)
+                ->with('error', $message);
+        }
+
+        if (! $enrollment && ! $canPreview) {
             return redirect()->route('courses.show', $course->slug)
                 ->with('error', 'Please enroll in this course to access this lesson.');
         }
 
-        // Load lesson with module context
-        $lesson->load('module');
+        if (! $lesson->isUnlockedFor($enrollment)) {
+            return redirect()->route('courses.show', $course->slug)
+                ->with('error', $lesson->availabilityLabel($enrollment) ?? 'This lesson is not yet available.');
+        }
 
-        // Get all lessons in this course for navigation
         $course->load([
             'modules' => fn ($q) => $q->published()->orderBy('sort_order'),
             'modules.lessons' => fn ($q) => $q->published()->orderBy('sort_order')->select([
-                'id', 'module_id', 'title', 'slug', 'content_type',
-                'duration_minutes', 'is_free_preview', 'sort_order',
+                'id',
+                'module_id',
+                'title',
+                'slug',
+                'content_type',
+                'duration_minutes',
+                'is_free_preview',
+                'unlock_type',
+                'unlock_at',
+                'unlock_days_after_enrollment',
+                'sort_order',
             ]),
         ]);
 
-        // Build ordered flat list of lessons for prev/next navigation
         $allLessons = collect();
         foreach ($course->modules as $module) {
-            foreach ($module->lessons as $l) {
+            foreach ($module->lessons as $courseLesson) {
                 $allLessons->push([
-                    'id'              => $l->id,
-                    'title'           => $l->title,
-                    'slug'            => $l->slug,
-                    'module_title'    => $module->title,
-                    'content_type'    => $l->content_type,
-                    'duration_minutes' => $l->duration_minutes,
-                    'is_free_preview' => $l->is_free_preview,
+                    'id'                => $courseLesson->id,
+                    'title'             => $courseLesson->title,
+                    'slug'              => $courseLesson->slug,
+                    'module_title'      => $module->title,
+                    'content_type'      => $courseLesson->content_type,
+                    'duration_minutes'  => $courseLesson->duration_minutes,
+                    'is_free_preview'   => $courseLesson->is_free_preview,
+                    'can_access'        => $this->canAccessLesson($courseLesson, $enrollment),
+                    'is_locked'         => ! $this->canAccessLesson($courseLesson, $enrollment),
+                    'availability_label' => $this->availabilityLabel($courseLesson, $enrollment),
                 ]);
             }
         }
 
-        $currentIndex = $allLessons->search(fn ($l) => $l['id'] === $lesson->id);
+        $currentIndex = $allLessons->search(fn ($item) => $item['id'] === $lesson->id);
         $prevLesson = $currentIndex > 0 ? $allLessons[$currentIndex - 1] : null;
         $nextLesson = $currentIndex < $allLessons->count() - 1 ? $allLessons[$currentIndex + 1] : null;
 
-        // Get or create lesson progress
         $progress = LessonProgress::firstOrCreate(
             ['user_id' => $user->id, 'lesson_id' => $lesson->id],
             ['status' => 'not_started', 'progress_pct' => 0]
         );
 
-        // Mark as in_progress if not_started
         if ($progress->status === 'not_started') {
             $progress->update(['status' => 'in_progress']);
+            $progress->refresh();
         }
 
-        // Get user notes for this lesson
         $notes = $user->notes()
             ->where('lesson_id', $lesson->id)
             ->orderBy('created_at', 'desc')
             ->get();
 
-        // Check bookmark status
         $isBookmarked = $user->bookmarks()
             ->where('bookmarkable_type', Lesson::class)
             ->where('bookmarkable_id', $lesson->id)
             ->exists();
 
-        // Get lesson progress for all lessons (for sidebar)
         $lessonProgressMap = LessonProgress::where('user_id', $user->id)
             ->whereIn('lesson_id', $allLessons->pluck('id'))
             ->get()
             ->keyBy('lesson_id')
-            ->map(fn ($p) => [
-                'status'       => $p->status,
-                'progress_pct' => $p->progress_pct,
+            ->map(fn ($item) => [
+                'status'       => $item->status,
+                'progress_pct' => $item->progress_pct,
             ]);
+
+        $scormProgress = ScormProgress::where('user_id', $user->id)
+            ->where('lesson_id', $lesson->id)
+            ->first();
 
         return Inertia::render('Lessons/Show', [
             'course'        => [
@@ -99,24 +126,33 @@ class LessonController extends Controller
                 'slug'  => $course->slug,
             ],
             'lesson'        => [
-                'id'                    => $lesson->id,
-                'title'                 => $lesson->title,
-                'slug'                  => $lesson->slug,
-                'content_type'          => $lesson->content_type,
-                'text_content'          => $lesson->text_content,
-                'summary'               => $lesson->summary,
-                'key_terms'             => $lesson->key_terms ?? [],
-                'video_url'             => $lesson->video_url,
+                'id'                     => $lesson->id,
+                'title'                  => $lesson->title,
+                'slug'                   => $lesson->slug,
+                'content_type'           => $lesson->content_type,
+                'text_content'           => $lesson->text_content,
+                'summary'                => $lesson->summary,
+                'key_terms'              => $lesson->key_terms ?? [],
+                'video_url'              => $lesson->video_url,
                 'video_duration_seconds' => $lesson->video_duration_seconds,
-                'video_transcript'      => $lesson->video_transcript,
-                'video_chapters'        => $lesson->video_chapters ?? [],
-                'audio_url'             => $lesson->audio_url,
+                'video_transcript'       => $lesson->video_transcript,
+                'video_chapters'         => $lesson->video_chapters ?? [],
+                'audio_url'              => $lesson->audio_url,
                 'audio_duration_seconds' => $lesson->audio_duration_seconds,
-                'pdf_url'               => $lesson->pdf_url,
-                'slides_url'            => $lesson->slides_url,
-                'duration_minutes'      => $lesson->duration_minutes,
-                'is_downloadable'       => $lesson->is_downloadable,
-                'module_title'          => $lesson->module->title,
+                'pdf_url'                => $lesson->pdf_url,
+                'slides_url'             => $lesson->slides_url,
+                'scorm_path'             => $lesson->scorm_path,
+                'scorm_version'          => $lesson->scorm_version,
+                'scorm_progress'         => $scormProgress ? [
+                    'lesson_status'   => $scormProgress->cmi_core_lesson_status,
+                    'score_raw'       => $scormProgress->cmi_core_score_raw,
+                    'lesson_location' => $scormProgress->cmi_core_lesson_location,
+                    'suspend_data'    => $scormProgress->suspend_data,
+                ] : null,
+                'duration_minutes'       => $lesson->duration_minutes,
+                'is_downloadable'        => $lesson->is_downloadable,
+                'module_title'           => $lesson->module->title,
+                'availability_label'     => $lesson->availabilityLabel($enrollment),
             ],
             'progress'       => $progress,
             'notes'          => $notes,
@@ -126,15 +162,20 @@ class LessonController extends Controller
             'prevLesson'     => $prevLesson,
             'nextLesson'     => $nextLesson,
             'lessonProgress' => $lessonProgressMap,
-            'modules'        => $course->modules->map(fn ($m) => [
-                'id'     => $m->id,
-                'title'  => $m->title,
-                'lessons' => $m->lessons->map(fn ($l) => [
-                    'id'    => $l->id,
-                    'title' => $l->title,
-                    'slug'  => $l->slug,
-                ]),
-            ]),
+            'modules'        => $course->modules->map(function ($module) use ($enrollment) {
+                return [
+                    'id'      => $module->id,
+                    'title'   => $module->title,
+                    'lessons' => $module->lessons->map(fn ($courseLesson) => [
+                        'id'                => $courseLesson->id,
+                        'title'             => $courseLesson->title,
+                        'slug'              => $courseLesson->slug,
+                        'can_access'        => $this->canAccessLesson($courseLesson, $enrollment),
+                        'is_locked'         => ! $this->canAccessLesson($courseLesson, $enrollment),
+                        'availability_label' => $this->availabilityLabel($courseLesson, $enrollment),
+                    ]),
+                ];
+            }),
         ]);
     }
 
@@ -144,23 +185,19 @@ class LessonController extends Controller
     public function updateProgress(Request $request, Lesson $lesson)
     {
         $validated = $request->validate([
-            'progress_pct'      => 'sometimes|integer|min:0|max:100',
+            'progress_pct'       => 'sometimes|integer|min:0|max:100',
             'video_position_sec' => 'sometimes|integer|min:0',
             'time_spent_seconds' => 'sometimes|integer|min:0',
         ]);
 
-        $progress = LessonProgress::updateOrCreate(
+        LessonProgress::updateOrCreate(
             [
                 'user_id'   => Auth::id(),
                 'lesson_id' => $lesson->id,
             ],
-            array_merge(
-                ['status' => 'in_progress'],
-                $validated
-            )
+            array_merge(['status' => 'in_progress'], $validated)
         );
 
-        // Recalculate course progress
         $this->recalculateCourseProgress($lesson);
 
         return back()->with('success', 'Progress updated.');
@@ -171,7 +208,7 @@ class LessonController extends Controller
      */
     public function complete(Lesson $lesson)
     {
-        $progress = LessonProgress::updateOrCreate(
+        LessonProgress::updateOrCreate(
             [
                 'user_id'   => Auth::id(),
                 'lesson_id' => $lesson->id,
@@ -183,10 +220,9 @@ class LessonController extends Controller
             ]
         );
 
-        // Recalculate course progress
         $this->recalculateCourseProgress($lesson);
 
-        return back()->with('success', 'Lesson completed! 🎉');
+        return back()->with('success', 'Lesson completed.');
     }
 
     /**
@@ -202,6 +238,7 @@ class LessonController extends Controller
 
         if ($existing) {
             $existing->delete();
+
             return back()->with('success', 'Bookmark removed.');
         }
 
@@ -210,7 +247,7 @@ class LessonController extends Controller
             'bookmarkable_id'   => $lesson->id,
         ]);
 
-        return back()->with('success', 'Lesson bookmarked!');
+        return back()->with('success', 'Lesson bookmarked.');
     }
 
     /**
@@ -230,22 +267,53 @@ class LessonController extends Controller
             return back()->with('error', 'File not available for download.');
         }
 
-        // If it's an S3 URL, generate a signed URL
         if (str_starts_with($url, 's3://') || str_starts_with($url, 'uploads/')) {
-            $signedUrl = Storage::temporaryUrl(
-                $url,
-                now()->addMinutes(30)
-            );
+            $signedUrl = Storage::temporaryUrl($url, now()->addMinutes(30));
+
             return Inertia::location($signedUrl);
         }
 
-        // External URL — redirect directly
         return Inertia::location($url);
     }
 
     /**
-     * Recalculate course progress from individual lesson progress.
+     * Create flashcards from lesson key terms.
      */
+    public function createFlashcards(Lesson $lesson)
+    {
+        $user = Auth::user();
+        $lesson->loadMissing('module.course');
+
+        $course = $lesson->module->course;
+        $enrollment = $course->enrollmentFor($user);
+        $canPreview = $lesson->is_free_preview && $lesson->isUnlockedFor($enrollment);
+
+        if (! $enrollment && ! $canPreview) {
+            return back()->with('error', 'Please enroll in this course to create flashcards.');
+        }
+
+        if ($enrollment && ! $this->enrollmentAllowsAccess($enrollment) && ! $canPreview) {
+            return back()->with('error', 'Your enrollment is not active for this course.');
+        }
+
+        if (! $lesson->isUnlockedFor($enrollment)) {
+            return back()->with('error', $lesson->availabilityLabel($enrollment) ?? 'This lesson is not yet available.');
+        }
+
+        $keyTerms = $lesson->key_terms ?? [];
+        if (! is_array($keyTerms) || empty($keyTerms)) {
+            return back()->with('error', 'No key terms are available for this lesson.');
+        }
+
+        $cards = Flashcard::createFromKeyTerms($lesson, $keyTerms, $user->id);
+
+        foreach ($cards as $card) {
+            SpacedRepetitionItem::ensureExists($user->id, Flashcard::class, $card->id);
+        }
+
+        return back()->with('success', sprintf('Added %d flashcards to your review deck.', count($cards)));
+    }
+
     private function recalculateCourseProgress(Lesson $lesson): void
     {
         $module = $lesson->module;
@@ -254,6 +322,9 @@ class LessonController extends Controller
 
         $enrollment = $course->enrollmentFor($user);
         if (! $enrollment) {
+            return;
+        }
+        if (! $this->enrollmentAllowsAccess($enrollment)) {
             return;
         }
 
@@ -274,5 +345,29 @@ class LessonController extends Controller
             'status'       => $progressPct >= 100 ? 'completed' : 'active',
             'completed_at' => $progressPct >= 100 ? now() : null,
         ]);
+    }
+
+    private function canAccessLesson(Lesson $lesson, $enrollment): bool
+    {
+        $canEnroll = $enrollment !== null && $this->enrollmentAllowsAccess($enrollment);
+        return ($canEnroll || $lesson->is_free_preview) && $lesson->isUnlockedFor($enrollment);
+    }
+
+    private function availabilityLabel(Lesson $lesson, $enrollment): ?string
+    {
+        if ($enrollment !== null && ! $this->enrollmentAllowsAccess($enrollment)) {
+            return $enrollment->status === 'suspended' ? 'Enrollment paused' : 'Enrollment expired';
+        }
+
+        if ($enrollment === null && ! $lesson->is_free_preview) {
+            return 'Enroll to unlock';
+        }
+
+        return $lesson->availabilityLabel($enrollment);
+    }
+
+    private function enrollmentAllowsAccess($enrollment): bool
+    {
+        return in_array($enrollment->status, ['active', 'completed'], true);
     }
 }

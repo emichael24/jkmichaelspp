@@ -33,7 +33,7 @@
                             <div class="flex items-start justify-between gap-2">
                                 <div>
                                     <h3 class="font-semibold text-surface-900">{{ meeting.title }}</h3>
-                                    <p class="text-sm text-surface-500 mt-0.5">{{ meeting.time }} · {{ meeting.duration }} min</p>
+                                    <p class="text-sm text-surface-500 mt-0.5">{{ meeting.time }} - {{ meeting.duration }} min</p>
                                 </div>
                                 <span :class="['px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase shrink-0', platformBadge(meeting.platform)]">
                                     {{ platformLabel(meeting.platform) }}
@@ -90,14 +90,14 @@
                         </div>
                         <div class="flex-1 min-w-0">
                             <p class="font-medium text-surface-800 truncate">{{ meeting.title }}</p>
-                            <p class="text-xs text-surface-500">{{ meeting.date }} · {{ meeting.time }} · {{ meeting.attendees.length }} attendees</p>
+                            <p class="text-xs text-surface-500">{{ meeting.date }} - {{ meeting.time }} - {{ meeting.attendees.length }} attendees</p>
                         </div>
                         <div class="flex items-center gap-2">
                             <button v-if="meeting.status !== 'completed'" @click="editNotes = meeting" class="px-3 py-1.5 text-xs font-medium bg-accent-50 text-accent-700 rounded-lg hover:bg-accent-100 transition-colors">
                                 Add Notes
                             </button>
                             <span v-if="meeting.notes" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-success-50 text-success-700">
-                                Notes ✓
+                                Notes ?
                             </span>
                             <span v-if="meeting.action_items?.length" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary-50 text-primary-700">
                                 {{ meeting.action_items.length }} actions
@@ -108,7 +108,7 @@
             </div>
         </div>
 
-        <!-- ═══ Schedule Meeting Modal ═══ -->
+        <!-- --- Schedule Meeting Modal --- -->
         <div v-if="showScheduleModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/50" @click="showScheduleModal = false" />
             <div class="relative w-full max-w-lg bg-white rounded-2xl shadow-xl max-h-[85vh] overflow-y-auto">
@@ -156,8 +156,7 @@
                                     <option value="zoom">Zoom</option>
                                     <option value="teams">Microsoft Teams</option>
                                     <option value="google_meet">Google Meet</option>
-                                    <option value="in_person">In Person</option>
-                                    <option value="other">Other</option>
+                                    <option value="other">In Person / Other</option>
                                 </select>
                             </div>
                             <div>
@@ -199,7 +198,7 @@
             </div>
         </div>
 
-        <!-- ═══ Meeting Details / Notes Modal ═══ -->
+        <!-- --- Meeting Details / Notes Modal --- -->
         <div v-if="viewDetails || editNotes" class="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/50" @click="viewDetails = null; editNotes = null" />
             <div class="relative w-full max-w-lg bg-white rounded-2xl shadow-xl max-h-[85vh] overflow-y-auto">
@@ -348,7 +347,6 @@ function platformBadge(platform) {
         zoom: 'bg-blue-50 text-blue-700',
         teams: 'bg-indigo-50 text-indigo-700',
         google_meet: 'bg-success-50 text-success-700',
-        in_person: 'bg-warning-50 text-warning-700',
         other: 'bg-surface-100 text-surface-600',
     };
     return map[platform] || map.other;
@@ -359,7 +357,6 @@ function platformLabel(platform) {
         zoom: 'Zoom',
         teams: 'Teams',
         google_meet: 'Google Meet',
-        in_person: 'In Person',
         other: 'Other',
     };
     return map[platform] || platform;

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { useForm, usePage } from '@inertiajs/vue3';
-import { Star, ThumbsUp, User } from 'lucide-vue-next';
+import { router, useForm, usePage } from '@inertiajs/vue3';
+import { Star, User, Trash2 } from 'lucide-vue-next';
 
 const props = defineProps({
     courseId: { type: Number, required: true },
@@ -10,6 +10,7 @@ const props = defineProps({
     reviews: { type: Array, default: () => [] },
     userRating: { type: Object, default: null },
     totalRatings: { type: Number, default: 0 },
+    canRate: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['rated']);
@@ -17,14 +18,27 @@ const showForm = ref(false);
 const hoverStar = ref(0);
 
 const form = useForm({
+    course_id: props.courseId,
     rating: props.userRating?.rating || 0,
     review: props.userRating?.review || '',
 });
 
 function submitRating() {
-    form.post(route('course-ratings.store', props.courseId), {
+    form.post(route('course-ratings.store'), {
         preserveScroll: true,
         onSuccess: () => { showForm.value = false; emit('rated'); },
+    });
+}
+
+function removeRating() {
+    router.delete(route('course-ratings.destroy', props.courseId), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showForm.value = false;
+            form.rating = 0;
+            form.review = '';
+            form.course_id = props.courseId;
+        },
     });
 }
 
@@ -65,14 +79,23 @@ function timeAgo(date) {
         </div>
 
         <!-- Rate Button -->
-        <div v-if="auth?.user">
+        <div v-if="auth?.user && props.canRate" class="flex items-center gap-2">
             <button v-if="!showForm && !userRating" @click="showForm = true" class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition">
                 Rate This Course
             </button>
             <button v-else-if="!showForm && userRating" @click="showForm = true" class="px-4 py-2 bg-surface-100 text-surface-700 rounded-lg text-sm font-medium hover:bg-surface-200 transition">
                 Update Your Rating
             </button>
+            <button
+                v-if="userRating"
+                @click="removeRating"
+                class="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-danger-600 bg-danger-50 rounded-lg hover:bg-danger-100 transition"
+            >
+                <Trash2 class="w-4 h-4" />
+                Remove
+            </button>
         </div>
+        <p v-else-if="auth?.user" class="text-sm text-surface-500">Enroll in the course to leave a rating.</p>
 
         <!-- Rating Form -->
         <div v-if="showForm" class="bg-surface-50 rounded-xl p-4">

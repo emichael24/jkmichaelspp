@@ -45,7 +45,7 @@ async function syncNow() {
 }
 
 function formatSize(bytes) {
-    if (!bytes) return '—';
+    if (!bytes) return '-';
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / 1048576).toFixed(1) + ' MB';
@@ -118,7 +118,7 @@ function formatDate(ts) {
                         </div>
                         <div>
                             <p class="font-medium text-surface-900">{{ lesson.title || `Lesson #${lesson.lessonId}` }}</p>
-                            <p class="text-xs text-surface-500">Downloaded {{ formatDate(lesson.downloadedAt) }} · {{ formatSize(lesson.size) }}</p>
+                            <p class="text-xs text-surface-500">Downloaded {{ formatDate(lesson.downloadedAt) }} - {{ formatSize(lesson.size) }}</p>
                         </div>
                     </div>
                     <button @click="removeDownload(lesson.lessonId)" class="p-2 rounded-lg hover:bg-error-50">

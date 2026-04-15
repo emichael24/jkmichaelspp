@@ -38,8 +38,8 @@ class DashboardController extends Controller
         $completionRate = $totalEnrollments > 0 ? round(($completedEnrollments / $totalEnrollments) * 100, 1) : 0;
 
         // Revenue metrics
-        $totalRevenue = Payment::where('status', 'successful')->sum('amount');
-        $monthlyRevenue = Payment::where('status', 'successful')
+        $totalRevenue = Payment::where('status', 'success')->sum('amount');
+        $monthlyRevenue = Payment::where('status', 'success')
             ->where('created_at', '>=', $thirtyDaysAgo)
             ->sum('amount');
 

@@ -64,6 +64,53 @@ class PaymentWebhookController extends Controller
                 }
                 return response()->json(['status' => 'ok']);
             }
+
+            $subscriptionCode = $payload['data']['subscription']['subscription_code'] ?? $payload['data']['subscription_code'] ?? null;
+            if ($subscriptionCode) {
+                \App\Models\Subscription::where('payment_provider', 'paystack')
+                    ->where('payment_provider_id', $subscriptionCode)
+                    ->update([
+                        'status' => 'active',
+                        'ends_at' => null,
+                        'canceled_at' => null,
+                        'cancels_at' => null,
+                    ]);
+            }
+        }
+        if ($event === 'invoice.payment_failed') {
+            $subscriptionCode = $payload['data']['subscription']['subscription_code'] ?? $payload['data']['subscription_code'] ?? null;
+            if ($subscriptionCode) {
+                \App\Models\Subscription::where('payment_provider', 'paystack')
+                    ->where('payment_provider_id', $subscriptionCode)
+                    ->update([
+                        'status' => 'past_due',
+                    ]);
+            }
+        }
+        if (in_array($event, ['subscription.disable', 'subscription.not_renew'], true)) {
+            $subscriptionCode = $payload['data']['subscription_code'] ?? null;
+            if ($subscriptionCode) {
+                \App\Models\Subscription::where('payment_provider', 'paystack')
+                    ->where('payment_provider_id', $subscriptionCode)
+                    ->update([
+                        'status' => 'canceled',
+                        'canceled_at' => now(),
+                        'ends_at' => now(),
+                    ]);
+            }
+        }
+        if (in_array($event, ['subscription.create', 'subscription.enable'], true)) {
+            $subscriptionCode = $payload['data']['subscription_code'] ?? null;
+            if ($subscriptionCode) {
+                \App\Models\Subscription::where('payment_provider', 'paystack')
+                    ->where('payment_provider_id', $subscriptionCode)
+                    ->update([
+                        'status' => 'active',
+                        'ends_at' => null,
+                        'canceled_at' => null,
+                        'cancels_at' => null,
+                    ]);
+            }
         }
         if ($event === 'charge.success') {
             $success = $this->paymentService->verifyPaystackWebhook($payload);

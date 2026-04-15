@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Certificate;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class CertificateController extends Controller
@@ -51,18 +52,25 @@ class CertificateController extends Controller
         ]);
     }
 
-    /**
-     * Download PDF (placeholder).
-     */
     public function download(string $uuid)
     {
-        $certificate = Certificate::where('uuid', $uuid)->firstOrFail();
+        $certificate = Certificate::where('uuid', $uuid)
+            ->with(['user', 'certifiable'])
+            ->firstOrFail();
 
         if ($certificate->user_id !== auth()->id() && !auth()->user()->hasRole('platform_admin')) {
             abort(403);
         }
 
-        // In production, this would stream the actual PDF from storage
-        return back()->with('info', 'PDF download will be available when storage is configured.');
+        $html = view('certificates.download', [
+            'certificate' => $certificate,
+            'verifyUrl'   => route('certificates.verify', $certificate->uuid),
+        ])->render();
+
+        return response()->streamDownload(function () use ($html) {
+            echo $html;
+        }, Str::slug($certificate->title) . '-certificate.html', [
+            'Content-Type' => 'text/html; charset=UTF-8',
+        ]);
     }
 }

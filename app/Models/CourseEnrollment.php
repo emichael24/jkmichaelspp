@@ -46,4 +46,9 @@ class CourseEnrollment extends Model
     {
         return $query->where('status', 'completed');
     }
+
+    public function allowsAccess(): bool
+    {
+        return in_array($this->status, ['active', 'completed'], true);
+    }
 }

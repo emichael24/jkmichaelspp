@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\CarbonInterface;
 use Illuminate\Support\Str;
 
 class Lesson extends Model
@@ -34,6 +35,9 @@ class Lesson extends Model
         'is_free_preview',
         'is_published',
         'is_downloadable',
+        'unlock_type',
+        'unlock_at',
+        'unlock_days_after_enrollment',
         'version',
     ];
 
@@ -49,6 +53,8 @@ class Lesson extends Model
             'is_free_preview'        => 'boolean',
             'is_published'           => 'boolean',
             'is_downloadable'        => 'boolean',
+            'unlock_at'              => 'datetime',
+            'unlock_days_after_enrollment' => 'integer',
             'version'                => 'integer',
         ];
     }
@@ -103,6 +109,47 @@ class Lesson extends Model
     public function progressFor(User $user): ?LessonProgress
     {
         return $this->progress()->where('user_id', $user->id)->first();
+    }
+
+    public function availableFrom(?CourseEnrollment $enrollment = null): ?CarbonInterface
+    {
+        return match ($this->unlock_type ?: 'immediate') {
+            'date' => $this->unlock_at,
+            'days_after_enrollment' => $enrollment?->enrolled_at?->copy()->addDays($this->unlock_days_after_enrollment ?? 0),
+            default => null,
+        };
+    }
+
+    public function isUnlockedFor(?CourseEnrollment $enrollment = null): bool
+    {
+        $unlockType = $this->unlock_type ?: 'immediate';
+
+        if ($unlockType === 'immediate') {
+            return true;
+        }
+
+        $availableFrom = $this->availableFrom($enrollment);
+
+        return $availableFrom !== null && now()->greaterThanOrEqualTo($availableFrom);
+    }
+
+    public function availabilityLabel(?CourseEnrollment $enrollment = null): ?string
+    {
+        if ($this->isUnlockedFor($enrollment)) {
+            return null;
+        }
+
+        $availableFrom = $this->availableFrom($enrollment);
+
+        if ($availableFrom === null) {
+            return $this->unlock_type === 'days_after_enrollment'
+                ? 'Available after enrollment'
+                : 'Availability to be announced';
+        }
+
+        return 'Available ' . $availableFrom->diffForHumans(now(), [
+            'syntax' => CarbonInterface::DIFF_RELATIVE_TO_NOW,
+        ]);
     }
 
     protected static function booted(): void

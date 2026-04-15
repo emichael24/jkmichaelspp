@@ -16,11 +16,19 @@ trait HasSubscriptions
     public function activeSubscription()
     {
         return $this->subscriptions()
+            ->whereIn('status', ['active', 'trialing'])
             ->where(function ($query) {
-                $query->whereNull('ends_at')
-                      ->orWhere('ends_at', '>', now());
+                $query->where(function ($activeQuery) {
+                    $activeQuery->where('status', 'active')
+                        ->where(function ($dateQuery) {
+                            $dateQuery->whereNull('ends_at')
+                                ->orWhere('ends_at', '>', now());
+                        });
+                })->orWhere(function ($trialQuery) {
+                    $trialQuery->where('status', 'trialing')
+                        ->where('trial_ends_at', '>', now());
+                });
             })
-            ->where('status', 'active')
             ->latest('id')
             ->first();
     }
@@ -55,20 +63,37 @@ trait HasSubscriptions
     public function subscribeTo(Plan $plan, $paymentProvider = null, $paymentProviderId = null)
     {
         // Cancel existing active subscriptions
-        $this->subscriptions()->where('status', 'active')->update([
+        $this->subscriptions()->whereIn('status', ['active', 'trialing'])->update([
             'status' => 'canceled',
             'canceled_at' => now(),
             'ends_at' => now(), // Or end of cycle
         ]);
+
+        $hasTrial = (int) $plan->trial_period_days > 0;
+        $startsAt = now();
+        $trialEndsAt = $hasTrial ? $startsAt->copy()->addDays((int) $plan->trial_period_days) : null;
+        $endsAt = $trialEndsAt
+            ? $this->resolveCycleEnd($plan, $trialEndsAt)
+            : $this->resolveCycleEnd($plan, $startsAt);
 
         return $this->subscriptions()->create([
             'plan_id' => $plan->id,
             'name' => $plan->name,
             'payment_provider' => $paymentProvider,
             'payment_provider_id' => $paymentProviderId,
-            'status' => 'active',
-            'starts_at' => now(),
-            'ends_at' => $plan->billing_period === 'year' ? now()->addYear() : now()->addMonth(),
+            'status' => $hasTrial ? 'trialing' : 'active',
+            'trial_ends_at' => $trialEndsAt,
+            'starts_at' => $startsAt,
+            'ends_at' => $endsAt,
         ]);
+    }
+
+    private function resolveCycleEnd(Plan $plan, $anchor)
+    {
+        $interval = max((int) ($plan->billing_interval ?? 1), 1);
+
+        return $plan->billing_period === 'year'
+            ? $anchor->copy()->addYears($interval)
+            : $anchor->copy()->addMonths($interval);
     }
 }

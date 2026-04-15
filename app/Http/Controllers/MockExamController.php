@@ -7,6 +7,7 @@ use App\Models\MockExam;
 use App\Models\Question;
 use App\Models\QuestionResponse;
 use App\Models\QuizAttempt;
+use App\Models\Lesson;
 use App\Services\SpacedRepetitionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -208,6 +209,9 @@ class MockExamController extends Controller
         // Confidence analysis
         $confidenceAnalysis = $this->buildConfidenceAnalysis($review);
 
+        // Weakness clusters
+        $weaknessClusters = $this->buildWeaknessClusters($review);
+
         return Inertia::render('MockExams/Report', [
             'attempt' => [
                 'id'                 => $attempt->id,
@@ -227,6 +231,7 @@ class MockExamController extends Controller
             'improvementPlan'    => $improvementPlan,
             'timeAnalysis'       => $timeAnalysis,
             'confidenceAnalysis' => $confidenceAnalysis,
+            'weaknessClusters'   => $weaknessClusters,
         ]);
     }
 
@@ -408,6 +413,89 @@ class MockExamController extends Controller
             'underconfident'  => $underconfident,
             'mismatch_count'  => $mismatch->count(),
             'by_confidence'   => $byConfidence,
+        ];
+    }
+
+    /**
+     * Build weakness clusters (domain/subtopic/difficulty) with lesson recommendations.
+     */
+    private function buildWeaknessClusters(array $review): array
+    {
+        $items = collect($review);
+        if ($items->isEmpty()) {
+            return [
+                'clusters' => [],
+                'difficulty_breakdown' => [],
+            ];
+        }
+
+        $lessonIds = $items->whereNotNull('linked_lesson_id')
+            ->pluck('linked_lesson_id')
+            ->unique()
+            ->values();
+
+        $lessons = Lesson::whereIn('id', $lessonIds)
+            ->get(['id', 'title', 'slug'])
+            ->keyBy('id');
+
+        $groups = $items->groupBy(function ($r) {
+            $domain = $r['domain'] ?: 'General';
+            $subtopic = $r['subtopic'] ?: 'Core';
+            return $domain . '|' . $subtopic;
+        });
+
+        $clusters = $groups->map(function ($group, $key) use ($lessons) {
+            [$domain, $subtopic] = explode('|', $key, 2);
+            $total = $group->count();
+            $wrong = $group->where('is_correct', false)->count();
+            $accuracy = $total > 0 ? round((($total - $wrong) / $total) * 100) : 0;
+
+            $difficultyBreakdown = $group->groupBy(fn ($r) => $r['difficulty'] ?: 'unspecified')
+                ->map(fn ($items, $difficulty) => [
+                    'difficulty' => $difficulty,
+                    'wrong'      => $items->where('is_correct', false)->count(),
+                    'total'      => $items->count(),
+                ])->values()->toArray();
+
+            $lessonRecommendations = $group->where('is_correct', false)
+                ->pluck('linked_lesson_id')
+                ->filter()
+                ->unique()
+                ->map(fn ($id) => $lessons->get($id))
+                ->filter()
+                ->take(3)
+                ->map(fn ($lesson) => [
+                    'id'    => $lesson->id,
+                    'title' => $lesson->title,
+                    'slug'  => $lesson->slug,
+                ])->values()->toArray();
+
+            return [
+                'domain'       => $domain,
+                'subtopic'     => $subtopic,
+                'wrong_count'  => $wrong,
+                'total_count'  => $total,
+                'accuracy_pct' => $accuracy,
+                'difficulty_breakdown' => $difficultyBreakdown,
+                'lessons'      => $lessonRecommendations,
+            ];
+        })->values();
+
+        $clusters = $clusters->sortByDesc('wrong_count')->values()->take(6);
+
+        $difficultySummary = $items->groupBy(fn ($r) => $r['difficulty'] ?: 'unspecified')
+            ->map(fn ($group, $difficulty) => [
+                'difficulty' => $difficulty,
+                'wrong'      => $group->where('is_correct', false)->count(),
+                'total'      => $group->count(),
+                'accuracy_pct' => $group->count() > 0
+                    ? round($group->where('is_correct', true)->count() / $group->count() * 100)
+                    : 0,
+            ])->values()->toArray();
+
+        return [
+            'clusters' => $clusters,
+            'difficulty_breakdown' => $difficultySummary,
         ];
     }
 

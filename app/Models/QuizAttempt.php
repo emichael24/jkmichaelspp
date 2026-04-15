@@ -146,6 +146,8 @@ class QuizAttempt extends Model
                 'time_spent_seconds'   => $r->time_spent_seconds,
                 'is_flagged'           => $r->is_flagged,
                 'domain'               => $r->question->domain,
+                'subtopic'             => $r->question->subtopic,
+                'difficulty'           => $r->question->difficulty,
             ])
             ->toArray();
     }

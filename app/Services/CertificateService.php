@@ -13,18 +13,19 @@ class CertificateService
      */
     public function issue(User $user, $certifiable, array $metadata = []): Certificate
     {
+        $uuid = (string) Str::uuid();
         $title = $this->resolveTitle($certifiable);
 
         return Certificate::create([
-            'uuid'               => (string) Str::uuid(),
+            'uuid'               => $uuid,
             'user_id'            => $user->id,
             'certifiable_type'   => get_class($certifiable),
             'certifiable_id'     => $certifiable->id,
             'title'              => $title,
             'certificate_number' => $this->generateNumber(),
             'issued_at'          => now(),
-            'pdf_url'            => $this->generatePdfUrl($user, $title),
-            'qr_code_url'        => $this->generateQrCodeUrl(),
+            'pdf_url'            => $this->generatePdfUrl($uuid),
+            'qr_code_url'        => $this->generateQrCodeUrl($uuid),
             'metadata'           => $metadata,
         ]);
     }
@@ -38,15 +39,13 @@ class CertificateService
             return null;
         }
 
-        // All tasks must be done or approved
-        $totalTasks  = $enrollment->tasks()->count();
-        $doneTasks   = $enrollment->tasks()->whereIn('status', ['done', 'approved'])->count();
+        $totalTasks = $enrollment->tasks()->count();
+        $doneTasks = $enrollment->tasks()->whereIn('status', ['done', 'approved'])->count();
 
         if ($totalTasks === 0 || $doneTasks < $totalTasks) {
             return null;
         }
 
-        // Already has certificate?
         $existing = Certificate::where('certifiable_type', get_class($enrollment->track))
             ->where('certifiable_id', $enrollment->track->id)
             ->where('user_id', $enrollment->user_id)
@@ -56,7 +55,6 @@ class CertificateService
             return null;
         }
 
-        // Mark enrollment completed
         $enrollment->update([
             'status'       => 'completed',
             'completed_at' => now(),
@@ -87,25 +85,19 @@ class CertificateService
     private function resolveTitle($certifiable): string
     {
         if (method_exists($certifiable, 'getTitle')) {
-            return 'Certificate of Completion — ' . $certifiable->getTitle();
+            return 'Certificate of Completion - ' . $certifiable->getTitle();
         }
 
-        return 'Certificate of Completion — ' . ($certifiable->title ?? $certifiable->name ?? 'Program');
+        return 'Certificate of Completion - ' . ($certifiable->title ?? $certifiable->name ?? 'Program');
     }
 
-    /**
-     * Generate a placeholder PDF URL (real implementation would render a PDF).
-     */
-    private function generatePdfUrl(User $user, string $title): string
+    private function generatePdfUrl(string $uuid): string
     {
-        return 'certificates/' . Str::slug($title) . '-' . $user->id . '-' . time() . '.pdf';
+        return url("/certificates/{$uuid}/download");
     }
 
-    /**
-     * Generate a placeholder QR code URL.
-     */
-    private function generateQrCodeUrl(): string
+    private function generateQrCodeUrl(string $uuid): string
     {
-        return 'certificates/qr/' . Str::uuid() . '.png';
+        return route('certificates.verify', $uuid);
     }
 }

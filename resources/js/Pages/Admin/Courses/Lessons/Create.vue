@@ -1,29 +1,27 @@
 <template>
     <Head :title="`Add Lesson to ${module.title}`" />
 
-    <div class="max-w-4xl mx-auto space-y-6">
-        <!-- Header -->
+    <div class="mx-auto max-w-4xl space-y-6">
         <div class="flex items-center gap-3">
-            <Link :href="`/admin/courses/${course.id}/edit`" class="p-2 rounded-lg hover:bg-surface-100 transition-colors">
-                <ArrowLeft class="w-5 h-5 text-surface-400" />
+            <Link :href="`/admin/courses/${course.id}/edit`" class="rounded-lg p-2 transition-colors hover:bg-surface-100">
+                <ArrowLeft class="h-5 w-5 text-surface-400" />
             </Link>
             <div>
-                <p class="text-sm text-surface-400">{{ course.title }} → {{ module.title }}</p>
-                <h1 class="text-2xl font-display font-bold text-surface-900">Add Lesson</h1>
+                <p class="text-sm text-surface-400">{{ course.title }} -> {{ module.title }}</p>
+                <h1 class="text-2xl font-bold text-surface-900">Add Lesson</h1>
             </div>
         </div>
 
-        <form @submit.prevent="submit" class="space-y-6">
-            <!-- Basic Info -->
-            <div class="bg-white rounded-2xl border border-surface-200/60 shadow-sm p-6">
-                <h2 class="text-lg font-semibold text-surface-900 mb-5">Lesson Details</h2>
+        <form class="space-y-6" @submit.prevent="submit">
+            <div class="rounded-2xl border border-surface-200/60 bg-white p-6 shadow-sm">
+                <h2 class="mb-5 text-lg font-semibold text-surface-900">Lesson Details</h2>
                 <div class="grid gap-5">
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Title *</label>
+                        <label class="mb-1.5 block text-sm font-medium text-surface-700">Title *</label>
                         <Input v-model="form.title" placeholder="Lesson title" :error="form.errors.title" />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Content Type *</label>
+                        <label class="mb-1.5 block text-sm font-medium text-surface-700">Content Type *</label>
                         <select v-model="form.content_type" class="w-full rounded-xl border-surface-200 text-sm">
                             <option value="text">Text / Article</option>
                             <option value="video">Video</option>
@@ -34,7 +32,7 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Duration (minutes)</label>
+                        <label class="mb-1.5 block text-sm font-medium text-surface-700">Duration (minutes)</label>
                         <Input v-model="form.duration_minutes" type="number" min="0" placeholder="Estimated time" />
                     </div>
                     <div class="flex items-center gap-6">
@@ -50,59 +48,97 @@
                 </div>
             </div>
 
-            <!-- Text Content -->
-            <div class="bg-white rounded-2xl border border-surface-200/60 shadow-sm p-6">
-                <h2 class="text-lg font-semibold text-surface-900 mb-5">Content</h2>
+            <div class="rounded-2xl border border-surface-200/60 bg-white p-6 shadow-sm">
+                <h2 class="mb-5 text-lg font-semibold text-surface-900">Content</h2>
                 <div class="grid gap-5">
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Summary</label>
-                        <textarea v-model="form.summary" rows="3" class="w-full rounded-xl border-surface-200 focus:border-primary-500 focus:ring-primary-500 text-sm" placeholder="Brief summary of this lesson" />
+                        <label class="mb-1.5 block text-sm font-medium text-surface-700">Summary</label>
+                        <textarea v-model="form.summary" rows="3" class="w-full rounded-xl border-surface-200 text-sm focus:border-primary-500 focus:ring-primary-500" placeholder="Brief summary of this lesson" />
                     </div>
                     <div v-if="['text', 'mixed'].includes(form.content_type)">
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Text Content</label>
-                        <textarea v-model="form.text_content" rows="12" class="w-full rounded-xl border-surface-200 focus:border-primary-500 focus:ring-primary-500 text-sm font-mono" placeholder="Lesson content (Markdown supported)" />
+                        <label class="mb-1.5 block text-sm font-medium text-surface-700">Text Content</label>
+                        <textarea v-model="form.text_content" rows="12" class="w-full rounded-xl border-surface-200 text-sm font-mono focus:border-primary-500 focus:ring-primary-500" placeholder="Lesson content (Markdown supported)" />
                     </div>
                     <div v-if="['video', 'mixed'].includes(form.content_type)">
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Video URL</label>
+                        <label class="mb-1.5 block text-sm font-medium text-surface-700">Video URL</label>
                         <Input v-model="form.video_url" placeholder="https://..." />
                     </div>
                     <div v-if="['video', 'mixed'].includes(form.content_type)">
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Video Transcript</label>
-                        <textarea v-model="form.video_transcript" rows="4" class="w-full rounded-xl border-surface-200 focus:border-primary-500 focus:ring-primary-500 text-sm" placeholder="Full transcript..." />
+                        <label class="mb-1.5 block text-sm font-medium text-surface-700">Video Transcript</label>
+                        <textarea v-model="form.video_transcript" rows="4" class="w-full rounded-xl border-surface-200 text-sm focus:border-primary-500 focus:ring-primary-500" placeholder="Full transcript..." />
                     </div>
                     <div v-if="['audio', 'mixed'].includes(form.content_type)">
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Audio URL</label>
+                        <label class="mb-1.5 block text-sm font-medium text-surface-700">Audio URL</label>
                         <Input v-model="form.audio_url" placeholder="https://..." />
                     </div>
                     <div v-if="['pdf', 'mixed'].includes(form.content_type)">
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">PDF URL</label>
+                        <label class="mb-1.5 block text-sm font-medium text-surface-700">PDF URL</label>
                         <Input v-model="form.pdf_url" placeholder="URL or storage path" />
                     </div>
                     <div v-if="['slides', 'mixed'].includes(form.content_type)">
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Slides URL</label>
+                        <label class="mb-1.5 block text-sm font-medium text-surface-700">Slides URL</label>
                         <Input v-model="form.slides_url" placeholder="URL or storage path" />
                     </div>
                 </div>
             </div>
 
-            <!-- Key Terms -->
-            <div class="bg-white rounded-2xl border border-surface-200/60 shadow-sm p-6">
-                <h2 class="text-lg font-semibold text-surface-900 mb-5">Key Terms</h2>
+            <div class="rounded-2xl border border-surface-200/60 bg-white p-6 shadow-sm">
+                <h2 class="mb-5 text-lg font-semibold text-surface-900">Interactive Package</h2>
+                <div class="grid gap-5 md:grid-cols-2">
+                    <div class="md:col-span-2">
+                        <label class="mb-1.5 block text-sm font-medium text-surface-700">SCORM Entry URL</label>
+                        <Input v-model="form.scorm_path" placeholder="https://.../index.html" />
+                        <p class="mt-1 text-xs text-surface-400">Use the extracted entry file generated by the SCORM uploader.</p>
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-surface-700">SCORM Version</label>
+                        <select v-model="form.scorm_version" class="w-full rounded-xl border-surface-200 text-sm">
+                            <option value="">Select version</option>
+                            <option value="1.2">SCORM 1.2</option>
+                            <option value="2004">SCORM 2004</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="rounded-2xl border border-surface-200/60 bg-white p-6 shadow-sm">
+                <h2 class="mb-5 text-lg font-semibold text-surface-900">Access Scheduling</h2>
+                <div class="grid gap-5 md:grid-cols-2">
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-surface-700">Unlock Rule</label>
+                        <select v-model="form.unlock_type" class="w-full rounded-xl border-surface-200 text-sm">
+                            <option value="immediate">Immediate</option>
+                            <option value="date">Specific date and time</option>
+                            <option value="days_after_enrollment">Days after enrollment</option>
+                        </select>
+                    </div>
+                    <div v-if="form.unlock_type === 'date'">
+                        <label class="mb-1.5 block text-sm font-medium text-surface-700">Unlock At</label>
+                        <Input v-model="form.unlock_at" type="datetime-local" />
+                    </div>
+                    <div v-if="form.unlock_type === 'days_after_enrollment'">
+                        <label class="mb-1.5 block text-sm font-medium text-surface-700">Days After Enrollment</label>
+                        <Input v-model="form.unlock_days_after_enrollment" type="number" min="1" max="365" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="rounded-2xl border border-surface-200/60 bg-white p-6 shadow-sm">
+                <h2 class="mb-5 text-lg font-semibold text-surface-900">Key Terms</h2>
                 <div class="space-y-3">
                     <div v-for="(term, i) in form.key_terms" :key="i" class="flex items-start gap-2">
                         <Input v-model="form.key_terms[i].term" placeholder="Term" class="w-1/3" />
                         <Input v-model="form.key_terms[i].definition" placeholder="Definition" class="flex-1" />
-                        <button type="button" @click="form.key_terms.splice(i, 1)" class="p-2 text-surface-400 hover:text-danger-500 mt-1">
-                            <X class="w-4 h-4" />
+                        <button type="button" class="mt-1 p-2 text-surface-400 hover:text-danger-500" @click="form.key_terms.splice(i, 1)">
+                            <X class="h-4 w-4" />
                         </button>
                     </div>
                     <Button type="button" variant="ghost" size="sm" @click="form.key_terms.push({ term: '', definition: '' })">
-                        <Plus class="w-4 h-4 mr-1" /> Add Term
+                        <Plus class="mr-1 h-4 w-4" /> Add Term
                     </Button>
                 </div>
             </div>
 
-            <!-- Submit -->
             <div class="flex justify-end gap-3">
                 <Link :href="`/admin/courses/${course.id}/edit`">
                     <Button type="button" variant="ghost">Cancel</Button>
@@ -142,14 +178,18 @@ const form = useForm({
     audio_duration_seconds: '',
     pdf_url: '',
     slides_url: '',
+    scorm_path: '',
+    scorm_version: '',
     duration_minutes: '',
     is_free_preview: false,
     is_downloadable: false,
+    unlock_type: 'immediate',
+    unlock_at: '',
+    unlock_days_after_enrollment: '',
 });
 
-const submit = () => {
-    // Filter empty key terms
-    form.key_terms = form.key_terms.filter(t => t.term.trim());
+function submit() {
+    form.key_terms = form.key_terms.filter((term) => term.term.trim());
     form.post(`/admin/modules/${props.module.id}/lessons`);
-};
+}
 </script>

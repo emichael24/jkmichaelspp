@@ -3,7 +3,7 @@
  * Handles caching, offline support, and background sync.
  */
 
-const CACHE_VERSION = 'jkm-v4';
+const CACHE_VERSION = 'jkm-v5';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
 const API_CACHE = `${CACHE_VERSION}-api`;
@@ -11,6 +11,7 @@ const API_CACHE = `${CACHE_VERSION}-api`;
 // Static assets to pre-cache during install
 const STATIC_ASSETS = [
     '/',
+    '/offline',
     '/offline.html',
     '/manifest.json',
 ];
@@ -21,6 +22,7 @@ const CACHE_FIRST_PATHS = [
     '/icons/',
     '/images/',
     '/fonts/',
+    '/storage/',
 ];
 
 const NETWORK_FIRST_PATHS = [
@@ -137,7 +139,7 @@ async function staleWhileRevalidate(request) {
 // Offline fallback
 async function offlineFallback(request) {
     if (request.destination === 'document') {
-        const offlinePage = await caches.match('/offline');
+        const offlinePage = await caches.match('/offline') || await caches.match('/offline.html');
         if (offlinePage) return offlinePage;
     }
 
