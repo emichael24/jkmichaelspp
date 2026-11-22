@@ -98,6 +98,17 @@ class ProtectedDocumentTest extends TestCase
         $this->getJson("/lessons/{$lesson->id}/documents/pdf")->assertUnprocessable();
     }
 
+    public function test_converters_outside_open_basedir_are_not_inspected(): void
+    {
+        // Production PHP-FPM: open_basedir = /var/www/vhosts/jkmichaelspm.com/:/tmp/ (22 Nov 2026 incident).
+        $plesk = implode(PATH_SEPARATOR, ['/var/www/vhosts/jkmichaelspm.com/', '/tmp/']);
+        $this->assertFalse(ProtectedDocumentService::inspectable('/usr/local/bin/jkm-pdfinfo', $plesk));
+        $this->assertTrue(ProtectedDocumentService::inspectable('/tmp/probe', $plesk));
+        $this->assertTrue(ProtectedDocumentService::inspectable('/var/www/vhosts/jkmichaelspm.com/app/file', $plesk));
+        $this->assertFalse(ProtectedDocumentService::inspectable('/var/www/vhosts/jkmichaelspm.com.evil/file', $plesk));
+        $this->assertTrue(ProtectedDocumentService::inspectable('/usr/local/bin/jkm-pdfinfo', ''));
+    }
+
     public function test_auto_renderer_uses_the_browser_when_server_rendering_is_unavailable(): void
     {
         [, $lesson, $learner] = $this->lessonDocument();
@@ -143,6 +154,66 @@ class ProtectedDocumentTest extends TestCase
         $course = $lesson->module->course;
         $course->update(['is_published' => false, 'published_at' => null, 'approval_status' => 'draft']);
         $this->actingAs($author)->postJson("/facilitator/courses/{$course->id}/modules/{$lesson->module_id}/lessons", ['title' => 'Public source', 'content_type' => 'pdf', 'pdf_url' => 'https://example.test/guide.pdf'])->assertUnprocessable()->assertJsonValidationErrors('pdf_url');
+    }
+
+    private function presentationWith(array $entries): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'pptx');
+        $zip = new ZipArchive;
+        $zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+        $zip->addFromString('[Content_Types].xml', '<Types>application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml</Types>');
+        $zip->addFromString('ppt/presentation.xml', '<presentation/>');
+        foreach ($entries as $name => $content) {
+            $zip->addFromString($name, $content);
+        }
+        $zip->close();
+
+        return $path;
+    }
+
+    private function workbook(array $entries): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'xlsx');
+        $zip = new ZipArchive;
+        $zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+        foreach (['[Content_Types].xml' => '<Types/>', 'xl/workbook.xml' => '<workbook/>', ...$entries] as $name => $content) {
+            $zip->addFromString($name, $content);
+        }
+        $zip->close();
+        $bytes = file_get_contents($path);
+        unlink($path);
+
+        return $bytes;
+    }
+
+    public function test_presentations_with_chart_data_are_accepted_but_embedded_objects_and_macros_are_explained(): void
+    {
+        $service = app(ProtectedDocumentService::class);
+        // Native PowerPoint charts store their data as an embedded .xlsx (22 Nov 2026 production report).
+        $path = $this->presentationWith(['ppt/embeddings/Microsoft_Excel_Worksheet1.xlsx' => $this->workbook(['xl/printerSettings/printerSettings1.bin' => 'x'])]);
+        try {
+            $service->validatePresentation($path);
+            $this->addToAssertionCount(1);
+        } finally {
+            unlink($path);
+        }
+        $cases = [
+            'embedded object (oleObject1.bin)' => ['ppt/embeddings/oleObject1.bin' => 'ole'],
+            'contains macros. Save it as a regular' => ['ppt/vbaProject.bin' => 'vba'],
+            'Microsoft_Excel_Macro.xlsx contains macros' => ['ppt/embeddings/Microsoft_Excel_Macro.xlsx' => $this->workbook(['xl/vbaProject.bin' => 'vba'])],
+        ];
+        foreach ($cases as $message => $entries) {
+            $path = $this->presentationWith($entries);
+            try {
+                $service->validatePresentation($path);
+                $this->fail("Accepted: {$message}");
+            } catch (HttpException $exception) {
+                $this->assertSame(422, $exception->getStatusCode());
+                $this->assertStringContainsString($message, $exception->getMessage());
+            } finally {
+                unlink($path);
+            }
+        }
     }
 
     public function test_presentations_reject_external_media_active_content_and_archive_traversal(): void

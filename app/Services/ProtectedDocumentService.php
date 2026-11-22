@@ -68,9 +68,34 @@ class ProtectedDocumentService
             return false;
         }
 
-        return self::$executables[$command] ??= (basename($command) !== $command)
-            ? is_file($command) && is_executable($command)
-            : (new ExecutableFinder)->find($command) !== null;
+        if (basename($command) === $command) {
+            return self::$executables[$command] ??= (new ExecutableFinder)->find($command) !== null;
+        }
+        // Plesk's PHP-FPM open_basedir forbids inspecting system binaries such as
+        // /usr/local/bin/jkm-pdfinfo even though running them works. An absolute path
+        // PHP may not inspect is treated as available; if conversion then fails, the
+        // reader falls back to browser rendering.
+        if (! self::inspectable($command, (string) ini_get('open_basedir'))) {
+            return true;
+        }
+
+        return self::$executables[$command] ??= is_file($command) && is_executable($command);
+    }
+
+    /** Whether open_basedir lets PHP stat this path (an empty open_basedir allows everything). */
+    public static function inspectable(string $path, string $openBasedir): bool
+    {
+        if ($openBasedir === '') {
+            return true;
+        }
+        foreach (explode(PATH_SEPARATOR, $openBasedir) as $allowed) {
+            $allowed = rtrim($allowed, '/\\');
+            if ($allowed !== '' && ($path === $allowed || str_starts_with($path, $allowed.'/') || str_starts_with($path, $allowed.'\\'))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function watermark(User $user): string
@@ -209,9 +234,7 @@ class ProtectedDocumentService
                 $bytes += $entry['size'];
                 $safePath = $name !== '' && strlen($name) <= 240 && ! preg_match('~(?:^/|(^|/)\.\.?(/|$)|[\\\\:\x00-\x1f])~', $name);
                 abort_unless($safePath && $bytes <= 150 * 1024 * 1024 && $entry['size'] <= 30 * 1024 * 1024 && ($entry['encryption_method'] ?? 0) === 0, 422, 'The presentation contains unsafe or oversized content.');
-                $activeContent = preg_match('~(?:vbaProject|activeX|embeddings)~i', $name)
-                    || (str_ends_with(strtolower($name), '.bin') && ! preg_match('~^ppt/printerSettings/printerSettings\d+\.bin$~i', $name));
-                abort_if($activeContent, 422, 'Remove macros, embedded objects and active content before uploading.');
+                $this->assertNoActiveContent($zip, $i, $name);
                 if (str_ends_with($name, '.rels') || str_ends_with($name, '.xml')) {
                     $xml = $zip->getFromIndex($i);
                     abort_if(preg_match('/<!DOCTYPE|<!ENTITY/i', $xml), 422, 'Unsafe presentation XML.');
@@ -251,6 +274,49 @@ class ProtectedDocumentService
             }
         } finally {
             $zip->close();
+        }
+    }
+
+    /**
+     * Macros, ActiveX and OLE objects are refused. Native PowerPoint charts keep their
+     * data as an embedded .xlsx under ppt/embeddings/; macro-free OOXML packages there
+     * are allowed after checking they carry no macros of their own.
+     */
+    private function assertNoActiveContent(ZipArchive $zip, int $index, string $name): void
+    {
+        $lower = strtolower($name);
+        abort_if(str_contains($lower, 'vbaproject'), 422, 'This presentation contains macros. Save it as a regular PowerPoint presentation (.pptx), not macro-enabled (.pptm), and upload again.');
+        abort_if(str_contains($lower, 'activex'), 422, 'This presentation contains ActiveX controls. Remove them in PowerPoint and upload again.');
+        if (str_starts_with($lower, 'ppt/embeddings/')) {
+            $object = basename($name);
+            abort_unless(preg_match('~^[^/]+\.(xlsx|docx|pptx)$~', $object), 422,
+                "This presentation contains an embedded object ({$object}). In PowerPoint, replace it with a picture (copy it, then Paste Special → Picture) and upload again. Charts and tables are fine.");
+            $this->assertMacroFreePackage((string) $zip->getFromIndex($index), $object);
+
+            return;
+        }
+        abort_if(str_ends_with($lower, '.bin') && ! preg_match('~^ppt/printersettings/printersettings\d+\.bin$~', $lower), 422,
+            'This presentation contains an embedded binary object ('.basename($name).'). Remove it in PowerPoint and upload again.');
+    }
+
+    private function assertMacroFreePackage(string $bytes, string $object): void
+    {
+        $temp = tempnam(sys_get_temp_dir(), 'jkm-embed');
+        try {
+            file_put_contents($temp, $bytes);
+            $inner = new ZipArchive;
+            abort_unless($inner->open($temp) === true, 422, "The embedded file {$object} is not a valid Office document.");
+            try {
+                for ($i = 0; $i < min($inner->numFiles, 5000); $i++) {
+                    $entry = strtolower((string) $inner->getNameIndex($i));
+                    abort_if(str_contains($entry, 'vbaproject') || str_contains($entry, 'activex') || str_contains($entry, 'embeddings/') || (str_ends_with($entry, '.bin') && ! str_contains($entry, 'printersettings')), 422,
+                        "The embedded file {$object} contains macros or objects. Replace it with a picture in PowerPoint and upload again.");
+                }
+            } finally {
+                $inner->close();
+            }
+        } finally {
+            @unlink($temp);
         }
     }
 
