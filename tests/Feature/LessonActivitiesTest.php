@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Assignment;
+use App\Models\Category;
 use App\Models\Course;
 use App\Models\Lesson;
 use App\Models\LessonProgress;
@@ -196,6 +197,27 @@ class LessonActivitiesTest extends TestCase
         $this->post("/lessons/{$second->id}/complete");
         // The next module is still held by its drip delay even though the sequence allows it.
         $this->get("/courses/{$course->slug}/lessons/{$later->id}")->assertRedirect("/courses/{$course->slug}");
+    }
+
+    public function test_production_regressions_blank_duration_and_duplicate_course_titles(): void
+    {
+        $admin = $this->actor('platform_admin');
+        [$course, $module] = $this->draftCourse($admin);
+        // 8 Oct 2026 production errors: PDF lessons saved without a duration hit a NOT NULL column.
+        $this->actingAs($admin)->post("/admin/modules/{$module->id}/lessons", ['title' => 'Blank duration', 'content_type' => 'text', 'text_content' => '<p>Body</p>', 'duration_minutes' => null, 'is_published' => true])->assertSessionHasNoErrors();
+        $lesson = Lesson::where('title', 'Blank duration')->firstOrFail();
+        $this->assertSame(10, $lesson->duration_minutes);
+        $this->put("/admin/lessons/{$lesson->id}", ['title' => 'Blank duration', 'content_type' => 'text', 'text_content' => '<p>Body</p>', 'duration_minutes' => '', 'is_published' => true])->assertSessionHasNoErrors();
+        $this->assertSame(10, $lesson->fresh()->duration_minutes);
+
+        // Creating a course whose title matches an existing (even deleted) course must not crash.
+        $category = Category::create(['name' => 'Projects', 'slug' => 'projects', 'is_active' => true]);
+        $payload = ['title' => 'Test', 'category_id' => $category->id, 'level' => 'beginner', 'type' => 'self_paced', 'price' => 0];
+        $this->post('/admin/courses', $payload)->assertSessionHasNoErrors();
+        Course::where('slug', 'test')->firstOrFail()->delete();
+        $this->post('/admin/courses', $payload)->assertSessionHasNoErrors();
+        $this->post('/admin/courses', $payload)->assertSessionHasNoErrors();
+        $this->assertSame(['test', 'test-2', 'test-3'], Course::withTrashed()->where('title', 'Test')->orderBy('id')->pluck('slug')->all());
     }
 
     public function test_readiness_flags_empty_activities_and_switching_type_retires_the_quiz(): void

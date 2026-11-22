@@ -312,9 +312,6 @@ class CourseController extends Controller
 
     protected function uniqueSlug(string $title): string
     {
-        $slug = Str::slug($title);
-        $count = Course::where('slug', 'like', $slug.'%')->count();
-
-        return $count > 0 ? $slug.'-'.($count + 1) : $slug;
+        return Course::uniqueSlug($title);
     }
 }

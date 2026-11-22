@@ -217,8 +217,20 @@ class Course extends Model
                 $course->uuid = (string) Str::uuid();
             }
             if (empty($course->slug)) {
-                $course->slug = Str::slug($course->title);
+                $course->slug = static::uniqueSlug((string) $course->title);
             }
         });
+    }
+
+    /** A slug no course (including soft-deleted ones, which keep the unique index) already uses. */
+    public static function uniqueSlug(string $title): string
+    {
+        $base = Str::slug($title) ?: 'course';
+        $slug = $base;
+        for ($suffix = 2; static::withTrashed()->where('slug', $slug)->exists(); $suffix++) {
+            $slug = $base.'-'.$suffix;
+        }
+
+        return $slug;
     }
 }
