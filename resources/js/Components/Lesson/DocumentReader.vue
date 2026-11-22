@@ -31,6 +31,25 @@ function cleanup() {
     if (slideHost.value) slideHost.value.innerHTML = '';
 }
 
+const preparing = ref(false);
+
+/**
+ * GET that waits while the server's background worker converts the document
+ * (HTTP 202 + Retry-After), up to about three minutes.
+ */
+async function getPrepared(url, config) {
+    for (let attempt = 0; attempt < 90; attempt++) {
+        const response = await axios.get(url, config);
+        if (response.status !== 202) { preparing.value = false; return response; }
+        preparing.value = true;
+        const delay = Math.min(5, Number(response.headers?.['retry-after']) || 2) * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        if (config.signal?.aborted) throw new axios.CanceledError();
+    }
+    preparing.value = false;
+    throw new Error('This document is taking longer than usual to prepare. Please try again in a minute.');
+}
+
 async function openDocument() {
     const version = ++generation;
     manifestRequest?.abort(); pageRequest?.abort(); cleanup();
@@ -39,7 +58,7 @@ async function openDocument() {
     if (!props.manifestUrl) { error.value = 'Upload this document to enable the protected reader.'; loading.value = false; return; }
     manifestRequest = new AbortController();
     try {
-        const { data } = await axios.get(props.manifestUrl, { signal: manifestRequest.signal, timeout: 210000, headers: { Accept: 'application/json' } });
+        const { data } = await getPrepared(props.manifestUrl, { signal: manifestRequest.signal, timeout: 60000, headers: { Accept: 'application/json' } });
         if (version !== generation) return;
         metadata.value = { mode: 'raster', ...data };
         if (metadata.value.mode === 'browser') {
@@ -115,7 +134,7 @@ async function loadPage() {
             return;
         }
         if (canvas.value) canvas.value.width = 0;
-        const { data } = await axios.get(`${metadata.value.page_url}/${page.value}`, { responseType: 'blob', signal: request.signal, timeout: 120000, headers: { Accept: 'application/json' } });
+        const { data } = await getPrepared(`${metadata.value.page_url}/${page.value}`, { responseType: 'blob', signal: request.signal, timeout: 60000, headers: { Accept: 'application/json' } });
         if (request.signal.aborted) return;
         const bitmap = await createImageBitmap(data);
         try {
@@ -158,7 +177,7 @@ onBeforeUnmount(() => { generation++; manifestRequest?.abort(); pageRequest?.abo
             <div class="flex items-center gap-1"><template v-if="!slideMode"><button type="button" aria-label="Zoom out" :disabled="zoom <= 50" class="reader-button" @click="zoom = Math.max(50, zoom - 25)"><ZoomOut class="h-4 w-4" /></button><button type="button" aria-label="Fit page to width" class="rounded-lg px-2 py-2 text-xs font-medium hover:bg-surface-100" @click="zoom = 100">{{ zoom === 100 ? 'Fit width' : `${zoom}%` }}</button><button type="button" aria-label="Zoom in" :disabled="zoom >= 200" class="reader-button" @click="zoom = Math.min(200, zoom + 25)"><ZoomIn class="h-4 w-4" /></button></template><button type="button" aria-label="Fullscreen reader" class="reader-button" @click="fullscreen"><Maximize class="h-4 w-4" /></button></div>
         </div>
         <div class="reader-pages relative max-h-[75vh] min-h-64 overflow-auto p-3 sm:p-6" :aria-busy="loading">
-            <div v-if="loading" role="status" class="grid min-h-56 place-content-center justify-items-center gap-3 text-sm text-surface-600"><LoaderCircle class="h-6 w-6 animate-spin text-primary-600" /><p>{{ pages ? `Loading ${label.toLowerCase()} ${page}…` : 'Preparing your document…' }}</p><p v-if="!pages" class="text-xs text-surface-400">Large presentations may take a moment.</p></div>
+            <div v-if="loading" role="status" class="grid min-h-56 place-content-center justify-items-center gap-3 text-sm text-surface-600"><LoaderCircle class="h-6 w-6 animate-spin text-primary-600" /><p>{{ preparing ? (pages ? `Preparing ${label.toLowerCase()} ${page}…` : 'Preparing your document…') : pages ? `Loading ${label.toLowerCase()} ${page}…` : 'Opening your document…' }}</p><p v-if="preparing || !pages" class="text-xs text-surface-400">{{ preparing ? 'This happens once per document; large presentations can take a minute.' : 'Large presentations may take a moment.' }}</p></div>
             <div v-if="error" role="alert" class="mx-auto my-10 max-w-sm text-center"><p class="text-sm leading-6 text-surface-600">{{ error }}</p><button type="button" class="mx-auto mt-4 flex items-center gap-2 rounded-lg bg-surface-900 px-4 py-2 text-sm text-white" @click="pages ? loadPage() : openDocument()"><RotateCcw class="h-4 w-4" />Try again</button></div>
             <div v-show="!loading && !error && !slideMode" class="mx-auto" :style="{ width: `${zoom}%` }"><canvas ref="canvas" role="img" :aria-label="`${title}, ${label.toLowerCase()} ${page} of ${pages || 0}. For an accessible text version, refer to the lesson notes or contact your facilitator.`" class="block h-auto w-full select-none bg-white shadow-md" /></div>
             <div v-show="slideMode && !error" class="slide-stage relative mx-auto select-none" role="img" :aria-label="`${title}, slide ${page} of ${pages || 0}`">

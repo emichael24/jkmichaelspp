@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Exceptions\DocumentPreparing;
+use App\Jobs\PrepareDocument;
+use App\Jobs\RenderDocumentPages;
 use App\Models\MediaAsset;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
@@ -141,16 +144,42 @@ class ProtectedDocumentService
         abort_unless($this->supports($asset), 422, 'Upload a PDF or PowerPoint presentation for the protected reader.');
     }
 
+    /**
+     * Page count and format for the reader. With DOCUMENT_CONVERSION=queue (the default)
+     * conversion runs in the queue worker: Plesk's PHP-FPM service forbids the namespaces
+     * the converter sandbox needs, so web requests only serve cached results.
+     *
+     * @throws DocumentPreparing while the worker is still converting
+     */
     public function metadata(MediaAsset $asset): array
     {
-        abort_if(config('media.require_scan') && ! $asset->scanned_at, 423, 'This document is awaiting its security scan.');
-        abort_unless($this->supports($asset), 422, 'Upload a PDF or PowerPoint presentation for the protected reader.');
+        $this->assertReadable($asset);
+        $directory = $this->directory($asset);
+        if ($cached = $this->cachedManifest($directory)) {
+            return $cached;
+        }
+        if (! $this->queued()) {
+            return $this->prepareMetadata($asset);
+        }
+        $this->assertNotFailed($directory);
+        PrepareDocument::dispatch($asset->id);
+        // A synchronous queue (local development, tests) has already finished the work.
+        if ($cached = $this->cachedManifest($directory)) {
+            return $cached;
+        }
+        $this->assertNotFailed($directory);
+        throw new DocumentPreparing;
+    }
+
+    /** Convert (PPTX) and inspect the document. Runs where the sandbox may create namespaces. */
+    public function prepareMetadata(MediaAsset $asset): array
+    {
+        $this->assertReadable($asset);
         $directory = $this->directory($asset);
 
         return $this->locked($directory.'/prepare.lock', function () use ($asset, $directory) {
-            $manifest = $directory.'/manifest.json';
-            if (is_file($manifest)) {
-                return json_decode(file_get_contents($manifest), true, 512, JSON_THROW_ON_ERROR);
+            if ($cached = $this->cachedManifest($directory)) {
+                return $cached;
             }
             $source = $this->originalPath($asset);
             abort_unless(is_file($source), 404);
@@ -175,27 +204,36 @@ class ProtectedDocumentService
             $count = (int) $pages[1];
             abort_unless($count > 0 && $count <= config('documents.max_pages'), 422, 'Documents must contain 1 to '.config('documents.max_pages').' pages or slides.');
             $metadata = ['mode' => 'raster', 'pages' => $count, 'format' => $asset->mime === self::PPTX ? 'presentation' : 'pdf'];
-            file_put_contents($manifest, json_encode($metadata, JSON_THROW_ON_ERROR), LOCK_EX);
+            file_put_contents($directory.'/manifest.json', json_encode($metadata, JSON_THROW_ON_ERROR), LOCK_EX);
+            @unlink($directory.'/failed.json');
 
             return $metadata;
         });
     }
 
+    /**
+     * A watermarked page image for this viewer.
+     *
+     * @throws DocumentPreparing while the worker is still rendering the page
+     */
     public function page(MediaAsset $asset, int $page, User $user): string
     {
         abort_unless(function_exists('imagecreatefrompng'), 503, 'The document reader is temporarily unavailable.');
         $metadata = $this->metadata($asset);
         abort_unless($page >= 1 && $page <= $metadata['pages'], 404);
-        $directory = $this->directory($asset);
-        $path = $directory.'/page-'.$page.'.png';
-        $this->locked($directory.'/page-'.$page.'.lock', function () use ($asset, $page, $directory, $path) {
-            if (is_file($path)) {
-                return;
+        $path = $this->directory($asset).'/page-'.$page.'.png';
+        $ahead = min($metadata['pages'], $page + self::PREFETCH);
+        if (! $this->queued()) {
+            $this->renderPage($asset, $page);
+        } elseif (! is_file($path)) {
+            RenderDocumentPages::dispatch($asset->id, $page, $ahead);
+            if (! is_file($path)) {
+                throw new DocumentPreparing;
             }
-            $prefix = $directory.'/render-'.$page;
-            $this->run([config('documents.pdftoppm'), '-f', (string) $page, '-l', (string) $page, '-singlefile', '-scale-to', (string) config('documents.page_pixels'), '-png', $this->pdfPath($asset, $directory), $prefix], config('documents.page_timeout'));
-            abort_unless(is_file($prefix.'.png') && rename($prefix.'.png', $path), 503, 'This page could not be prepared. Please retry.');
-        });
+        } elseif ($page < $ahead && ! is_file($this->directory($asset).'/page-'.$ahead.'.png')) {
+            // Keep a few pages ready ahead of the reader.
+            RenderDocumentPages::dispatch($asset->id, $page + 1, $ahead);
+        }
         // Burn identification into the pixels; removing an HTML overlay cannot remove the watermark.
         $image = @imagecreatefrompng($path);
         abort_unless($image, 503, 'This page could not be displayed.');
@@ -216,6 +254,63 @@ class ProtectedDocumentService
         } finally {
             imagedestroy($image);
         }
+    }
+
+    public const PREFETCH = 4;
+
+    /** Rasterize one page into the private cache (no watermark). Runs where the sandbox works. */
+    public function renderPage(MediaAsset $asset, int $page): void
+    {
+        $metadata = $this->prepareMetadata($asset);
+        abort_unless($page >= 1 && $page <= $metadata['pages'], 404);
+        $directory = $this->directory($asset);
+        $path = $directory.'/page-'.$page.'.png';
+        $this->locked($directory.'/page-'.$page.'.lock', function () use ($asset, $page, $directory, $path) {
+            if (is_file($path)) {
+                return;
+            }
+            $prefix = $directory.'/render-'.$page;
+            $this->run([config('documents.pdftoppm'), '-f', (string) $page, '-l', (string) $page, '-singlefile', '-scale-to', (string) config('documents.page_pixels'), '-png', $this->pdfPath($asset, $directory), $prefix], config('documents.page_timeout'));
+            abort_unless(is_file($prefix.'.png') && rename($prefix.'.png', $path), 503, 'This page could not be prepared. Please retry.');
+        });
+    }
+
+    public function pageCached(MediaAsset $asset, int $page): bool
+    {
+        return is_file($this->directory($asset).'/page-'.$page.'.png');
+    }
+
+    /** Remember a conversion failure so readers fall back instead of waiting; retried after ten minutes. */
+    public function recordFailure(MediaAsset $asset, string $message): void
+    {
+        file_put_contents($this->directory($asset).'/failed.json', json_encode(['message' => $message, 'at' => time()], JSON_THROW_ON_ERROR), LOCK_EX);
+    }
+
+    private function assertNotFailed(string $directory): void
+    {
+        $file = $directory.'/failed.json';
+        if (! is_file($file)) {
+            return;
+        }
+        $failure = json_decode((string) file_get_contents($file), true) ?: [];
+        if (($failure['at'] ?? 0) < time() - 600) {
+            @unlink($file);
+
+            return;
+        }
+        abort(422, $failure['message'] ?? 'The document could not be prepared.');
+    }
+
+    private function cachedManifest(string $directory): ?array
+    {
+        $manifest = $directory.'/manifest.json';
+
+        return is_file($manifest) ? json_decode(file_get_contents($manifest), true, 512, JSON_THROW_ON_ERROR) : null;
+    }
+
+    private function queued(): bool
+    {
+        return config('documents.conversion', 'queue') === 'queue';
     }
 
     public function validatePresentation(string $path): void

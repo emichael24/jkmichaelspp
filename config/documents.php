@@ -11,6 +11,8 @@ return [
     'libreoffice' => env('DOCUMENT_LIBREOFFICE', 'soffice'),
     'max_pages' => 200,
     'page_pixels' => 1800,
-    'convert_timeout' => (int) env('DOCUMENT_CONVERT_TIMEOUT', 180),
+    // Conversions run in the queue worker, whose jobs must finish within 120 seconds.
+    'conversion' => env('DOCUMENT_CONVERSION', 'queue'),
+    'convert_timeout' => (int) env('DOCUMENT_CONVERT_TIMEOUT', 100),
     'page_timeout' => 25,
 ];

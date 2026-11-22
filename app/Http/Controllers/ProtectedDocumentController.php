@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\DocumentPreparing;
 use App\Models\Lesson;
 use App\Models\MediaAsset;
 use App\Services\LearningAccessService;
@@ -16,15 +17,15 @@ class ProtectedDocumentController extends Controller
         $asset = $this->lessonAsset($request, $lesson, $type);
         $base = "/lessons/{$lesson->id}/documents/{$type}";
 
-        return response()->json([...$this->manifest($request, $asset, $documents), 'page_url' => url($base.'/pages'), 'source_url' => url($base.'/source'),
-            'download_url' => $lesson->is_downloadable ? url("/lessons/{$lesson->id}/download/{$type}") : null], 200, $this->headers());
+        return $this->whilePreparing(fn () => response()->json([...$this->manifest($request, $asset, $documents), 'page_url' => url($base.'/pages'), 'source_url' => url($base.'/source'),
+            'download_url' => $lesson->is_downloadable ? url("/lessons/{$lesson->id}/download/{$type}") : null], 200, $this->headers()));
     }
 
     public function lessonPage(Request $request, Lesson $lesson, string $type, int $page, ProtectedDocumentService $documents)
     {
         $asset = $this->lessonAsset($request, $lesson, $type);
 
-        return $this->pageResponse($documents->page($asset, $page, $request->user()));
+        return $this->whilePreparing(fn () => $this->pageResponse($documents->page($asset, $page, $request->user())));
     }
 
     public function lessonSource(Request $request, Lesson $lesson, string $type, ProtectedDocumentService $documents)
@@ -36,15 +37,15 @@ class ProtectedDocumentController extends Controller
     {
         $this->authorizePreview($request, $asset);
 
-        return response()->json([...$this->manifest($request, $asset, $documents), 'page_url' => url("/authoring/documents/{$asset->id}/pages"),
-            'source_url' => url("/authoring/documents/{$asset->id}/source"), 'download_url' => null], 200, $this->headers());
+        return $this->whilePreparing(fn () => response()->json([...$this->manifest($request, $asset, $documents), 'page_url' => url("/authoring/documents/{$asset->id}/pages"),
+            'source_url' => url("/authoring/documents/{$asset->id}/source"), 'download_url' => null], 200, $this->headers()));
     }
 
     public function previewPage(Request $request, MediaAsset $asset, int $page, ProtectedDocumentService $documents)
     {
         $this->authorizePreview($request, $asset);
 
-        return $this->pageResponse($documents->page($asset, $page, $request->user()));
+        return $this->whilePreparing(fn () => $this->pageResponse($documents->page($asset, $page, $request->user())));
     }
 
     public function previewSource(Request $request, MediaAsset $asset, ProtectedDocumentService $documents)
@@ -75,6 +76,16 @@ class ProtectedDocumentController extends Controller
         abort_unless($documents->browserRenderingAllowed(), 503, 'The document reader is temporarily unavailable.');
 
         return $documents->browserManifest($asset, $request->user());
+    }
+
+    /** 202 tells the reader the queue worker is still converting; it retries shortly. */
+    private function whilePreparing(callable $respond)
+    {
+        try {
+            return $respond();
+        } catch (DocumentPreparing $preparing) {
+            return response()->json(['status' => 'preparing', 'message' => $preparing->getMessage()], 202, [...$this->headers(), 'Retry-After' => '2']);
+        }
     }
 
     private function sourceResponse(Request $request, MediaAsset $asset, ProtectedDocumentService $documents)

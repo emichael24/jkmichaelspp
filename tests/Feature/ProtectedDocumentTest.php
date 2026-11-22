@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\PrepareDocument;
+use App\Jobs\RenderDocumentPages;
 use App\Models\Course;
 use App\Models\MediaAsset;
 use App\Models\User;
 use App\Services\ProtectedDocumentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
@@ -96,6 +99,55 @@ class ProtectedDocumentTest extends TestCase
         $this->actingAs($learner)->getJson("/lessons/{$lesson->id}/documents/pdf")->assertOk()->assertJsonPath('mode', 'browser');
         config(['documents.renderer' => 'server']);
         $this->getJson("/lessons/{$lesson->id}/documents/pdf")->assertUnprocessable();
+    }
+
+    private function previewDirectory(MediaAsset $asset): string
+    {
+        $directory = Storage::disk('local')->path('document-previews/'.$asset->id.'/'.substr($asset->sha256, 0, 16));
+        if (! is_dir($directory)) {
+            mkdir($directory, 0700, true);
+        }
+
+        return $directory;
+    }
+
+    public function test_web_requests_queue_conversion_and_serve_cached_pages(): void
+    {
+        // Production PHP-FPM cannot create sandbox namespaces (22 Nov 2026), so the worker converts.
+        Queue::fake();
+        [$asset, $lesson, $learner] = $this->lessonDocument();
+        config(['documents.renderer' => 'server', 'documents.conversion' => 'queue']);
+        $reader = "/lessons/{$lesson->id}/documents/pdf";
+        $this->actingAs($learner)->getJson($reader)->assertStatus(202)->assertJsonPath('status', 'preparing')->assertHeader('Retry-After', '2');
+        Queue::assertPushed(PrepareDocument::class, fn ($job) => $job->assetId === $asset->id);
+
+        $directory = $this->previewDirectory($asset);
+        file_put_contents($directory.'/manifest.json', json_encode(['mode' => 'raster', 'pages' => 6, 'format' => 'pdf']));
+        $this->getJson($reader)->assertOk()->assertJsonPath('mode', 'raster')->assertJsonPath('pages', 6);
+
+        $this->get($reader.'/pages/2')->assertStatus(202);
+        Queue::assertPushed(RenderDocumentPages::class, fn ($job) => $job->from === 2 && $job->to === 6);
+        $image = imagecreatetruecolor(40, 60);
+        imagepng($image, $directory.'/page-2.png');
+        imagedestroy($image);
+        $this->get($reader.'/pages/2')->assertOk()->assertHeader('Content-Type', 'image/png');
+        Queue::assertPushed(RenderDocumentPages::class, fn ($job) => $job->from === 3 && $job->to === 6);
+        $this->get($reader.'/pages/7')->assertNotFound();
+    }
+
+    public function test_failed_worker_conversion_falls_back_to_the_browser_reader(): void
+    {
+        Queue::fake();
+        [$asset, $lesson, $learner] = $this->lessonDocument();
+        config(['documents.conversion' => 'queue']);
+        $this->partialMock(ProtectedDocumentService::class, function ($mock) {
+            $mock->shouldReceive('serverRenderingAvailable')->andReturn(true);
+            $mock->shouldReceive('prepareMetadata')->andThrow(new HttpException(422, 'The document could not be prepared.'));
+        });
+        (new PrepareDocument($asset->id))->handle(app(ProtectedDocumentService::class));
+        $this->assertFileExists($this->previewDirectory($asset).'/failed.json');
+        $this->actingAs($learner)->getJson("/lessons/{$lesson->id}/documents/pdf")->assertOk()->assertJsonPath('mode', 'browser');
+        Queue::assertNotPushed(PrepareDocument::class);
     }
 
     public function test_converters_outside_open_basedir_are_not_inspected(): void
