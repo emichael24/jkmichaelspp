@@ -18,6 +18,17 @@
 - **Case study**: scenario + optional exhibit PDF + a list of questions; learners answer every question; graded like an assignment.
 - Course revisions copy lesson quizzes, assignments and case-study questions.
 
+## Production deployment, 22 November 2026
+
+Deployed with `ops/deploy-release.sh` as releases `20261122T184114Z-lms` (lesson types, drip, migration) and `20261122T184920Z-lms` (document path fix, live). Maintenance windows were about 7 and 6 seconds; database and storage backups are in `/root/jkm-deploy-20261122T*-lms/` on the server.
+
+Root causes found on the live server:
+- **PDF lessons could not be saved.** Production logs from 8 October show three PDF lesson saves failing with `Column 'duration_minutes' cannot be null`. Fixed in the app.
+- **No PDF/PowerPoint could be displayed since the 5 October cutover.** The converter sandbox (`/usr/local/lib/jkmichaels/document-sandbox.py`) only accepted the pre-cutover storage path and `media/<id>/document` names, while the live site uses release symlinks with shared storage and lesson uploads are named `media/<id>/pdf` and `media/<id>/slides`. The policy was corrected (isolation unchanged), the previous policy and evidence were kept beside the deploy backups, and `ops/verify-document-sandbox.py` re-ran the isolation probe: 9 of 9 checks passed and fresh evidence was written. All six stored production PDFs now render server-side with watermarks.
+- Creating a course whose title matched an existing (or deleted) course failed on the unique slug. Fixed.
+
+`php artisan enterprise:check` passes 27 of 28 checks; `restore_drill` still needs a real isolated restore within 30 days.
+
 ## Deploying to app.jkmichaelspm.com
 
 1. Upload the code, then on the server in the app directory:
