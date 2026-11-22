@@ -64,10 +64,12 @@ class ProtectedDocumentController extends Controller
             try {
                 return ['mode' => 'raster', ...$documents->metadata($asset)];
             } catch (HttpExceptionInterface $exception) {
-                if ($exception->getStatusCode() !== 503 || ! $documents->browserRenderingAllowed()) {
+                // 503: converters could not start; 422: the converter (or its sandbox) refused or failed.
+                if (! in_array($exception->getStatusCode(), [422, 503], true) || ! $documents->browserRenderingAllowed() || ! $documents->supports($asset)) {
                     throw $exception;
                 }
-                logger()->warning('Server document rendering unavailable; using browser renderer', ['asset' => $asset->id]);
+                // Reported at error level so a broken server renderer is visible, not silently masked.
+                report(new \RuntimeException('Server document rendering failed for media '.$asset->id.' ('.$exception->getStatusCode().': '.$exception->getMessage().'); using the browser renderer.'));
             }
         }
         abort_unless($documents->browserRenderingAllowed(), 503, 'The document reader is temporarily unavailable.');

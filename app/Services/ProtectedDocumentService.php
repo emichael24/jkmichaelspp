@@ -96,7 +96,7 @@ class ProtectedDocumentService
     public function source(MediaAsset $asset): array
     {
         $this->assertReadable($asset);
-        $original = Storage::disk('local')->path($asset->path);
+        $original = $this->originalPath($asset);
         abort_unless(is_file($original), 404);
         if ($asset->mime === self::PPTX) {
             $converted = $this->directory($asset).'/presentation.pdf';
@@ -127,7 +127,7 @@ class ProtectedDocumentService
             if (is_file($manifest)) {
                 return json_decode(file_get_contents($manifest), true, 512, JSON_THROW_ON_ERROR);
             }
-            $source = Storage::disk('local')->path($asset->path);
+            $source = $this->originalPath($asset);
             abort_unless(is_file($source), 404);
             if ($asset->mime === self::PPTX) {
                 $this->validatePresentation($source);
@@ -266,7 +266,18 @@ class ProtectedDocumentService
 
     private function pdfPath(MediaAsset $asset, string $directory): string
     {
-        return $asset->mime === self::PPTX ? $directory.'/presentation.pdf' : Storage::disk('local')->path($asset->path);
+        return $asset->mime === self::PPTX ? $directory.'/presentation.pdf' : $this->originalPath($asset);
+    }
+
+    /**
+     * Fully resolved source path. Production storage sits behind release symlinks and the
+     * converter sandbox refuses any path that is not already canonical.
+     */
+    private function originalPath(MediaAsset $asset): string
+    {
+        $path = Storage::disk('local')->path($asset->path);
+
+        return realpath($path) ?: $path;
     }
 
     private function locked(string $path, callable $work): mixed

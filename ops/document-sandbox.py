@@ -13,7 +13,10 @@ import subprocess
 import sys
 from urllib.parse import unquote, urlparse
 
-PRIVATE = Path('/var/www/vhosts/jkmichaelspm.com/app.jkmichaelspm.com/storage/app/private')
+# Real (symlink-free) location of the shared private storage. Since the 5 October 2026
+# cutover the live path is a release symlink whose storage/ links to .jkm-shared/storage;
+# the application passes fully resolved paths so the symlink check below still holds.
+PRIVATE = Path('/var/www/vhosts/jkmichaelspm.com/.jkm-shared/storage/app/private')
 UUID = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 
 
@@ -47,7 +50,8 @@ def sandbox(input_file=None, output_directory=None):
 
 def build(tool, args):
     preview = 'document-previews/'+UUID+r'/[0-9a-f]{16}'
-    pdf = '(?:media/'+UUID+r'/document|'+preview+r'/presentation\.pdf)'
+    # Lesson-editor uploads are stored as media/<id>/pdf or media/<id>/slides; resources as media/<id>/document.
+    pdf = '(?:media/'+UUID+r'/(?:document|pdf|slides)|'+preview+r'/presentation\.pdf)'
     if tool == 'pdfinfo' and len(args) == 1:
         source = private_path(args[0], pdf)
         return sandbox(source) + ['/usr/bin/pdfinfo', '/input/document']

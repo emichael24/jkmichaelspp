@@ -86,6 +86,18 @@ class ProtectedDocumentTest extends TestCase
         $this->withHeader('X-Document-Reader', '1')->get($reader.'/source')->assertNotFound();
     }
 
+    public function test_failed_server_conversion_falls_back_to_the_browser_reader(): void
+    {
+        [, $lesson, $learner] = $this->lessonDocument();
+        $this->partialMock(ProtectedDocumentService::class, function ($mock) {
+            $mock->shouldReceive('serverRenderingAvailable')->andReturn(true);
+            $mock->shouldReceive('metadata')->andThrow(new HttpException(422, 'The document could not be prepared.'));
+        });
+        $this->actingAs($learner)->getJson("/lessons/{$lesson->id}/documents/pdf")->assertOk()->assertJsonPath('mode', 'browser');
+        config(['documents.renderer' => 'server']);
+        $this->getJson("/lessons/{$lesson->id}/documents/pdf")->assertUnprocessable();
+    }
+
     public function test_auto_renderer_uses_the_browser_when_server_rendering_is_unavailable(): void
     {
         [, $lesson, $learner] = $this->lessonDocument();
