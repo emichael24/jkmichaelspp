@@ -1,159 +1,35 @@
+<script setup>
+import { computed } from 'vue';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ArrowLeft, FileText, CheckCircle2, RotateCcw, ClipboardCheck } from 'lucide-vue-next';
+import SponsorLayout from '@/Layouts/SponsorLayout.vue';
+import Button from '@/Components/UI/Button.vue';
+defineOptions({ layout: SponsorLayout });
+const props = defineProps({ submission: Object, rubric: Array });
+const form = useForm({ decision: '', rubric_scores: Object.fromEntries(props.rubric.map(name => [name, { score: '', comment: '' }])), feedback: '', risk_flags: [] });
+const pending = computed(() => ['submitted', 'in_review'].includes(props.submission.status));
+const scored = computed(() => Object.values(form.rubric_scores).filter(v => v.score !== ''));
+const average = computed(() => scored.value.length ? (scored.value.reduce((total, v) => total + Number(v.score), 0) / scored.value.length).toFixed(1) : '—');
+const safeLink = value => { try { const url = new URL(value); return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password ? url.href : undefined; } catch { return undefined; } };
+const submit = () => form.transform(data => ({ ...data, rubric_scores: Object.fromEntries(Object.entries(data.rubric_scores).filter(([, item]) => item.score !== '')) })).post(`/sponsor/submissions/${props.submission.id}/review`, { preserveScroll: true });
+</script>
 <template>
-    <Head :title="`Review: ${submission.task?.title}`" />
-
-    <div class="max-w-3xl mx-auto space-y-6">
-        <div class="flex items-center gap-3">
-            <a href="/sponsor/review-queue" class="p-2 rounded-lg hover:bg-surface-100 transition-colors">
-                <ArrowLeft class="w-5 h-5 text-surface-500" />
-            </a>
-            <div>
-                <h1 class="text-xl font-display font-bold text-surface-900">{{ submission.task?.title }}</h1>
-                <p class="text-sm text-surface-500">
-                    {{ submission.user?.first_name }} {{ submission.user?.last_name }}
-                    · Submission #{{ submission.submission_number }}
-                </p>
-            </div>
-        </div>
-
-        <!-- Submission Content -->
-        <div class="bg-white rounded-xl border border-surface-200/60 p-5 space-y-4">
-            <h2 class="font-semibold text-surface-900">Submission Content</h2>
-
-            <div v-if="submission.content" class="prose prose-sm max-w-none text-surface-600">
-                <p class="whitespace-pre-wrap">{{ submission.content }}</p>
-            </div>
-
-            <!-- Files -->
-            <div v-if="submission.file_urls?.length">
-                <h3 class="text-sm font-medium text-surface-700 mb-2">Attached Files</h3>
-                <div class="space-y-1">
-                    <a v-for="(url, i) in submission.file_urls" :key="i" :href="url" target="_blank"
-                       class="flex items-center gap-2 text-sm text-primary-600 hover:underline">
-                        <FileText class="w-4 h-4" />
-                        File {{ i + 1 }}
-                    </a>
-                </div>
-            </div>
-
-            <!-- Evidence -->
-            <div v-if="submission.evidence?.length">
-                <h3 class="text-sm font-medium text-surface-700 mb-2">Evidence</h3>
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    <div v-for="ev in submission.evidence" :key="ev.id" class="bg-surface-50 rounded-lg p-3">
-                        <div class="flex items-center gap-2 mb-1">
-                            <Camera class="w-4 h-4 text-surface-400" />
-                            <span class="text-xs font-medium text-surface-600 capitalize">{{ ev.type.replace(/_/g, ' ') }}</span>
-                        </div>
-                        <a :href="ev.file_url" target="_blank" class="text-xs text-primary-600 hover:underline">View</a>
-                        <p v-if="ev.caption" class="text-xs text-surface-400 mt-1">{{ ev.caption }}</p>
-                    </div>
-                </div>
-            </div>
-
-            <div v-if="submission.task?.milestone" class="text-xs text-surface-400">
-                <span class="font-medium">Milestone:</span> {{ submission.task.milestone.title }} (Week {{ submission.task.milestone.week_number }})
-            </div>
-        </div>
-
-        <!-- Previous Reviews -->
-        <div v-if="submission.reviews?.length" class="bg-white rounded-xl border border-surface-200/60 p-5 space-y-3">
-            <h2 class="font-semibold text-surface-900">Previous Reviews</h2>
-            <div v-for="rev in submission.reviews" :key="rev.id" class="p-3 bg-surface-50 rounded-lg">
-                <div class="flex items-center justify-between mb-2">
-                    <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', rev.decision === 'approved' ? 'bg-success-50 text-success-700' : 'bg-warning-50 text-warning-700']">
-                        {{ rev.decision === 'approved' ? 'Approved' : 'Revision Requested' }}
-                    </span>
-                    <span class="text-xs text-surface-400">{{ formatDate(rev.reviewed_at) }}</span>
-                </div>
-                <p v-if="rev.feedback" class="text-sm text-surface-600">{{ rev.feedback }}</p>
-                <p v-if="rev.overall_score != null" class="text-xs text-surface-500 mt-1">Score: {{ rev.overall_score }}/5</p>
-            </div>
-        </div>
-
-        <!-- Review Form -->
-        <div v-if="submission.status !== 'approved'" class="bg-white rounded-xl border border-surface-200/60 p-5">
-            <h2 class="font-semibold text-surface-900 mb-4">Submit Review</h2>
-
-            <form @submit.prevent="submitReview" class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1">Decision</label>
-                    <div class="flex gap-3">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input v-model="form.decision" type="radio" value="approved" class="text-success-600" />
-                            <span class="text-sm">Approve</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input v-model="form.decision" type="radio" value="revision_requested" class="text-warning-600" />
-                            <span class="text-sm">Request Revision</span>
-                        </label>
-                    </div>
-                    <p v-if="form.errors.decision" class="text-xs text-danger-600 mt-1">{{ form.errors.decision }}</p>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1">Overall Score (0-5)</label>
-                    <input v-model.number="form.overall_score" type="number" min="0" max="5" step="0.5"
-                           class="w-32 px-3 py-2 border border-surface-200 rounded-lg text-sm" />
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1">Feedback</label>
-                    <textarea v-model="form.feedback" rows="4" class="w-full px-3 py-2 border border-surface-200 rounded-lg text-sm"
-                              placeholder="Provide constructive feedback..."></textarea>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1">Risk Flags (optional)</label>
-                    <div class="flex flex-wrap gap-2">
-                        <label v-for="flag in ['late', 'quality', 'team_issue', 'communication']" :key="flag"
-                               class="flex items-center gap-1.5 cursor-pointer">
-                            <input type="checkbox" :value="flag" v-model="form.risk_flags" class="rounded border-surface-300 text-warning-600" />
-                            <span class="text-sm capitalize">{{ flag.replace(/_/g, ' ') }}</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="flex justify-end pt-4 border-t border-surface-100">
-                    <button type="submit" :disabled="form.processing || !form.decision"
-                            :class="[
-                                'px-6 py-2 rounded-lg text-sm font-medium transition-colors',
-                                form.decision === 'approved' ? 'bg-success-600 text-white hover:bg-success-700' : 'bg-warning-600 text-white hover:bg-warning-700',
-                                (!form.decision || form.processing) ? 'opacity-50 cursor-not-allowed' : '',
-                            ]">
-                        {{ form.decision === 'approved' ? 'Approve Submission' : 'Request Revision' }}
-                    </button>
-                </div>
+    <Head :title="`Review: ${submission.task.title}`" />
+    <div class="mx-auto max-w-5xl space-y-7">
+        <Link href="/sponsor/review-queue" class="inline-flex items-center gap-2 py-2 text-sm font-medium text-surface-600"><ArrowLeft class="h-4 w-4" />Back to review queue</Link>
+        <header class="flex flex-wrap items-start justify-between gap-4"><div><p class="text-xs font-semibold uppercase tracking-widest text-primary-700">Submission review · Version {{ submission.submission_number }}</p><h1 class="mt-2 text-2xl font-display font-bold sm:text-3xl">{{ submission.task.title }}</h1><p class="mt-2 text-sm text-surface-500">{{ submission.user.full_name }}<span v-if="submission.task.milestone"> · {{ submission.task.milestone.title }}</span></p></div><span class="rounded-full bg-white px-4 py-2 text-xs font-medium capitalize ring-1 ring-surface-200">{{ submission.status.replaceAll('_', ' ') }}</span></header>
+        <div class="grid gap-6 lg:grid-cols-[1fr_1.3fr]">
+            <section class="space-y-5 self-start rounded-2xl border border-surface-200 bg-white p-6"><h2 class="flex items-center gap-2 font-semibold"><FileText class="h-5 w-5 text-surface-400" />Submitted work</h2><p class="whitespace-pre-wrap break-words text-sm leading-relaxed text-surface-600">{{ submission.content || 'No written reflection included.' }}</p><ul v-if="submission.file_urls?.length" class="space-y-3 border-t border-surface-100 pt-4"><li v-for="(url, index) in submission.file_urls" :key="index"><a v-if="safeLink(url)" :href="safeLink(url)" target="_blank" rel="noopener noreferrer" class="text-sm font-medium text-primary-700 underline underline-offset-4">Open supporting file {{ index + 1 }}</a><span v-else class="text-xs text-red-700">This legacy link is unavailable.</span></li></ul><div v-if="submission.evidence?.length" class="space-y-3 border-t border-surface-100 pt-4"><h3 class="text-sm font-semibold">Evidence</h3><div v-for="item in submission.evidence" :key="item.id" class="rounded-xl bg-surface-50 p-3"><a v-if="safeLink(item.file_url)" :href="safeLink(item.file_url)" target="_blank" rel="noopener noreferrer" class="text-sm font-medium text-primary-700">View {{ item.type.replaceAll('_', ' ') }}</a><p class="mt-1 text-xs text-surface-500">{{ item.caption }}</p></div></div></section>
+            <form v-if="pending" @submit.prevent="submit" class="space-y-6 rounded-2xl border border-surface-200 bg-white p-6">
+                <div class="flex items-start justify-between gap-4"><div><h2 class="font-semibold">Evaluate the work</h2><p class="mt-1 text-xs leading-relaxed text-surface-500">Score each criterion from 0 to 5. The overall score is calculated from your ratings.</p></div><div class="shrink-0 rounded-xl bg-primary-50 px-4 py-3 text-center"><p class="text-xl font-semibold text-primary-800">{{ average }}<span class="text-xs font-normal"> / 5</span></p><p class="mt-1 text-xs text-primary-700">Average</p></div></div>
+                <div v-if="Object.keys(form.errors).length" role="alert" class="space-y-1 rounded-xl bg-red-50 p-4 text-sm text-red-800"><p v-for="error in form.errors" :key="error">{{ error }}</p></div>
+                <fieldset v-for="(criterion, index) in rubric" :key="criterion" class="rounded-xl border border-surface-200 p-4"><legend class="px-2 text-sm font-semibold">{{ criterion }}</legend><div class="grid gap-3 sm:grid-cols-[7rem_1fr]"><label class="text-xs text-surface-500" :for="`score-${index}`">Score<select :id="`score-${index}`" v-model="form.rubric_scores[criterion].score" :required="form.decision === 'approved'" class="mt-1.5 block w-full rounded-lg border border-surface-200 bg-white px-3 py-2.5 text-sm text-surface-800"><option value="">Choose</option><option v-for="score in [0,1,2,3,4,5]" :key="score" :value="score">{{ score }} / 5</option></select></label><label class="text-xs text-surface-500" :for="`comment-${index}`">Comment (optional)<input :id="`comment-${index}`" v-model="form.rubric_scores[criterion].comment" maxlength="1000" class="mt-1.5 block w-full rounded-lg border border-surface-200 px-3 py-2.5 text-sm text-surface-800" /></label></div></fieldset>
+                <label for="review-feedback" class="block text-sm font-medium">Overall feedback<textarea id="review-feedback" v-model="form.feedback" rows="4" maxlength="5000" class="mt-2 block w-full rounded-xl border border-surface-200 p-3 text-sm font-normal" placeholder="Explain what worked and what should improve." /></label>
+                <fieldset><legend class="mb-3 text-sm font-medium">Areas needing attention</legend><div class="flex flex-wrap gap-4"><label v-for="flag in ['late','quality','team_issue','communication']" :key="flag" class="flex items-center gap-2 text-xs capitalize"><input v-model="form.risk_flags" type="checkbox" :value="flag" class="rounded border-surface-300 text-primary-600" />{{ flag.replaceAll('_',' ') }}</label></div></fieldset>
+                <fieldset><legend class="mb-3 text-sm font-semibold">Your decision</legend><div class="grid gap-3 sm:grid-cols-2"><label v-for="decision in [{value:'approved',label:'Approve work',icon:CheckCircle2},{value:'revision_requested',label:'Request revision',icon:RotateCcw}]" :key="decision.value" :class="['flex cursor-pointer items-center gap-3 rounded-xl border p-4 text-sm',form.decision === decision.value ? 'border-primary-500 bg-primary-50' : 'border-surface-200']"><input v-model="form.decision" type="radio" :value="decision.value" required class="text-primary-600" /><component :is="decision.icon" class="h-4 w-4" />{{ decision.label }}</label></div></fieldset>
+                <p class="text-xs leading-relaxed text-surface-500">Your review is recorded with this submission version. Approval contributes to internship completion when every task and milestone is satisfied.</p><Button type="submit" class="w-full" :disabled="!form.decision" :loading="form.processing" :icon="ClipboardCheck">Save review</Button>
             </form>
+            <section v-else class="self-start space-y-4 rounded-2xl border border-surface-200 bg-white p-6"><h2 class="font-semibold">Review recorded</h2><p class="text-sm leading-relaxed text-surface-500">This version is closed for review. A revision request keeps this record and lets the learner submit a new version.</p><article v-for="review in submission.reviews" :key="review.id" class="space-y-2 rounded-xl bg-surface-50 p-4"><p class="text-sm font-medium capitalize">{{ review.decision.replaceAll('_', ' ') }} · {{ review.overall_score ?? 'Unscored' }} / 5</p><p class="whitespace-pre-wrap text-sm text-surface-600">{{ review.feedback }}</p><dl v-if="review.rubric_scores" class="space-y-2 pt-2"><div v-for="(rating, criterion) in review.rubric_scores" :key="criterion" class="text-xs"><dt class="font-medium">{{ criterion }} · {{ rating.score }}/5</dt><dd class="mt-1 text-surface-500">{{ rating.comment }}</dd></div></dl></article></section>
         </div>
     </div>
 </template>
-
-<script setup>
-import { Head, useForm } from '@inertiajs/vue3';
-import { ArrowLeft, FileText, Camera } from 'lucide-vue-next';
-import SponsorLayout from '@/Layouts/SponsorLayout.vue';
-
-defineOptions({ layout: SponsorLayout });
-
-const props = defineProps({
-    submission: { type: Object, required: true },
-});
-
-const form = useForm({
-    decision: '',
-    rubric_scores: null,
-    overall_score: null,
-    feedback: '',
-    feedback_audio_url: null,
-    risk_flags: [],
-});
-
-function submitReview() {
-    form.post(`/sponsor/submissions/${props.submission.id}/review`);
-}
-
-function formatDate(d) {
-    if (!d) return '';
-    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-</script>

@@ -18,6 +18,7 @@ function goOffline() {
 
 onMounted(() => {
     isOnline.value = navigator.onLine;
+    showBanner.value = !navigator.onLine;
     window.addEventListener('online', goOnline);
     window.addEventListener('offline', goOffline);
 });
@@ -39,8 +40,8 @@ onUnmounted(() => {
     >
         <div v-if="showBanner" :class="['fixed top-0 left-0 right-0 z-[100] flex items-center justify-center gap-2 py-2 px-4 text-sm font-medium', isOnline ? 'bg-success-500 text-white' : 'bg-warning-500 text-white']">
             <component :is="isOnline ? Wifi : WifiOff" class="w-4 h-4" />
-            <span>{{ isOnline ? 'You\'re back online! Syncing your data...' : 'You\'re offline. Changes will be saved locally.' }}</span>
-            <button @click="showBanner = false" class="ml-2 opacity-70 hover:opacity-100">x</button>
+            <span>{{ isOnline ? 'Connection restored. Check Downloads for pending reading progress.' : 'You are offline. Saved readings are available in Downloads; other changes require a connection.' }}</span>
+            <button @click="showBanner = false" aria-label="Dismiss connection notice" class="ml-2 opacity-70 hover:opacity-100">x</button>
         </div>
     </Transition>
 </template>

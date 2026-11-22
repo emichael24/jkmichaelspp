@@ -51,6 +51,7 @@
                 <input v-model="toolsInput" type="text" class="w-full px-3 py-2 border border-surface-200 rounded-lg text-sm" placeholder="MS Excel, Jira, Confluence" />
             </div>
 
+            <div><label for="track-rubric" class="mb-1 block text-sm font-medium text-surface-700">Review criteria</label><input id="track-rubric" v-model="rubricInput" class="w-full rounded-lg border border-surface-200 px-3 py-2 text-sm" /><p class="mt-2 text-xs text-surface-500">Separate criteria with commas. Sponsors score every criterion from 0 to 5 before approving work.</p><p v-for="(error, field) in form.errors" :key="field" role="alert" class="mt-2 text-xs text-red-700">{{ error }}</p></div>
             <div class="flex justify-end gap-3 pt-4 border-t border-surface-100">
                 <a href="/admin/internships" class="px-4 py-2 text-sm text-surface-700 hover:bg-surface-100 rounded-lg">Cancel</a>
                 <button type="submit" :disabled="form.processing" class="px-6 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
@@ -71,6 +72,7 @@ defineOptions({ layout: AdminLayout });
 
 const skillsInput = ref('');
 const toolsInput = ref('');
+const rubricInput = ref('Quality, Timeliness, Communication, Initiative, Technical skill');
 
 const form = useForm({
     title: '',
@@ -81,11 +83,13 @@ const form = useForm({
     expectations: '',
     skills_covered: [],
     tools_required: [],
+    review_rubric: [],
 });
 
 function submit() {
     form.skills_covered = skillsInput.value.split(',').map(s => s.trim()).filter(Boolean);
     form.tools_required = toolsInput.value.split(',').map(s => s.trim()).filter(Boolean);
+    form.review_rubric = rubricInput.value.split(',').map(s => s.trim()).filter(Boolean);
     form.post('/admin/internships');
 }
 </script>

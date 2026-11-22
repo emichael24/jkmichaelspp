@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Services\LearnerAnalyticsService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
@@ -28,8 +28,7 @@ class LearnerAnalyticsController extends Controller
             'courseId' => $courseId,
             'readinessScore' => $readinessScore,
             'domainMastery' => $domainMastery,
-            'examHistory' => $examHistory
+            'examHistory' => $examHistory,
         ]);
     }
 }
-

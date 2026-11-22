@@ -22,11 +22,11 @@ class ReadinessScore extends Model
     ];
 
     protected $casts = [
-        'score_pct'        => 'decimal:2',
+        'score_pct' => 'decimal:2',
         'domain_breakdown' => 'array',
-        'weak_areas'       => 'array',
-        'calculated_at'    => 'datetime',
-        'created_at'       => 'datetime',
+        'weak_areas' => 'array',
+        'calculated_at' => 'datetime',
+        'created_at' => 'datetime',
     ];
 
     // ── Relationships ────────────────────────────

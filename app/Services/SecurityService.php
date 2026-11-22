@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 
 class SecurityService
 {
@@ -14,22 +14,22 @@ class SecurityService
     public static function configureRateLimits(): void
     {
         RateLimiter::for('login', function (Request $request) {
-            return \Illuminate\Cache\RateLimiting\Limit::perMinute(5)
+            return Limit::perMinute(5)
                 ->by($request->ip());
         });
 
         RateLimiter::for('api', function (Request $request) {
-            return \Illuminate\Cache\RateLimiting\Limit::perMinute(60)
+            return Limit::perMinute(60)
                 ->by($request->user()?->id ?: $request->ip());
         });
 
         RateLimiter::for('uploads', function (Request $request) {
-            return \Illuminate\Cache\RateLimiting\Limit::perMinute(10)
+            return Limit::perMinute(10)
                 ->by($request->user()?->id ?: $request->ip());
         });
 
         RateLimiter::for('password-reset', function (Request $request) {
-            return \Illuminate\Cache\RateLimiting\Limit::perMinute(3)
+            return Limit::perMinute(3)
                 ->by($request->ip());
         });
     }

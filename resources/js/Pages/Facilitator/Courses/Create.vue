@@ -1,10 +1,10 @@
 <template>
     <Head title="Create Course" />
 
-    <div class="max-w-3xl mx-auto space-y-6">
+    <div class="max-w-7xl mx-auto space-y-6">
         <!-- Header -->
         <div class="flex items-center gap-4">
-            <Link href="/facilitator/courses" class="p-2 rounded-lg hover:bg-surface-100 transition-colors">
+            <Link aria-label="Back to courses" href="/facilitator/courses" class="p-2 rounded-lg hover:bg-surface-100 transition-colors">
                 <ArrowLeft class="w-5 h-5 text-surface-500" />
             </Link>
             <div>
@@ -13,37 +13,34 @@
             </div>
         </div>
 
-        <form @submit.prevent="submit" class="space-y-6">
+        <div class="flex items-center gap-3 overflow-x-auto rounded-xl border border-surface-200 bg-white px-5 py-4 text-xs font-medium"><span class="whitespace-nowrap text-primary-700">01 · Course details</span><span class="text-surface-300">→</span><span class="whitespace-nowrap text-surface-400">02 · Curriculum & lessons</span><span class="text-surface-300">→</span><span class="whitespace-nowrap text-surface-400">03 · Review & publish</span></div>
+        <div v-if="Object.keys(form.errors).length" role="alert" class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"><p class="font-semibold">Please review the highlighted fields.</p><p v-for="message in form.errors" :key="message" class="mt-1">{{ message }}</p></div>
+        <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
+        <form @submit.prevent="submit" class="min-w-0 space-y-6">
             <!-- Basic Info -->
             <div class="bg-white rounded-2xl border border-surface-200/60 shadow-sm p-6 space-y-5">
                 <h2 class="font-semibold text-surface-800">Basic Information</h2>
 
                 <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1.5">Course Title <span class="text-danger-600">*</span></label>
-                    <Input v-model="form.title" placeholder="e.g. Introduction to Web Development" :error="form.errors.title" />
+                    <label for="course-title" class="block text-sm font-medium text-surface-700 mb-1.5">Course Title <span class="text-danger-600">*</span></label>
+                    <Input id="course-title" v-model="form.title" placeholder="e.g. Introduction to Web Development" :error="form.errors.title" />
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1.5">Subtitle</label>
-                    <Input v-model="form.subtitle" placeholder="A brief tagline for your course" :error="form.errors.subtitle" />
+                    <label for="course-subtitle" class="block text-sm font-medium text-surface-700 mb-1.5">Subtitle</label>
+                    <Input id="course-subtitle" v-model="form.subtitle" placeholder="A brief tagline for your course" :error="form.errors.subtitle" />
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1.5">Description <span class="text-danger-600">*</span></label>
-                    <textarea
-                        v-model="form.description"
-                        rows="5"
-                        placeholder="Describe what students will learn..."
-                        class="w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-                    ></textarea>
+                    <label for="course-description" class="block text-sm font-medium text-surface-700 mb-1.5">Description <span class="text-danger-600">*</span></label>
+                    <RichTextEditor v-model="form.description" label="Course description" placeholder="Describe the transformation learners can expect, who this course is for, and what makes it valuable." compact />
                     <p v-if="form.errors.description" class="text-xs text-danger-600 mt-1">{{ form.errors.description }}</p>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Category <span class="text-danger-600">*</span></label>
-                        <select
-                            v-model="form.category_id"
+                        <label for="course-category_id" class="block text-sm font-medium text-surface-700 mb-1.5">Category <span class="text-danger-600">*</span></label>
+                        <select id="course-category_id" v-model="form.category_id"
                             class="w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                         >
                             <option value="">Select category</option>
@@ -53,27 +50,26 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Level <span class="text-danger-600">*</span></label>
-                        <select v-model="form.level" class="w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <label for="course-level" class="block text-sm font-medium text-surface-700 mb-1.5">Level <span class="text-danger-600">*</span></label>
+                        <select id="course-level" v-model="form.level" class="w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
                             <option value="beginner">Beginner</option>
                             <option value="intermediate">Intermediate</option>
                             <option value="advanced">Advanced</option>
-                            <option value="expert">Expert</option>
                         </select>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Type <span class="text-danger-600">*</span></label>
-                        <select v-model="form.type" class="w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <label for="course-type" class="block text-sm font-medium text-surface-700 mb-1.5">Type <span class="text-danger-600">*</span></label>
+                        <select id="course-type" v-model="form.type" class="w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
                             <option value="self_paced">Self-paced</option>
-                            <option value="cohort_based">Cohort-based</option>
+                            <option value="certified">Certified</option><option value="bootcamp">Bootcamp</option>
                             <option value="live">Live</option>
                         </select>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Duration (hours)</label>
-                        <Input v-model="form.duration_hours" type="number" min="0" placeholder="e.g. 10" />
+                        <label for="course-duration_hours" class="block text-sm font-medium text-surface-700 mb-1.5">Duration (hours)</label>
+                        <Input id="course-duration_hours" v-model="form.duration_hours" type="number" min="0" placeholder="e.g. 10" />
                     </div>
                 </div>
             </div>
@@ -89,12 +85,12 @@
 
                 <div v-if="!isFree" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Price (₦) <span class="text-danger-600">*</span></label>
-                        <Input v-model="form.price" type="number" min="0" step="100" placeholder="e.g. 15000" :error="form.errors.price" />
+                        <label for="course-price" class="block text-sm font-medium text-surface-700 mb-1.5">Price (₦) <span class="text-danger-600">*</span></label>
+                        <Input id="course-price" v-model="form.price" type="number" min="0" step="100" placeholder="e.g. 15000" :error="form.errors.price" />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Discounted Price (₦)</label>
-                        <Input v-model="form.discounted_price" type="number" min="0" step="100" placeholder="Optional" />
+                        <label for="course-discount_price" class="block text-sm font-medium text-surface-700 mb-1.5">Discounted Price (₦)</label>
+                        <Input id="course-discount_price" v-model="form.discount_price" type="number" min="0" step="100" placeholder="Optional" />
                     </div>
                 </div>
             </div>
@@ -105,12 +101,11 @@
                 <p class="text-sm text-surface-500">What will students be able to do after completing this course?</p>
 
                 <div v-for="(outcome, i) in form.learning_outcomes" :key="i" class="flex gap-2">
-                    <Input
-                        v-model="form.learning_outcomes[i]"
+                    <Input :aria-label="`Learning outcome ${i + 1}`" v-model="form.learning_outcomes[i]"
                         :placeholder="`Outcome ${i + 1}`"
                         class="flex-1"
                     />
-                    <button type="button" @click="removeOutcome(i)" class="p-2 text-surface-400 hover:text-danger-600 rounded-lg hover:bg-danger-50 flex-shrink-0">
+                    <button type="button" :aria-label="`Remove outcome ${i + 1}`" @click="removeOutcome(i)" class="p-2 text-surface-400 hover:text-danger-600 rounded-lg hover:bg-danger-50 flex-shrink-0">
                         <X class="w-4 h-4" />
                     </button>
                 </div>
@@ -150,14 +145,18 @@
                 </Link>
                 <Button type="submit" variant="primary" :disabled="form.processing">
                     <span v-if="form.processing">Saving...</span>
-                    <span v-else>Save Course</span>
+                    <span v-else>Save & build curriculum</span>
                 </Button>
             </div>
         </form>
+        <CourseSetupGuide :form="form" />
+        </div>
     </div>
 </template>
 
 <script setup>
+import CourseSetupGuide from '@/Components/Authoring/CourseSetupGuide.vue';
+import RichTextEditor from '@/Components/Authoring/RichTextEditor.vue';
 import { ref, computed, watch } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import FacilitatorLayout from '@/Layouts/FacilitatorLayout.vue';
@@ -182,14 +181,14 @@ const form = useForm({
     level: 'beginner',
     type: 'self_paced',
     duration_hours: '',
-    price: '',
-    discounted_price: '',
+    price: 0,
+    discount_price: '',
     learning_outcomes: [''],
     tags: [],
 });
 
 watch(isFree, (val) => {
-    if (val) { form.price = ''; form.discounted_price = ''; }
+    if (val) { form.price = 0; form.discount_price = ''; }
 });
 
 function addOutcome() { form.learning_outcomes.push(''); }

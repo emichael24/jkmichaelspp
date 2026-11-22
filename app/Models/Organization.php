@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\OrganizationSeatService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -31,7 +32,7 @@ class Organization extends Model
     protected function casts(): array
     {
         return [
-            'settings'  => 'array',
+            'settings' => 'array',
             'is_active' => 'boolean',
             'max_seats' => 'integer',
         ];
@@ -72,18 +73,20 @@ class Organization extends Model
 
     public function hasAvailableSeats(): bool
     {
-        return $this->users()->active()->count() < $this->max_seats;
+        return $this->seatUsage()['available'] > 0;
     }
 
     public function seatUsage(): array
     {
         $used = $this->users()->active()->count();
+        $reserved = app(OrganizationSeatService::class)->reserved($this);
 
         return [
-            'used'      => $used,
-            'max'       => $this->max_seats,
-            'available' => max(0, $this->max_seats - $used),
-            'percent'   => $this->max_seats > 0 ? round(($used / $this->max_seats) * 100) : 0,
+            'used' => $used,
+            'max' => $this->max_seats,
+            'reserved' => $reserved,
+            'available' => max(0, $this->max_seats - $used - $reserved),
+            'percent' => $this->max_seats > 0 ? min(100, round((($used + $reserved) / $this->max_seats) * 100)) : 0,
         ];
     }
 

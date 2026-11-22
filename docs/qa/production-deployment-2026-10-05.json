@@ -1,0 +1,360 @@
+{
+  "release": "20261005T125643Z",
+  "deployed_at": "2026-10-05T13:09:59.160122+00:00",
+  "verified_at": "2026-10-05T13:13:59.830160+00:00",
+  "url": "https://app.jkmichaelspm.com",
+  "release_archive_sha256": "40c02a9fd4fe681c301a123f2df0ce50aff3a27da5d3bd9a1eebd391a872a29d",
+  "hotfix": {
+    "file": "app/Console/Commands/EnterpriseReadiness.php",
+    "before_sha256": "d95deea9f36c68364a1e44289d1700d0a5cef55365be680555b88ca09e3059d8",
+    "after_sha256": "2e457bc7294787c01f6169876c2241e6d03c43cf8d8f6fec31887fd50631349f",
+    "reason": "Accept a configured executable absolute scanner path",
+    "test": "OperationalReadinessTest: 1 test, 2 assertions on SQLite and isolated MariaDB"
+  },
+  "tests": {
+    "full_sql_suite": {
+      "tests": 175,
+      "assertions": 1415
+    },
+    "readiness_regression": {
+      "tests": 1,
+      "assertions": 2,
+      "databases": [
+        "SQLite",
+        "MariaDB"
+      ]
+    }
+  },
+  "runtime": {
+    "database": "mysql",
+    "counts": {
+      "users": 29,
+      "course_enrollments": 130,
+      "crm_contacts": 0,
+      "crm_contact_imports": 0,
+      "jobs": 0,
+      "failed_jobs": 0,
+      "media_assets": 1
+    },
+    "maintenance": false,
+    "scheduler": 1791205980,
+    "queue": 1791205983,
+    "legacy_public_files": 0
+  },
+  "units": {
+    "jkm-queue.service": {
+      "ActiveState": "active",
+      "SubState": "running",
+      "UnitFileState": "enabled"
+    },
+    "jkm-contact-imports.service": {
+      "ActiveState": "active",
+      "SubState": "running",
+      "UnitFileState": "enabled"
+    },
+    "jkm-scheduler.timer": {
+      "ActiveState": "active",
+      "SubState": "waiting",
+      "UnitFileState": "enabled"
+    },
+    "jkm-health.timer": {
+      "ActiveState": "active",
+      "SubState": "waiting",
+      "UnitFileState": "enabled"
+    },
+    "jkm-clamav-update.timer": {
+      "ActiveState": "active",
+      "SubState": "waiting",
+      "UnitFileState": "enabled"
+    }
+  },
+  "readiness": {
+    "ready": true,
+    "checked_at": "2026-10-05T13:13:59.533937Z",
+    "checks": [
+      {
+        "check": "php",
+        "passed": true,
+        "detail": "8.2.26"
+      },
+      {
+        "check": "extension:pdo_mysql",
+        "passed": true,
+        "detail": "Required runtime extension"
+      },
+      {
+        "check": "extension:fileinfo",
+        "passed": true,
+        "detail": "Required runtime extension"
+      },
+      {
+        "check": "extension:mbstring",
+        "passed": true,
+        "detail": "Required runtime extension"
+      },
+      {
+        "check": "extension:openssl",
+        "passed": true,
+        "detail": "Required runtime extension"
+      },
+      {
+        "check": "extension:zip",
+        "passed": true,
+        "detail": "Required runtime extension"
+      },
+      {
+        "check": "extension:dom",
+        "passed": true,
+        "detail": "Required runtime extension"
+      },
+      {
+        "check": "extension:gd",
+        "passed": true,
+        "detail": "Required runtime extension"
+      },
+      {
+        "check": "production_mode",
+        "passed": true,
+        "detail": "APP_ENV=production; APP_DEBUG=false"
+      },
+      {
+        "check": "application_key",
+        "passed": true,
+        "detail": "A stable application encryption key is required"
+      },
+      {
+        "check": "secure_sessions",
+        "passed": true,
+        "detail": "Secure, HttpOnly session cookies"
+      },
+      {
+        "check": "https_health",
+        "passed": true,
+        "detail": "HTTPS certificate validation and /up response"
+      },
+      {
+        "check": "database",
+        "passed": true,
+        "detail": "Production MySQL connection"
+      },
+      {
+        "check": "migrations",
+        "passed": true,
+        "detail": "0 pending migrations"
+      },
+      {
+        "check": "certificate_integrity",
+        "passed": true,
+        "detail": "0 duplicate credential groups"
+      },
+      {
+        "check": "private_storage",
+        "passed": true,
+        "detail": "Private storage must be outside the document root"
+      },
+      {
+        "check": "legacy_public_media",
+        "passed": true,
+        "detail": "0 legacy public learning files require migration"
+      },
+      {
+        "check": "malware_scanning",
+        "passed": true,
+        "detail": "Required scanner must be available; keep signatures current"
+      },
+      {
+        "check": "scanner_definitions",
+        "passed": true,
+        "detail": "Malware definitions must have been successfully checked within 48 hours"
+      },
+      {
+        "check": "document_isolation",
+        "passed": true,
+        "detail": "Configure tested PDF/PowerPoint sandbox wrappers; require matching policy hashes and a recent isolation probe"
+      },
+      {
+        "check": "durable_queue",
+        "passed": true,
+        "detail": "Use database or Redis workers"
+      },
+      {
+        "check": "queue_visibility_timeout",
+        "passed": true,
+        "detail": "Retry visibility must exceed the 120-second worker timeout; use at least 180 seconds"
+      },
+      {
+        "check": "durable_cache",
+        "passed": true,
+        "detail": "Shared persistent cache for locks and rate limiting"
+      },
+      {
+        "check": "scheduler_heartbeat",
+        "passed": true,
+        "detail": "Heartbeat must be less than three minutes old"
+      },
+      {
+        "check": "queue_heartbeat",
+        "passed": true,
+        "detail": "Heartbeat must be less than three minutes old"
+      },
+      {
+        "check": "paystack_mode",
+        "passed": true,
+        "detail": "Sandbox verification only"
+      },
+      {
+        "check": "mail_transport",
+        "passed": true,
+        "detail": "Production mail delivery must be configured and tested"
+      },
+      {
+        "check": "restore_drill",
+        "passed": true,
+        "detail": "Supply evidence from an actual isolated restore within 30 days"
+      }
+    ]
+  },
+  "migration": {
+    "result": "passed",
+    "verified_at": "2026-10-05T13:06:37+00:00",
+    "source_tables_transferred": 117,
+    "source_rows_transferred": 1369,
+    "row_hashes_verified_before_pending_migrations": true,
+    "foreign_keys_verified": 208,
+    "migrations": 47,
+    "live_database_modified": false,
+    "preserved_legacy_course_classifications": 1,
+    "date_only_columns_normalized_to_schema": {
+      "cohorts.start_date": 3,
+      "cohorts.end_date": 3,
+      "internship_enrollments.start_date": 31,
+      "internship_enrollments.end_date": 31,
+      "internship_tasks.due_date": 10,
+      "user_gamification.last_activity_date": 4
+    },
+    "limits": [
+      "Protected same-server rehearsal",
+      "No production HTTP traffic redirected",
+      "No external email, payment or AI requests"
+    ]
+  },
+  "restore": {
+    "result": "passed",
+    "verified_at": "2026-10-05T13:06:23.635248+00:00",
+    "backup_sha256": "676e4b578142a4efc395c9226937de37a830389fa587adff4cf711c6ab3ac11f",
+    "sqlite_sha256": "8d762e9c20d2af0d8bb45deacb8b1796cb47dd2685d06c9e7af047c3ade5e0ab",
+    "tables_verified": 118,
+    "code_and_storage_hashes": "passed",
+    "maintenance_snapshot": true,
+    "scope": "Same-server restore; Contabo independent verification deferred by user"
+  },
+  "persona_routes": [
+    {
+      "role": "platform_admin",
+      "path": "/admin",
+      "status": 302,
+      "location": "https://app.jkmichaelspm.com/email/verify",
+      "verified_account": false
+    },
+    {
+      "role": "platform_admin",
+      "path": "/admin/erp/contacts",
+      "status": 302,
+      "location": "https://app.jkmichaelspm.com/email/verify",
+      "verified_account": false
+    },
+    {
+      "role": "platform_admin",
+      "path": "/admin/settings",
+      "status": 302,
+      "location": "https://app.jkmichaelspm.com/email/verify",
+      "verified_account": false
+    },
+    {
+      "role": "platform_admin",
+      "path": "/admin/courses/create",
+      "status": 302,
+      "location": "https://app.jkmichaelspm.com/email/verify",
+      "verified_account": false
+    },
+    {
+      "role": "learner",
+      "path": "/dashboard",
+      "status": 200,
+      "location": null,
+      "verified_account": true
+    },
+    {
+      "role": "learner",
+      "path": "/courses",
+      "status": 200,
+      "location": null,
+      "verified_account": true
+    },
+    {
+      "role": "facilitator",
+      "path": "/facilitator",
+      "status": 200,
+      "location": null,
+      "verified_account": true
+    },
+    {
+      "role": "facilitator",
+      "path": "/facilitator/courses",
+      "status": 200,
+      "location": null,
+      "verified_account": true
+    },
+    {
+      "role": "sme_reviewer",
+      "path": "/sme/dashboard",
+      "status": 200,
+      "location": null,
+      "verified_account": true
+    },
+    {
+      "role": "sponsor",
+      "path": "/sponsor",
+      "status": 200,
+      "location": null,
+      "verified_account": true
+    },
+    {
+      "role": "org_admin",
+      "status": "no existing active account"
+    }
+  ],
+  "payment_mode": "test",
+  "monitoring": "Five-minute readiness checks in systemd journal; external alert delivery not configured",
+  "limits": [
+    "32 historical completions require evidence review; original records preserved",
+    "Organization SSO deferred by user",
+    "Independent Contabo backup verification deferred by user",
+    "Administrator email verification is required before admin journeys can be completed",
+    "No active organization administrator exists in current production data",
+    "No live billing acceptance claim"
+  ],
+  "final_integrity": {
+    "verified_at": "2026-10-05T13:16:58.999520+00:00",
+    "runtime_archive_files_hash_verified": 929,
+    "recorded_hotfix_applied": true,
+    "public_http_status": {
+      "/up": 200,
+      "/login": 200,
+      "/.env": 404,
+      "/storage/app/private": 404,
+      "/vendor/autoload.php": 404
+    }
+  },
+  "scheduled_monitor": {
+    "run_at_utc": "2026-10-05T13:15:00Z",
+    "result": "success",
+    "exit_status": 0
+  },
+  "browser": {
+    "url": "https://app.jkmichaelspm.com/login",
+    "rendered": true,
+    "console_warnings_or_errors": 0,
+    "screenshot": "production-login-2026-10-05.png"
+  }
+}

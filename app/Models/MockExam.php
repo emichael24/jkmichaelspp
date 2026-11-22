@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class MockExam extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'course_id',
         'title',
@@ -24,14 +27,14 @@ class MockExam extends Model
     protected function casts(): array
     {
         return [
-            'question_count'          => 'integer',
-            'time_limit_minutes'      => 'integer',
-            'passing_score_pct'       => 'integer',
-            'domain_distribution'     => 'array',
+            'question_count' => 'integer',
+            'time_limit_minutes' => 'integer',
+            'passing_score_pct' => 'integer',
+            'domain_distribution' => 'array',
             'difficulty_distribution' => 'array',
-            'is_published'            => 'boolean',
-            'is_exam_simulation'      => 'boolean',
-            'allow_pause'             => 'boolean',
+            'is_published' => 'boolean',
+            'is_exam_simulation' => 'boolean',
+            'allow_pause' => 'boolean',
         ];
     }
 

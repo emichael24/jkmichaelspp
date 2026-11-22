@@ -87,7 +87,7 @@ return new class extends Migration
             $table->foreignId('submitted_by')->constrained('users')->cascadeOnDelete();
             $table->unsignedBigInteger('reviewed_by')->nullable();
             $table->text('review_notes')->nullable();
-            $table->timestamp('submitted_at');
+            $table->dateTime('submitted_at');
             $table->timestamp('reviewed_at')->nullable();
             $table->timestamps();
 

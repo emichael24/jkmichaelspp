@@ -31,6 +31,17 @@ return [
 
     'connections' => [
 
+        // A durable queue even when previews use sync for other application jobs.
+        // Use the application DB so checkpoints and the next chunk commit atomically.
+        'crm_imports' => [
+            'driver' => 'database',
+            'connection' => null,
+            'table' => 'jobs',
+            'queue' => 'contact-imports',
+            'retry_after' => 180,
+            'after_commit' => false,
+        ],
+
         'sync' => [
             'driver' => 'sync',
         ],
@@ -40,8 +51,8 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
-            'after_commit' => false,
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 180),
+            'after_commit' => true,
         ],
 
         'beanstalkd' => [

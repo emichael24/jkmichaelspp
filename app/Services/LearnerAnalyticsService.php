@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\QuizAttempt;
 use App\Models\Course;
-use Illuminate\Support\Facades\DB;
+use App\Models\MockExam;
+use App\Models\QuizAttempt;
 
 class LearnerAnalyticsService
 {
@@ -17,17 +17,19 @@ class LearnerAnalyticsService
         // Get last 3 completed mock exams for this course
         $attempts = QuizAttempt::where('user_id', $userId)
             ->where('status', 'completed')
-            ->whereHasMorph('quizzable', [\App\Models\MockExam::class], function ($query) use ($courseId) {
+            ->whereHasMorph('quizzable', [MockExam::class], function ($query) use ($courseId) {
                 $query->where('course_id', $courseId);
             })
             ->orderBy('completed_at', 'desc')
             ->take(3)
             ->get();
 
-        if ($attempts->isEmpty()) return 0;
+        if ($attempts->isEmpty()) {
+            return 0;
+        }
 
         // Weighted moving average: Most recent exam matters most
-        $weights = [0.5, 0.3, 0.2]; 
+        $weights = [0.5, 0.3, 0.2];
         $score = 0;
         $totalWeight = 0;
 
@@ -41,7 +43,7 @@ class LearnerAnalyticsService
     }
 
     /**
-     * Aggregate all domain scores from all quiz attempts 
+     * Aggregate all domain scores from all quiz attempts
      * to build a "Mastery Map" of weak/strong areas.
      */
     public function getDomainMastery($userId, $courseId)
@@ -49,17 +51,19 @@ class LearnerAnalyticsService
         $attempts = QuizAttempt::where('user_id', $userId)
             ->where('status', 'completed')
             // Using whereNotNull to only grab attempts that had domain tracking
-            ->whereNotNull('domain_scores') 
+            ->whereNotNull('domain_scores')
             ->get();
 
         $mastery = [];
 
         foreach ($attempts as $attempt) {
             $domainScores = json_decode($attempt->domain_scores, true);
-            if (!$domainScores) continue;
+            if (! $domainScores) {
+                continue;
+            }
 
             foreach ($domainScores as $domain => $stats) {
-                if (!isset($mastery[$domain])) {
+                if (! isset($mastery[$domain])) {
                     $mastery[$domain] = ['correct' => 0, 'total' => 0, 'percentage' => 0];
                 }
                 $mastery[$domain]['correct'] += $stats['correct'];
@@ -72,15 +76,19 @@ class LearnerAnalyticsService
             if ($data['total'] > 0) {
                 $data['percentage'] = round(($data['correct'] / $data['total']) * 100);
             }
-            
+
             // Assign a status band
-            if ($data['percentage'] >= 80) $data['status'] = 'Proficient';
-            elseif ($data['percentage'] >= 60) $data['status'] = 'Intermediate';
-            else $data['status'] = 'Needs Review';
+            if ($data['percentage'] >= 80) {
+                $data['status'] = 'Proficient';
+            } elseif ($data['percentage'] >= 60) {
+                $data['status'] = 'Intermediate';
+            } else {
+                $data['status'] = 'Needs Review';
+            }
         }
 
         // Sort by lowest percentage to highlight weak areas first
-        uasort($mastery, function($a, $b) {
+        uasort($mastery, function ($a, $b) {
             return $a['percentage'] <=> $b['percentage'];
         });
 
@@ -102,7 +110,7 @@ class LearnerAnalyticsService
                     'title' => $attempt->quizzable->title ?? 'Assessment',
                     'date' => $attempt->completed_at->format('M j, Y'),
                     'score' => $attempt->score_pct,
-                    'time_spent' => gmdate("i:s", $attempt->time_spent_seconds)
+                    'time_spent' => gmdate('i:s', $attempt->time_spent_seconds),
                 ];
             });
     }

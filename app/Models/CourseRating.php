@@ -34,6 +34,7 @@ class CourseRating extends Model
     public static function averageForCourse(int $courseId): ?float
     {
         $avg = self::where('course_id', $courseId)->avg('rating');
+
         return $avg ? round($avg, 1) : null;
     }
 
@@ -46,6 +47,7 @@ class CourseRating extends Model
         for ($i = 1; $i <= 5; $i++) {
             $distribution[$i] = self::where('course_id', $courseId)->where('rating', $i)->count();
         }
+
         return $distribution;
     }
 

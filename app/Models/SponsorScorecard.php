@@ -10,9 +10,9 @@ class SponsorScorecard extends Model
     protected $guarded = [];
 
     protected $casts = [
-        'scores'              => 'array',
+        'scores' => 'array',
         'improvement_actions' => 'array',
-        'ready_for_next'      => 'boolean',
+        'ready_for_next' => 'boolean',
     ];
 
     /* ── Relationships ─────────────────────────────── */

@@ -2,100 +2,76 @@
 
 namespace App\Services;
 
+use App\Models\Course;
 use App\Models\Question;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
-use Exception;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class QuestionImportService
 {
-    /**
-     * Parse and import a CSV file of questions.
-     */
-    public function importCsv($filePath, $courseId)
+    public function importCsv($filePath, $courseId): array
     {
         $file = fopen($filePath, 'r');
-        $header = fgetcsv($file); // Get the header row
-
-        // Sanitize header to lowercase and trim spaces
-        $header = array_map(function($col) { return strtolower(trim($col)); }, $header);
-
-        $expectedColumns = ['domain', 'type', 'difficulty', 'stem', 'option_1', 'option_2', 'option_3', 'option_4', 'correct_options', 'explanation'];
-        
-        $missing = array_diff($expectedColumns, $header);
-        if (!empty($missing)) {
-            throw new Exception("Invalid CSV format. Missing columns: " . implode(', ', $missing));
-        }
-
-        $successCount = 0;
-        $errors = [];
-        $rowNum = 2; // starting after header
-
-        DB::beginTransaction();
+        abort_unless($file, 422, 'The CSV file could not be read.');
         try {
-            while (($row = fgetcsv($file)) !== false) {
-                // Skip empty rows
-                if (count(array_filter($row)) == 0) continue;
+            $header = fgetcsv($file);
+            if (! $header) {
+                throw ValidationException::withMessages(['file' => 'The CSV file is empty.']);
+            }
+            $header = array_map(fn ($column) => strtolower(trim(ltrim($column, "\xEF\xBB\xBF"))), $header);
+            $expected = ['domain', 'type', 'difficulty', 'stem', 'option_1', 'option_2', 'option_3', 'option_4', 'correct_options', 'explanation'];
+            if (array_diff($expected, $header) || count($header) !== count(array_unique($header))) {
+                throw ValidationException::withMessages(['file' => 'Use the import template with unique column names.']);
+            }
 
-                $data = array_combine($header, $row);
+            return DB::transaction(function () use ($file, $header, $courseId) {
+                $course = Course::whereKey($courseId)->lockForUpdate()->firstOrFail();
+                app(CurriculumRevisionService::class)->assertEditable($course);
+                $success = 0;
+                $errors = [];
+                for ($line = 2; ($row = fgetcsv($file)) !== false; $line++) {
+                    abort_if($line > 5001, 422, 'Import at most 5,000 questions at a time.');
+                    if (! array_filter($row, fn ($cell) => $cell !== null && trim($cell) !== '')) {
+                        continue;
+                    }
+                    if (count($header) !== count($row)) {
+                        $errors[] = "Row {$line}: Column count does not match the header.";
 
-                try {
-                    $this->createQuestion($data, $courseId);
-                    $successCount++;
-                } catch (Exception $e) {
-                    $errors[] = "Row {$rowNum}: " . $e->getMessage();
+                        continue;
+                    }
+                    try {
+                        $data = array_combine($header, $row);
+                        $options = [];
+                        for ($i = 1; $i <= 4; $i++) {
+                            if (trim($data['option_'.$i]) !== '') {
+                                $options[] = ['id' => (string) $i, 'text' => $data['option_'.$i]];
+                            }
+                        }
+                        $values = [
+                            'course_id' => $course->id, 'domain' => trim($data['domain']) ?: 'General',
+                            'subtopic' => $data['subtopic'] ?? null, 'type' => trim($data['type']),
+                            'difficulty' => strtolower(trim($data['difficulty'])), 'stem' => $data['stem'],
+                            'options' => $options, 'correct_answer_ids' => array_map('trim', explode(',', $data['correct_options'])),
+                            'explanation_correct' => $data['explanation'], 'status' => 'draft', 'version' => 1,
+                        ];
+                        Validator::make($values, [
+                            'type' => 'required|in:multiple_choice,multiple_select,true_false,scenario,situational_judgment,ordering',
+                            'difficulty' => 'required|in:easy,medium,hard,expert', 'stem' => 'required|string|max:30000',
+                            'domain' => 'required|string|max:255', 'subtopic' => 'nullable|string|max:255',
+                        ])->validate();
+                        app(QuestionDefinitionValidator::class)->validate($values);
+                        Question::create($values);
+                        $success++;
+                    } catch (ValidationException $exception) {
+                        $errors[] = "Row {$line}: ".implode(' ', $exception->validator->errors()->all());
+                    }
                 }
-                $rowNum++;
-            }
-            DB::commit();
-        } catch (Exception $e) {
-            DB::rollBack();
+
+                return ['success_count' => $success, 'errors' => $errors];
+            });
+        } finally {
             fclose($file);
-            throw $e;
         }
-
-        fclose($file);
-
-        return [
-            'success_count' => $successCount,
-            'errors' => $errors
-        ];
-    }
-
-    private function createQuestion($data, $courseId)
-    {
-        // Build Options Array
-        $options = [];
-        for ($i = 1; $i <= 4; $i++) {
-            $optKey = "option_{$i}";
-            if (!empty($data[$optKey])) {
-                $options[] = [
-                    'id' => $i,
-                    'text' => $data[$optKey]
-                ];
-            }
-        }
-
-        // Parse correct options (e.g., "1" or "1, 3")
-        $correctAnswers = array_map('intval', explode(',', $data['correct_options']));
-
-        if (count($options) < 2) {
-            throw new Exception("A question must have at least 2 options.");
-        }
-
-        Question::create([
-            'uuid' => (string) Str::uuid(),
-            'course_id' => $courseId,
-            'domain' => $data['domain'] ?? 'General',
-            'subtopic' => $data['subtopic'] ?? null,
-            'type' => $data['type'] ?? 'multiple_choice',
-            'difficulty' => strtolower($data['difficulty'] ?? 'medium'),
-            'stem' => $data['stem'],
-            'options' => json_encode($options),
-            'correct_answer_ids' => json_encode($correctAnswers),
-            'explanation_correct' => $data['explanation'] ?? 'No explanation provided.',
-            'status' => 'published',
-            'version' => 1
-        ]);
     }
 }

@@ -23,7 +23,7 @@ class AnnouncementController extends Controller
             ->paginate(15);
 
         return Inertia::render('Facilitator/Announcements/Index', [
-            'cohort'        => $cohort->load('course:id,title'),
+            'cohort' => $cohort->load('course:id,title'),
             'announcements' => $announcements,
         ]);
     }
@@ -34,17 +34,17 @@ class AnnouncementController extends Controller
         $this->authorizeFacilitator($cohort);
 
         $validated = $request->validate([
-            'title'     => 'required|string|max:255',
-            'body'      => 'required|string',
+            'title' => 'required|string|max:255',
+            'body' => 'required|string',
             'is_pinned' => 'nullable|boolean',
         ]);
 
         Announcement::create([
-            'author_id'    => Auth::id(),
-            'cohort_id'    => $cohort->id,
-            'title'        => $validated['title'],
-            'body'         => $validated['body'],
-            'is_pinned'    => $validated['is_pinned'] ?? false,
+            'author_id' => Auth::id(),
+            'cohort_id' => $cohort->id,
+            'title' => $validated['title'],
+            'body' => $validated['body'],
+            'is_pinned' => $validated['is_pinned'] ?? false,
             'published_at' => now(),
         ]);
 
@@ -57,8 +57,8 @@ class AnnouncementController extends Controller
         $this->authorizeFacilitator($cohort);
 
         $validated = $request->validate([
-            'title'     => 'required|string|max:255',
-            'body'      => 'required|string',
+            'title' => 'required|string|max:255',
+            'body' => 'required|string',
             'is_pinned' => 'nullable|boolean',
         ]);
 

@@ -49,11 +49,11 @@
                 <div>
                     <label class="block text-sm font-medium text-surface-700 mb-1.5">Type *</label>
                     <select v-model="form.type" class="w-full rounded-xl border-surface-200 text-sm">
-                        <option value="topic_quiz">Topic Quiz</option>
-                        <option value="module_test">Module Test</option>
-                        <option value="practice_exam">Practice Exam</option>
-                        <option value="diagnostic">Diagnostic</option>
-                        <option value="certification_prep">Certification Prep</option>
+                        <option value="lesson_check">Lesson Check</option>
+                        <option value="module_quiz">Module Quiz</option>
+                        <option value="domain_practice">Domain Practice</option>
+                        <option value="adaptive">Adaptive</option>
+                        <option value="custom">Custom</option>
                     </select>
                 </div>
 
@@ -122,7 +122,7 @@ const form = useForm({
     course_id: props.preselectedCourse || '',
     module_id: '',
     lesson_id: '',
-    type: 'topic_quiz',
+    type: 'lesson_check',
     question_count: 10,
     time_limit_minutes: null,
     passing_score_pct: 70,

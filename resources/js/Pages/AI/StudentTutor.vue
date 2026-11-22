@@ -1,23 +1,31 @@
 <template>
     <Head title="AI Tutor" />
 
-    <div class="h-[calc(100vh-8rem)] flex gap-4 overflow-hidden">
+    <div v-if="error" role="alert" class="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{{ error }}</div>
+    <div class="h-[calc(100dvh-11rem)] min-h-[560px] lg:min-h-0 lg:h-[calc(100vh-8rem)] flex flex-col lg:flex-row gap-4 overflow-hidden">
         <!-- Sessions Sidebar -->
-        <div class="w-64 flex-shrink-0 bg-white rounded-2xl border border-surface-200/60 shadow-sm flex flex-col overflow-hidden">
-            <div class="p-4 border-b border-surface-100">
+        <div class="w-full lg:w-64 flex-shrink-0 bg-white rounded-2xl border border-surface-200/60 shadow-sm flex flex-col overflow-hidden">
+            <div class="p-3 lg:p-4 border-b border-surface-100 grid grid-cols-2 lg:block gap-2">
                 <button
                     @click="startNewSession"
+                    :disabled="isThinking || loadingSession"
                     class="w-full py-2 px-3 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors flex items-center justify-center gap-2"
                 >
                     <Plus class="w-4 h-4" /> New Chat
                 </button>
+                <label for="mobile-chat-session" class="sr-only">Recent conversations</label>
+                <select id="mobile-chat-session" class="lg:hidden w-full min-w-0 rounded-xl border border-surface-200 px-2 text-sm" :value="activeSession?.id || ''" :disabled="isThinking || loadingSession" @change="loadSelectedSession">
+                    <option value="">Recent conversations</option>
+                    <option v-for="session in sessions" :key="session.id" :value="session.id">{{ session.title }}</option>
+                </select>
             </div>
 
-            <div class="flex-1 overflow-y-auto p-2 space-y-1">
+            <div class="hidden lg:block lg:flex-1 overflow-y-auto p-2 space-y-1">
                 <button
                     v-for="session in sessions"
                     :key="session.id"
                     @click="loadSession(session)"
+                    :disabled="isThinking || loadingSession"
                     :class="[
                         'w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors group',
                         activeSession?.id === session.id
@@ -31,7 +39,7 @@
             </div>
 
             <!-- Tools -->
-            <div class="p-3 border-t border-surface-100 space-y-1">
+            <div class="p-2 lg:p-3 border-t border-surface-100 flex lg:block gap-1 lg:space-y-1">
                 <button @click="mode = 'quiz'" :class="toolBtnClass('quiz')">
                     <HelpCircle class="w-4 h-4" /> Generate Quiz
                 </button>
@@ -45,7 +53,7 @@
         </div>
 
         <!-- Main Panel -->
-        <div class="flex-1 bg-white rounded-2xl border border-surface-200/60 shadow-sm flex flex-col overflow-hidden">
+        <div class="flex-1 min-w-0 min-h-0 bg-white rounded-2xl border border-surface-200/60 shadow-sm flex flex-col overflow-hidden">
 
             <!-- ─── CHAT MODE ─── -->
             <template v-if="mode === 'chat'">
@@ -56,7 +64,7 @@
                     </div>
                     <div>
                         <p class="font-semibold text-surface-900 text-sm">{{ activeSession?.title || 'AI Study Tutor' }}</p>
-                        <p class="text-xs text-surface-400">Powered by LLaMA 3.1</p>
+                        <p class="text-xs text-surface-500">AI study support · Check important answers against your course material.</p>
                     </div>
                 </div>
 
@@ -73,15 +81,15 @@
                     </div>
 
                     <div
-                        v-for="msg in messages"
-                        :key="msg.id"
+                        v-for="(msg, index) in messages"
+                        :key="index"
                         :class="['flex gap-3', msg.role === 'user' ? 'justify-end' : 'justify-start']"
                     >
                         <div v-if="msg.role === 'assistant'" class="w-7 h-7 rounded-lg bg-primary-600 flex items-center justify-center flex-shrink-0 mt-0.5">
                             <Bot class="w-3.5 h-3.5 text-white" />
                         </div>
                         <div :class="[
-                            'max-w-lg px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap',
+                            'max-w-full lg:max-w-lg break-words px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap',
                             msg.role === 'user'
                                 ? 'bg-primary-600 text-white rounded-br-sm'
                                 : 'bg-surface-100 text-surface-800 rounded-bl-sm',
@@ -108,6 +116,9 @@
                     <div class="flex gap-3">
                         <textarea
                             v-model="chatInput"
+                            maxlength="7000"
+                            aria-label="Message your AI tutor"
+                            :disabled="isThinking || loadingSession"
                             placeholder="Ask anything… (Shift+Enter for new line)"
                             rows="2"
                             class="flex-1 rounded-xl border border-surface-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
@@ -115,7 +126,8 @@
                         ></textarea>
                         <button
                             @click="sendMessage"
-                            :disabled="!chatInput.trim() || isThinking"
+                            :disabled="!chatInput.trim() || isThinking || loadingSession"
+                            aria-label="Send message"
                             class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                         >
                             <Send class="w-4 h-4" />
@@ -134,9 +146,10 @@
                     <!-- Config -->
                     <div v-if="!activeQuiz" class="max-w-md space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-surface-700 mb-1.5">Lesson Content</label>
+                            <label class="block text-sm font-medium text-surface-700 mb-1.5" for="quiz-content">Lesson Content</label>
                             <textarea
-                                v-model="quizInput.content"
+                                id="quiz-content" v-model="quizInput.content"
+                                maxlength="7000"
                                 rows="5"
                                 placeholder="Paste the lesson text or describe the topic…"
                                 class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
@@ -144,12 +157,12 @@
                         </div>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-sm font-medium text-surface-700 mb-1.5">Questions</label>
-                                <input type="number" v-model="quizInput.num_questions" min="3" max="20" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                                <label class="block text-sm font-medium text-surface-700 mb-1.5" for="quiz-count">Questions</label>
+                                <input type="number" id="quiz-count" v-model.number="quizInput.num_questions" min="1" max="10" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-surface-700 mb-1.5">Difficulty</label>
-                                <select v-model="quizInput.difficulty" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                <label class="block text-sm font-medium text-surface-700 mb-1.5" for="quiz-difficulty">Difficulty</label>
+                                <select id="quiz-difficulty" v-model="quizInput.difficulty" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
                                     <option value="easy">Easy</option>
                                     <option value="medium">Medium</option>
                                     <option value="hard">Hard</option>
@@ -204,17 +217,18 @@
                 <div class="flex-1 overflow-y-auto p-5 space-y-4">
                     <div class="max-w-md space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-surface-700 mb-1.5">Lesson Text or Topic</label>
+                            <label class="block text-sm font-medium text-surface-700 mb-1.5" for="summary-content">Lesson Text or Topic</label>
                             <textarea
-                                v-model="summaryInput.content"
+                                id="summary-content" v-model="summaryInput.content"
+                                maxlength="7000"
                                 rows="5"
                                 placeholder="Paste the lesson content or describe the topic…"
                                 class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
                             ></textarea>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-surface-700 mb-1.5">Summary Type</label>
-                            <select v-model="summaryInput.type" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            <label class="block text-sm font-medium text-surface-700 mb-1.5" for="summary-type">Summary Type</label>
+                            <select id="summary-type" v-model="summaryInput.type" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
                                 <option value="brief">Brief (3-4 sentences)</option>
                                 <option value="detailed">Detailed</option>
                                 <option value="key_points">Key Points (bullet list)</option>
@@ -246,6 +260,7 @@ import { ref, computed, nextTick } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import axios from 'axios';
+import { integrationError } from '@/lib/integration';
 import {
     Bot, Plus, Send, FileText, HelpCircle, MessageSquare, Copy,
 } from 'lucide-vue-next';
@@ -259,6 +274,8 @@ const props = defineProps({
 const mode = ref('chat');
 const isThinking = ref(false);
 const isGenerating = ref(false);
+const error = ref('');
+const loadingSession = ref(false);
 
 // ─── Chat ───
 const chatInput = ref('');
@@ -267,43 +284,51 @@ const activeSession = ref(null);
 const chatLog = ref(null);
 
 function startNewSession() {
+    if (isThinking.value || loadingSession.value) return;
+    error.value = '';
     activeSession.value = null;
     messages.value = [];
     mode.value = 'chat';
 }
 
 async function loadSession(session) {
-    activeSession.value = session;
-    mode.value = 'chat';
+    if (isThinking.value || loadingSession.value) return;
+    loadingSession.value = true;
+    error.value = '';
     try {
-        const { data } = await axios.get(`/ai/tutor/${session.id}`);
-        messages.value = data.messages || [];
+        const { data } = await axios.get(`/ai/tutor/sessions/${session.id}`);
+        activeSession.value = data.session;
+        mode.value = 'chat';
+        messages.value = data.session.messages || [];
         scrollToBottom();
-    } catch {}
+    } catch (e) { error.value = integrationError(e); }
+    finally { loadingSession.value = false; }
+}
+
+function loadSelectedSession(event) {
+    const session = props.sessions.find(item => String(item.id) === event.target.value);
+    if (session) loadSession(session);
 }
 
 async function sendMessage() {
     const content = chatInput.value.trim();
-    if (!content || isThinking.value) return;
-    chatInput.value = '';
-    messages.value.push({ role: 'user', content, id: Date.now() });
+    if (!content || isThinking.value || loadingSession.value) return;
+    error.value = '';
     isThinking.value = true;
     scrollToBottom();
 
     try {
-        const payload = { message: content };
-        if (activeSession.value) payload.session_id = activeSession.value.id;
-
-        const { data } = await axios.post('/ai/tutor/chat', payload);
-        messages.value.push({ role: 'assistant', content: data.response, id: Date.now() + 1 });
-
-        if (!activeSession.value && data.session) {
+        if (!activeSession.value) {
+            const { data } = await axios.post('/ai/tutor/sessions', { context_type: 'general' });
             activeSession.value = data.session;
-            // update sessions list via Inertia reload
-            router.reload({ only: ['sessions'] });
         }
+        const { data } = await axios.post(`/ai/tutor/sessions/${activeSession.value.id}/chat`, { message: content });
+        messages.value.push({ role: 'user', content }, { role: 'assistant', content: data.response });
+        chatInput.value = '';
+        activeSession.value.title = data.title || activeSession.value.title;
+        router.reload({ only: ['sessions'] });
     } catch (e) {
-        messages.value.push({ role: 'assistant', content: 'Sorry, I had trouble responding. Please try again.', id: Date.now() + 1 });
+        error.value = integrationError(e);
     } finally {
         isThinking.value = false;
         scrollToBottom();
@@ -328,13 +353,15 @@ const quizScore = computed(() => {
 });
 
 async function generateQuiz() {
+    if (isGenerating.value) return;
+    error.value = '';
     isGenerating.value = true;
     try {
         const { data } = await axios.post('/ai/quiz', quizInput.value);
         activeQuiz.value = data;
         quizAnswers.value = {};
         quizSubmitted.value = false;
-    } catch {} finally { isGenerating.value = false; }
+    } catch (e) { error.value = integrationError(e); } finally { isGenerating.value = false; }
 }
 
 function submitQuiz() { quizSubmitted.value = true; }
@@ -344,19 +371,21 @@ const summaryInput = ref({ content: '', type: 'key_points' });
 const summaryResult = ref('');
 
 async function generateSummary() {
+    if (isGenerating.value) return;
+    error.value = '';
     isGenerating.value = true;
     summaryResult.value = '';
     try {
         const { data } = await axios.post('/ai/lesson-summary', summaryInput.value);
         summaryResult.value = data.summary;
-    } catch {} finally { isGenerating.value = false; }
+    } catch (e) { error.value = integrationError(e); } finally { isGenerating.value = false; }
 }
 
-function copySummary() { navigator.clipboard.writeText(summaryResult.value); }
+async function copySummary() { try { await navigator.clipboard.writeText(summaryResult.value); } catch { error.value = 'Copy is unavailable. Select and copy the summary text.'; } }
 
 function toolBtnClass(toolMode) {
     return [
-        'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors',
+        'w-full flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-2 rounded-lg text-xs lg:text-sm transition-colors',
         mode.value === toolMode ? 'bg-primary-50 text-primary-700 font-medium' : 'text-surface-600 hover:bg-surface-100',
     ];
 }

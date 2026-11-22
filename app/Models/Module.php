@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\RecordsDomainAudit;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Module extends Model
 {
     use HasFactory;
+    use RecordsDomainAudit;
 
     protected $fillable = [
         'course_id',
@@ -21,9 +23,9 @@ class Module extends Model
     protected function casts(): array
     {
         return [
-            'sort_order'       => 'integer',
+            'sort_order' => 'integer',
             'duration_minutes' => 'integer',
-            'is_published'     => 'boolean',
+            'is_published' => 'boolean',
         ];
     }
 

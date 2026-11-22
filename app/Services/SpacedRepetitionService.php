@@ -3,10 +3,13 @@
 namespace App\Services;
 
 use App\Models\Flashcard;
+use App\Models\MockExam;
 use App\Models\Question;
 use App\Models\QuizAttempt;
 use App\Models\SpacedRepetitionItem;
+use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class SpacedRepetitionService
 {
@@ -16,25 +19,42 @@ class SpacedRepetitionService
      */
     public function processCompletedAttempt(QuizAttempt $attempt): void
     {
-        $wrongResponses = $attempt->responses()
-            ->where('is_correct', false)
-            ->with('question')
-            ->get();
+        DB::transaction(function () use ($attempt) {
+            User::whereKey($attempt->user_id)->lockForUpdate()->firstOrFail();
+            $attempt = QuizAttempt::whereKey($attempt->id)->lockForUpdate()->firstOrFail();
+            if ($attempt->status !== 'completed' || $attempt->learning_processed_at) {
+                return;
+            }
+            $wrongResponses = $attempt->responses()
+                ->where('is_correct', false)
+                ->with('question')
+                ->get();
 
-        foreach ($wrongResponses as $response) {
-            $question = $response->question;
-            if (! $question) continue;
+            foreach ($wrongResponses as $response) {
+                $question = $response->question;
+                if (! $question) {
+                    continue;
+                }
 
-            // Create a "Fix Card" flashcard
-            $flashcard = Flashcard::createFromWrongAnswer($question, $attempt->user_id);
+                // Create a "Fix Card" flashcard
+                $flashcard = Flashcard::createFromWrongAnswer($question, $attempt->user_id);
 
-            // Create the SR item for the flashcard
-            SpacedRepetitionItem::ensureExists(
-                $attempt->user_id,
-                Flashcard::class,
-                $flashcard->id
-            );
-        }
+                // Create the SR item for the flashcard
+                SpacedRepetitionItem::ensureExists(
+                    $attempt->user_id,
+                    Flashcard::class,
+                    $flashcard->id
+                );
+            }
+            $attempt->update(['learning_processed_at' => now()]);
+            $action = $attempt->quizzable instanceof MockExam ? 'mock_complete'
+                : ($attempt->isPassed() ? ($attempt->score_pct >= 90 ? 'quiz_excellent' : 'quiz_pass') : null);
+            if ($action) {
+                app(GamificationService::class)->awardXp($attempt->user_id, $action, ['event_key' => 'attempt:'.$attempt->id,
+                    'questions_answered' => $attempt->responses()->count(), 'questions_correct' => $attempt->correct_count]);
+            }
+        }, 3);
+
     }
 
     /**
@@ -61,12 +81,12 @@ class SpacedRepetitionService
         $items = SpacedRepetitionItem::forUser($userId)->active();
 
         return [
-            'due_today'    => (clone $items)->dueNow()->count(),
+            'due_today' => (clone $items)->dueNow()->count(),
             'total_active' => (clone $items)->count(),
-            'new'          => SpacedRepetitionItem::forUser($userId)->where('status', 'new')->count(),
-            'learning'     => SpacedRepetitionItem::forUser($userId)->where('status', 'learning')->count(),
-            'review'       => SpacedRepetitionItem::forUser($userId)->where('status', 'review')->count(),
-            'graduated'    => SpacedRepetitionItem::forUser($userId)->graduated()->count(),
+            'new' => SpacedRepetitionItem::forUser($userId)->where('status', 'new')->count(),
+            'learning' => SpacedRepetitionItem::forUser($userId)->where('status', 'learning')->count(),
+            'review' => SpacedRepetitionItem::forUser($userId)->where('status', 'review')->count(),
+            'graduated' => SpacedRepetitionItem::forUser($userId)->graduated()->count(),
         ];
     }
 
@@ -92,11 +112,11 @@ class SpacedRepetitionService
 
         // Identify top 5 fix priorities
         $fixPriorities = $sorted->take(5)->map(fn ($data, $domain) => [
-            'domain'       => $domain,
-            'current_pct'  => $data['pct'],
-            'correct'      => $data['correct'],
-            'total'        => $data['total'],
-            'gap_to_pass'  => max(0, ($attempt->quizzable->passing_score_pct ?? 70) - $data['pct']),
+            'domain' => $domain,
+            'current_pct' => $data['pct'],
+            'correct' => $data['correct'],
+            'total' => $data['total'],
+            'gap_to_pass' => max(0, ($attempt->quizzable->passing_score_pct ?? 70) - $data['pct']),
         ])->values()->toArray();
 
         // Build 7-day plan
@@ -107,63 +127,63 @@ class SpacedRepetitionService
             $activities = [];
 
             // Rotate through weak domains
-            $focusDomain = $weakDomains[($day - 1) % $weakDomains->count()] ?? null;
+            $focusDomain = $weakDomains->isNotEmpty() ? $weakDomains[($day - 1) % $weakDomains->count()] : null;
 
             if ($focusDomain) {
                 $activities[] = [
-                    'type'        => 'review_lesson',
-                    'domain'      => $focusDomain,
+                    'type' => 'review_lesson',
+                    'domain' => $focusDomain,
                     'description' => "Review lessons in: {$focusDomain}",
-                    'duration'    => 20,
+                    'duration' => 20,
                 ];
 
                 $activities[] = [
-                    'type'        => 'practice_quiz',
-                    'domain'      => $focusDomain,
+                    'type' => 'practice_quiz',
+                    'domain' => $focusDomain,
                     'description' => "Practice 10 questions in: {$focusDomain}",
-                    'duration'    => 15,
+                    'duration' => 15,
                 ];
             }
 
             // Daily flashcard review every day
             $activities[] = [
-                'type'        => 'flashcard_review',
-                'domain'      => null,
+                'type' => 'flashcard_review',
+                'domain' => null,
                 'description' => 'Review due flashcards (spaced repetition)',
-                'duration'    => 10,
+                'duration' => 10,
             ];
 
             // Every other day: mixed domain quiz
             if ($day % 2 === 0) {
                 $activities[] = [
-                    'type'        => 'mixed_quiz',
-                    'domain'      => null,
+                    'type' => 'mixed_quiz',
+                    'domain' => null,
                     'description' => 'Mixed domain practice (20 questions)',
-                    'duration'    => 20,
+                    'duration' => 20,
                 ];
             }
 
             // Day 7: mini mock
             if ($day === 7) {
                 $activities[] = [
-                    'type'        => 'mini_mock',
-                    'domain'      => null,
+                    'type' => 'mini_mock',
+                    'domain' => null,
                     'description' => 'Mini mock exam (50 questions)',
-                    'duration'    => 60,
+                    'duration' => 60,
                 ];
             }
 
             $plan[] = [
-                'day'        => $day,
-                'focus'      => $focusDomain,
+                'day' => $day,
+                'focus' => $focusDomain,
                 'activities' => $activities,
-                'est_time'   => collect($activities)->sum('duration'),
+                'est_time' => collect($activities)->sum('duration'),
             ];
         }
 
         return [
             'fix_priorities' => $fixPriorities,
-            'plan'           => $plan,
+            'plan' => $plan,
         ];
     }
 

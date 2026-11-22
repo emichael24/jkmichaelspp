@@ -21,10 +21,10 @@ class LessonProgress extends Model
     protected function casts(): array
     {
         return [
-            'progress_pct'      => 'integer',
+            'progress_pct' => 'integer',
             'video_position_sec' => 'integer',
             'time_spent_seconds' => 'integer',
-            'completed_at'       => 'datetime',
+            'completed_at' => 'datetime',
         ];
     }
 

@@ -33,8 +33,8 @@ class SimulationController extends Controller
 
         return Inertia::render('Admin/Simulations/Index', [
             'simulations' => $simulations,
-            'courses'     => $courses,
-            'filters'     => $request->only(['search', 'course_id', 'type']),
+            'courses' => $courses,
+            'filters' => $request->only(['search', 'course_id', 'type']),
         ]);
     }
 
@@ -50,14 +50,14 @@ class SimulationController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'course_id'         => 'required|exists:courses,id',
-            'title'             => 'required|string|max:255',
-            'description'       => 'nullable|string',
-            'type'              => 'required|in:branching_scenario,role_play,case_study_lab,decision_room',
-            'difficulty'        => 'required|in:easy,medium,hard',
+            'course_id' => 'required|exists:courses,id',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'type' => 'required|in:branching_scenario,role_play,case_study_lab,decision_room',
+            'difficulty' => 'required|in:easy,medium,hard',
             'estimated_minutes' => 'required|integer|min:1',
             'context_narrative' => 'required|string',
-            'is_published'      => 'boolean',
+            'is_published' => 'boolean',
         ]);
 
         $simulation = Simulation::create($validated);
@@ -82,21 +82,21 @@ class SimulationController extends Controller
 
         return Inertia::render('Admin/Simulations/Edit', [
             'simulation' => $simulation,
-            'courses'    => $courses,
+            'courses' => $courses,
         ]);
     }
 
     public function update(Request $request, Simulation $simulation)
     {
         $validated = $request->validate([
-            'course_id'         => 'required|exists:courses,id',
-            'title'             => 'required|string|max:255',
-            'description'       => 'nullable|string',
-            'type'              => 'required|in:branching_scenario,role_play,case_study_lab,decision_room',
-            'difficulty'        => 'required|in:easy,medium,hard',
+            'course_id' => 'required|exists:courses,id',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'type' => 'required|in:branching_scenario,role_play,case_study_lab,decision_room',
+            'difficulty' => 'required|in:easy,medium,hard',
             'estimated_minutes' => 'required|integer|min:1',
             'context_narrative' => 'required|string',
-            'is_published'      => 'boolean',
+            'is_published' => 'boolean',
         ]);
 
         $simulation->update($validated);
@@ -116,12 +116,14 @@ class SimulationController extends Controller
     public function publish(Simulation $simulation)
     {
         $simulation->update(['is_published' => true]);
+
         return back()->with('success', 'Simulation published.');
     }
 
     public function unpublish(Simulation $simulation)
     {
         $simulation->update(['is_published' => false]);
+
         return back()->with('success', 'Simulation unpublished.');
     }
 
@@ -134,12 +136,12 @@ class SimulationController extends Controller
     public function storeNode(Request $request, Simulation $simulation)
     {
         $validated = $request->validate([
-            'type'             => 'required|in:story,decision,consequence,feedback,end',
-            'content'          => 'required|string',
-            'media_url'        => 'nullable|string|max:500',
-            'is_start'         => 'boolean',
+            'type' => 'required|in:story,decision,consequence,feedback,end',
+            'content' => 'required|string',
+            'media_url' => 'nullable|string|max:500',
+            'is_start' => 'boolean',
             'is_best_practice' => 'boolean',
-            'sort_order'       => 'integer',
+            'sort_order' => 'integer',
         ]);
 
         // If marking as start, unset previous start node
@@ -155,12 +157,12 @@ class SimulationController extends Controller
     public function updateNode(Request $request, SimulationNode $node)
     {
         $validated = $request->validate([
-            'type'             => 'required|in:story,decision,consequence,feedback,end',
-            'content'          => 'required|string',
-            'media_url'        => 'nullable|string|max:500',
-            'is_start'         => 'boolean',
+            'type' => 'required|in:story,decision,consequence,feedback,end',
+            'content' => 'required|string',
+            'media_url' => 'nullable|string|max:500',
+            'is_start' => 'boolean',
             'is_best_practice' => 'boolean',
-            'sort_order'       => 'integer',
+            'sort_order' => 'integer',
         ]);
 
         if ($request->boolean('is_start')) {
@@ -177,6 +179,7 @@ class SimulationController extends Controller
     public function destroyNode(SimulationNode $node)
     {
         $node->delete();
+
         return back()->with('success', 'Node deleted.');
     }
 
@@ -189,10 +192,10 @@ class SimulationController extends Controller
     public function storeChoice(Request $request, SimulationNode $node)
     {
         $validated = $request->validate([
-            'label'        => 'required|string|max:500',
+            'label' => 'required|string|max:500',
             'next_node_id' => 'nullable|exists:simulation_nodes,id',
             'score_impact' => 'nullable|array',
-            'sort_order'   => 'integer',
+            'sort_order' => 'integer',
         ]);
 
         $node->choices()->create($validated);
@@ -203,10 +206,10 @@ class SimulationController extends Controller
     public function updateChoice(Request $request, SimulationChoice $choice)
     {
         $validated = $request->validate([
-            'label'        => 'required|string|max:500',
+            'label' => 'required|string|max:500',
             'next_node_id' => 'nullable|exists:simulation_nodes,id',
             'score_impact' => 'nullable|array',
-            'sort_order'   => 'integer',
+            'sort_order' => 'integer',
         ]);
 
         $choice->update($validated);
@@ -217,6 +220,7 @@ class SimulationController extends Controller
     public function destroyChoice(SimulationChoice $choice)
     {
         $choice->delete();
+
         return back()->with('success', 'Choice deleted.');
     }
 }

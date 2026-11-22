@@ -1,0 +1,16 @@
+{
+    "verified_at": "2026-10-05T11:05:54+00:00",
+    "mode": "test",
+    "reference": "JKM-READINESS-aa5d6ebdf93a250e",
+    "scope": "Local isolated SQL fixture and real Paystack test API; pre-existing sandbox charge; no live charge or production writes.",
+    "subscription_confirmed_once": true,
+    "provider_subscriptions_found": 1,
+    "provider_subscription_linked": true,
+    "provider_cancellation_status": "non-renewing",
+    "paid_period_preserved": true,
+    "refund_request_status": "pending",
+    "refund_verified_status": "processed",
+    "payment_status": "refunded",
+    "refund_count": 1,
+    "refund_checked_at": "2026-10-05T11:16:38+00:00"
+}

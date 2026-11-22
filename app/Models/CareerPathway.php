@@ -86,7 +86,7 @@ class CareerPathway extends Model
                 ->where('status', 'completed')
                 ->first();
 
-            if (!$enrollment) {
+            if (! $enrollment) {
                 return $course;
             }
         }

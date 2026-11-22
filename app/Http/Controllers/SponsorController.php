@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\InternshipEnrollment;
 use App\Models\InternshipSubmission;
-use App\Models\SponsorReview;
 use App\Models\SponsorScorecard;
+use App\Models\User;
+use App\Services\InternshipWorkflowService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class SponsorController extends Controller
@@ -18,7 +20,7 @@ class SponsorController extends Controller
     {
         $sponsorId = $request->user()->id;
 
-        $enrollments = InternshipEnrollment::where('sponsor_id', $sponsorId)
+        $enrollments = InternshipEnrollment::where('sponsor_id', $sponsorId)->whereHas('user', fn ($q) => $q->where('organization_id', $request->user()->organization_id))
             ->with(['user', 'track'])
             ->withCount([
                 'tasks',
@@ -29,7 +31,7 @@ class SponsorController extends Controller
 
         // Count pending submissions per enrollment
         $enrollmentIds = $enrollments->pluck('id');
-        $pendingCounts = \App\Models\InternshipSubmission::whereHas('task', function ($q) use ($enrollmentIds) {
+        $pendingCounts = InternshipSubmission::whereHas('task', function ($q) use ($enrollmentIds) {
             $q->whereIn('enrollment_id', $enrollmentIds);
         })
             ->whereIn('status', ['submitted', 'in_review'])
@@ -39,6 +41,7 @@ class SponsorController extends Controller
 
         $enrollments->getCollection()->transform(function ($enr) use ($pendingCounts) {
             $enr->pending_submissions_count = $pendingCounts[$enr->id] ?? 0;
+
             return $enr;
         });
 
@@ -54,7 +57,7 @@ class SponsorController extends Controller
     {
         $sponsorId = $request->user()->id;
 
-        $scorecards = SponsorScorecard::where('sponsor_id', $sponsorId)
+        $scorecards = SponsorScorecard::where('sponsor_id', $sponsorId)->whereHas('enrollment.user', fn ($q) => $q->where('organization_id', $request->user()->organization_id))
             ->with(['enrollment.user', 'enrollment.track'])
             ->latest()
             ->paginate(20);
@@ -72,7 +75,7 @@ class SponsorController extends Controller
         $sponsorId = $request->user()->id;
 
         $submissions = InternshipSubmission::whereHas('task.enrollment', function ($q) use ($sponsorId) {
-            $q->where('sponsor_id', $sponsorId);
+            $q->where('sponsor_id', $sponsorId)->whereHas('user', fn ($user) => $user->where('organization_id', auth()->user()->organization_id));
         })
             ->whereIn('status', ['submitted', 'in_review'])
             ->with(['task.enrollment.user', 'task.enrollment.track', 'evidence'])
@@ -95,6 +98,7 @@ class SponsorController extends Controller
 
         return Inertia::render('Sponsor/ReviewSubmission', [
             'submission' => $submission,
+            'rubric' => $submission->task->enrollment->track->reviewRubric(),
         ]);
     }
 
@@ -106,36 +110,19 @@ class SponsorController extends Controller
         $this->authorizeSponsor($submission);
 
         $validated = $request->validate([
-            'decision'            => 'required|in:approved,revision_requested',
-            'rubric_scores'       => 'nullable|array',
-            'overall_score'       => 'nullable|numeric|min:0|max:5',
-            'feedback'            => 'nullable|string|max:5000',
-            'feedback_audio_url'  => 'nullable|string|max:500',
-            'risk_flags'          => 'nullable|array',
-            'risk_flags.*'        => 'string|max:50',
+            'decision' => 'required|in:approved,revision_requested',
+            'rubric_scores' => 'nullable|array|max:20',
+            'rubric_scores.*' => 'array:score,comment',
+            'rubric_scores.*.score' => 'required|numeric|min:0|max:5',
+            'rubric_scores.*.comment' => 'nullable|string|max:1000',
+            'overall_score' => 'nullable|numeric|min:0|max:5',
+            'feedback' => 'nullable|string|max:5000',
+            'feedback_audio_url' => 'nullable|url:http,https|max:500',
+            'risk_flags' => 'nullable|array',
+            'risk_flags.*' => 'string|max:50',
         ]);
 
-        SponsorReview::create([
-            'submission_id'      => $submission->id,
-            'sponsor_id'         => $request->user()->id,
-            'decision'           => $validated['decision'],
-            'rubric_scores'      => $validated['rubric_scores'] ?? null,
-            'overall_score'      => $validated['overall_score'] ?? null,
-            'feedback'           => $validated['feedback'] ?? null,
-            'feedback_audio_url' => $validated['feedback_audio_url'] ?? null,
-            'risk_flags'         => $validated['risk_flags'] ?? null,
-            'reviewed_at'        => now(),
-        ]);
-
-        // Update submission status
-        $submission->update(['status' => $validated['decision']]);
-
-        // If approved, move task to done
-        if ($validated['decision'] === 'approved') {
-            $submission->task->update(['status' => 'done']);
-        } else {
-            $submission->task->update(['status' => 'needs_revision']);
-        }
+        app(InternshipWorkflowService::class)->review($submission, $request->user(), $validated);
 
         return back()->with('success', 'Review submitted.');
     }
@@ -170,35 +157,48 @@ class SponsorController extends Controller
     public function storeScorecard(Request $request)
     {
         $validated = $request->validate([
-            'enrollment_id'       => 'required|exists:internship_enrollments,id',
-            'period_type'         => 'required|in:weekly,monthly',
-            'period_number'       => 'required|integer|min:1',
-            'scores'              => 'required|array',
-            'overall_score'       => 'required|numeric|min:0|max:5',
-            'comments'            => 'nullable|string|max:5000',
+            'enrollment_id' => 'required|exists:internship_enrollments,id',
+            'period_type' => 'required|in:weekly,monthly',
+            'period_number' => 'required|integer|min:1',
+            'scores' => 'required|array:quality,timeliness,communication,initiative,technical_skill',
+            'scores.quality' => 'required|integer|min:1|max:5',
+            'scores.timeliness' => 'required|integer|min:1|max:5',
+            'scores.communication' => 'required|integer|min:1|max:5',
+            'scores.initiative' => 'required|integer|min:1|max:5',
+            'scores.technical_skill' => 'required|integer|min:1|max:5',
+            'overall_score' => 'nullable|numeric|min:0|max:5',
+            'comments' => 'nullable|string|max:5000',
             'improvement_actions' => 'nullable|array',
             'improvement_actions.*' => 'string|max:255',
-            'ready_for_next'      => 'boolean',
+            'ready_for_next' => 'boolean',
         ]);
 
         $enrollment = InternshipEnrollment::findOrFail($validated['enrollment_id']);
         $this->authorizeSponsorForEnrollment($enrollment, $request->user());
 
-        $scorecard = SponsorScorecard::create([
-            'enrollment_id'       => $enrollment->id,
-            'sponsor_id'          => $request->user()->id,
-            'period_type'         => $validated['period_type'],
-            'period_number'       => $validated['period_number'],
-            'scores'              => $validated['scores'],
-            'overall_score'       => $validated['overall_score'],
-            'comments'            => $validated['comments'] ?? null,
-            'improvement_actions' => $validated['improvement_actions'] ?? null,
-            'ready_for_next'      => $validated['ready_for_next'] ?? false,
-        ]);
+        DB::transaction(function () use ($enrollment, $request, $validated) {
+            User::whereKey($enrollment->user_id)->lockForUpdate()->firstOrFail();
+            $enrollment = InternshipEnrollment::whereKey($enrollment->id)->lockForUpdate()->firstOrFail();
+            $this->authorizeSponsorForEnrollment($enrollment, $request->user());
+            abort_unless(in_array($enrollment->status, ['enrolled', 'active'], true), 409, 'This internship is closed.');
+            abort_if(SponsorScorecard::where('enrollment_id', $enrollment->id)->where('period_type', $validated['period_type'])->where('period_number', $validated['period_number'])->exists(), 409, 'This period already has a scorecard.');
+            $scorecard = SponsorScorecard::create([
+                'enrollment_id' => $enrollment->id,
+                'sponsor_id' => $request->user()->id,
+                'period_type' => $validated['period_type'],
+                'period_number' => $validated['period_number'],
+                'scores' => $validated['scores'],
+                'overall_score' => round(array_sum($validated['scores']) / count($validated['scores']), 1),
+                'comments' => $validated['comments'] ?? null,
+                'improvement_actions' => $validated['improvement_actions'] ?? null,
+                'ready_for_next' => $validated['ready_for_next'] ?? false,
+            ]);
 
-        // Update enrollment overall score (rolling average)
-        $avgScore = SponsorScorecard::forEnrollment($enrollment->id)->avg('overall_score');
-        $enrollment->update(['overall_score' => round($avgScore, 2)]);
+            // Update enrollment overall score (rolling average)
+            $avgScore = SponsorScorecard::forEnrollment($enrollment->id)->avg('overall_score');
+            $enrollment->update(['overall_score' => round($avgScore, 2)]);
+
+        }, 3);
 
         return back()->with('success', 'Scorecard submitted.');
     }
@@ -226,18 +226,11 @@ class SponsorController extends Controller
 
     private function authorizeSponsor(InternshipSubmission $submission): void
     {
-        $user = auth()->user();
-        $enrollment = $submission->task->enrollment;
-
-        if ($enrollment->sponsor_id !== $user->id && !$user->hasRole('platform_admin')) {
-            abort(403);
-        }
+        app(InternshipWorkflowService::class)->authorizeSponsor($submission->task->enrollment, auth()->user());
     }
 
     private function authorizeSponsorForEnrollment(InternshipEnrollment $enrollment, $user): void
     {
-        if ($enrollment->sponsor_id !== $user->id && !$user->hasRole('platform_admin')) {
-            abort(403);
-        }
+        app(InternshipWorkflowService::class)->authorizeSponsor($enrollment, $user);
     }
 }

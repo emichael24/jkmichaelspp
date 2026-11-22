@@ -19,9 +19,9 @@ class Announcement extends Model
     ];
 
     protected $casts = [
-        'is_pinned'    => 'boolean',
+        'is_pinned' => 'boolean',
         'published_at' => 'datetime',
-        'expires_at'   => 'datetime',
+        'expires_at' => 'datetime',
     ];
 
     /* ── relationships ── */
@@ -49,10 +49,10 @@ class Announcement extends Model
     public function scopeActive($q)
     {
         return $q->published()
-                 ->where(function ($q) {
-                     $q->whereNull('expires_at')
-                       ->orWhere('expires_at', '>', now());
-                 });
+            ->where(function ($q) {
+                $q->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            });
     }
 
     public function scopePinned($q)

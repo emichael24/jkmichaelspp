@@ -8,9 +8,13 @@
                 <h1 class="text-2xl font-display font-bold text-surface-900">Contacts</h1>
                 <p class="text-surface-500 mt-1 text-sm">{{ contacts.total || 0 }} total contacts</p>
             </div>
+            <div class="flex flex-wrap gap-2">
+            <Link :href="`/admin/erp/messaging?compose=1&audience=crm${filterForm.type ? '&contact_type=' + encodeURIComponent(filterForm.type) : ''}`" class="inline-flex items-center gap-2 rounded-xl border border-surface-200 bg-white px-4 py-2 text-sm font-semibold"><Mail class="h-4 w-4" />Bulk campaign</Link>
+            <Button variant="secondary" @click="showImport = true"><Upload class="mr-2 h-4 w-4" /> Import contacts</Button>
             <button @click="showNewContactForm = true" class="px-4 py-2 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 transition-colors flex items-center gap-2">
                 <UserPlus class="w-4 h-4" /> Add Contact
             </button>
+            </div>
         </div>
 
         <!-- Filters -->
@@ -19,24 +23,22 @@
                 <div class="flex-1">
                     <Input
                         v-model="filterForm.search"
-                        placeholder="Search by name, email or phone…"
+                        aria-label="Search contacts" placeholder="Search name, email, phone or company…"
                         :icon="SearchIcon"
                         clearable
                         @update:modelValue="debouncedFilter"
                     />
                 </div>
-                <select v-model="filterForm.contact_type" @change="applyFilters" class="rounded-xl border-surface-200 text-sm px-3 py-2">
+                <select aria-label="Filter by contact type" v-model="filterForm.type" @change="applyFilters" class="rounded-xl border-surface-200 text-sm px-3 py-2">
                     <option value="">All Types</option>
                     <option value="lead">Lead</option>
                     <option value="prospect">Prospect</option>
                     <option value="customer">Customer</option>
-                    <option value="partner">Partner</option>
+                    <option value="partner">Partner</option><option value="student">Student</option><option value="alumni">Alumni</option>
                 </select>
-                <select v-model="filterForm.status" @change="applyFilters" class="rounded-xl border-surface-200 text-sm px-3 py-2">
+                <select aria-label="Filter by contact status" v-model="filterForm.status" @change="applyFilters" class="rounded-xl border-surface-200 text-sm px-3 py-2">
                     <option value="">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="unsubscribed">Unsubscribed</option>
+                    <option v-for="status in contactStatuses" :key="status" :value="status">{{ titleCase(status) }}</option>
                 </select>
                 <div class="flex items-center gap-2">
                     <input type="checkbox" id="my_contacts" v-model="filterForm.assigned_to_me" @change="applyFilters" class="rounded text-primary-600" />
@@ -47,16 +49,16 @@
 
         <!-- Table -->
         <div class="bg-white rounded-2xl border border-surface-200/60 shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Contacts list">
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="border-b border-surface-100 bg-surface-50/50">
-                            <th class="text-left px-5 py-3 font-semibold text-surface-600">Contact</th>
-                            <th class="text-left px-5 py-3 font-semibold text-surface-600">Type</th>
-                            <th class="text-left px-5 py-3 font-semibold text-surface-600">Source</th>
-                            <th class="text-left px-5 py-3 font-semibold text-surface-600">Last Contact</th>
-                            <th class="text-center px-5 py-3 font-semibold text-surface-600">Status</th>
-                            <th class="text-right px-5 py-3 font-semibold text-surface-600">Actions</th>
+                            <th scope="col" class="text-left px-5 py-3 font-semibold text-surface-600">Contact</th>
+                            <th scope="col" class="text-left px-5 py-3 font-semibold text-surface-600">Type</th>
+                            <th scope="col" class="text-left px-5 py-3 font-semibold text-surface-600">Source</th>
+                            <th scope="col" class="text-left px-5 py-3 font-semibold text-surface-600">Last Contact</th>
+                            <th scope="col" class="text-center px-5 py-3 font-semibold text-surface-600">Status</th>
+                            <th scope="col" class="text-right px-5 py-3 font-semibold text-surface-600">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-surface-100">
@@ -70,35 +72,31 @@
                                         <Link :href="`/admin/erp/contacts/${contact.id}`">
                                             <p class="font-semibold text-surface-900 hover:text-primary-600">{{ contact.first_name }} {{ contact.last_name }}</p>
                                         </Link>
-                                        <p class="text-xs text-surface-400">{{ contact.email }}</p>
-                                        <p v-if="contact.phone" class="text-xs text-surface-400">{{ contact.phone }}</p>
+                                        <p class="text-xs text-surface-600">{{ contact.email || 'No email' }}</p><p v-if="contact.company" class="text-xs text-surface-600">{{ contact.company }}</p>
+                                        <p v-if="contact.phone" class="text-xs text-surface-500">{{ contact.phone }}</p>
                                     </div>
                                 </div>
                             </td>
                             <td class="px-5 py-4">
-                                <Badge :variant="typeBadgeVariant(contact.contact_type)" size="sm">{{ contact.contact_type }}</Badge>
+                                <Badge :variant="typeBadgeVariant(contact.type)" size="sm">{{ titleCase(contact.type) }}</Badge>
                             </td>
                             <td class="px-5 py-4 text-surface-500 text-xs">{{ contact.source || '—' }}</td>
                             <td class="px-5 py-4 text-surface-500 text-xs">
                                 {{ contact.last_contacted_at ? formatDate(contact.last_contacted_at) : 'Never' }}
                             </td>
                             <td class="px-5 py-4 text-center">
-                                <Badge :variant="contact.status === 'active' ? 'success' : 'secondary'" size="sm">{{ contact.status }}</Badge>
+                                <Badge :variant="contact.status === 'converted' ? 'success' : 'secondary'" size="sm">{{ contact.status }}</Badge>
                             </td>
                             <td class="px-5 py-4 text-right">
                                 <div class="flex items-center justify-end gap-1">
-                                    <Link :href="`/admin/erp/contacts/${contact.id}`">
-                                        <button class="p-1.5 rounded-lg hover:bg-surface-100 text-surface-400 hover:text-primary-600 transition-colors">
-                                            <Eye class="w-4 h-4" />
-                                        </button>
-                                    </Link>
-                                    <button @click="quickWA(contact)" class="p-1.5 rounded-lg hover:bg-surface-100 text-surface-400 hover:text-success-600 transition-colors" title="WhatsApp">
+                                    <Link :href="`/admin/erp/contacts/${contact.id}`" :aria-label="`View ${contact.first_name} ${contact.last_name}`" class="p-2 rounded-lg hover:bg-surface-100 text-surface-500 hover:text-primary-600"><Eye class="w-4 h-4" /></Link>
+                                    <button @click="quickWA(contact)" class="p-1.5 rounded-lg hover:bg-surface-100 text-surface-500 hover:text-success-600 transition-colors" aria-label="Send WhatsApp message" :disabled="!contact.whatsapp && !contact.phone">
                                         <MessageCircle class="w-4 h-4" />
                                     </button>
-                                    <button @click="quickEmail(contact)" class="p-1.5 rounded-lg hover:bg-surface-100 text-surface-400 hover:text-blue-600 transition-colors" title="Email">
+                                    <button @click="quickEmail(contact)" class="p-1.5 rounded-lg hover:bg-surface-100 text-surface-500 hover:text-blue-600 transition-colors" aria-label="Send email" :disabled="!contact.email">
                                         <Mail class="w-4 h-4" />
                                     </button>
-                                    <button @click="confirmDelete(contact)" class="p-1.5 rounded-lg hover:bg-surface-100 text-surface-400 hover:text-danger-600 transition-colors">
+                                    <button :aria-label="`Archive ${contact.first_name} ${contact.last_name}`" @click="confirmDelete(contact)" class="p-1.5 rounded-lg hover:bg-surface-100 text-surface-500 hover:text-danger-600 transition-colors">
                                         <Trash2 class="w-4 h-4" />
                                     </button>
                                 </div>
@@ -111,12 +109,12 @@
             <div v-if="!contacts.data?.length" class="p-16 text-center">
                 <Users class="w-12 h-12 text-surface-300 mx-auto mb-3" />
                 <p class="font-semibold text-surface-700">No contacts found</p>
-                <p class="text-sm text-surface-400 mt-1">Try adjusting your filters or add a new contact.</p>
+                <p class="text-sm text-surface-500 mt-1">Try adjusting your filters or add a new contact.</p>
             </div>
 
             <!-- Pagination -->
             <div v-if="contacts.last_page > 1" class="border-t border-surface-100 px-5 py-3 flex items-center justify-between">
-                <p class="text-sm text-surface-400">Showing {{ contacts.from }}–{{ contacts.to }} of {{ contacts.total }}</p>
+                <p class="text-sm text-surface-500">Showing {{ contacts.from }}–{{ contacts.to }} of {{ contacts.total }}</p>
                 <div class="flex gap-1">
                     <Link
                         v-for="link in contacts.links"
@@ -131,70 +129,34 @@
         </div>
     </div>
 
-    <!-- New Contact Modal -->
-    <Modal :show="showNewContactForm" @close="showNewContactForm = false">
-        <div class="p-6 space-y-4">
-            <h3 class="text-lg font-semibold text-surface-900">Add New Contact</h3>
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-xs font-medium text-surface-700 mb-1">First Name *</label>
-                    <Input v-model="newForm.first_name" :error="newForm.errors.first_name" />
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-surface-700 mb-1">Last Name</label>
-                    <Input v-model="newForm.last_name" />
-                </div>
+    <Modal :show="showNewContactForm" size="lg" title="Add contact" subtitle="Capture the details your team needs. Fields marked * are required." :closeable="!newForm.processing" @close="showNewContactForm = false">
+        <form @submit.prevent="saveContact" class="space-y-6">
+            <ContactFields :form="newForm" />
+            <div class="flex justify-end gap-3 border-t border-surface-100 pt-4">
+                <Button type="button" variant="ghost" :disabled="newForm.processing" @click="showNewContactForm = false">Cancel</Button>
+                <Button type="submit" :disabled="newForm.processing">{{ newForm.processing ? 'Saving…' : 'Create contact' }}</Button>
             </div>
-            <div>
-                <label class="block text-xs font-medium text-surface-700 mb-1">Email *</label>
-                <Input v-model="newForm.email" type="email" :error="newForm.errors.email" />
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-xs font-medium text-surface-700 mb-1">Phone</label>
-                    <Input v-model="newForm.phone" placeholder="+234…" />
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-surface-700 mb-1">Type</label>
-                    <select v-model="newForm.contact_type" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm">
-                        <option value="lead">Lead</option>
-                        <option value="prospect">Prospect</option>
-                        <option value="customer">Customer</option>
-                        <option value="partner">Partner</option>
-                    </select>
-                </div>
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-surface-700 mb-1">Notes</label>
-                <textarea v-model="newForm.notes" rows="2" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-500"></textarea>
-            </div>
-            <div class="flex justify-end gap-3 pt-2">
-                <Button variant="ghost" @click="showNewContactForm = false">Cancel</Button>
-                <Button variant="primary" @click="saveContact" :disabled="newForm.processing">
-                    {{ newForm.processing ? 'Saving…' : 'Add Contact' }}
-                </Button>
-            </div>
-        </div>
+        </form>
     </Modal>
+    <ContactImport :show="showImport" @close="showImport = false" />
 
     <!-- Quick Send Modal -->
-    <Modal :show="showQuickSend" @close="closeQuickSend">
-        <div class="p-6 space-y-4">
+    <Modal :show="showQuickSend" size="xl" title="Compose a message" :closeable="!quickSendForm.processing" @close="closeQuickSend">
+        <div class="space-y-4">
             <h3 class="text-lg font-semibold text-surface-900">
                 Send {{ quickSendChannel === 'whatsapp' ? 'WhatsApp' : 'Email' }} to {{ quickSendContact?.first_name }}
             </h3>
             <div v-if="quickSendChannel === 'email'">
-                <label class="block text-xs font-medium text-surface-700 mb-1">Subject</label>
-                <Input v-model="quickSendForm.subject" />
+                <Input v-model="quickSendForm.subject" label="Email subject" :error="quickSendForm.errors.subject" />
             </div>
-            <div>
-                <label class="block text-xs font-medium text-surface-700 mb-1">Message</label>
-                <textarea v-model="quickSendForm.message" rows="4" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-500"></textarea>
-            </div>
+            <div v-if="Object.keys(quickSendForm.errors).length" role="alert" class="rounded-xl bg-danger-50 p-3 text-sm text-danger-700"><p v-for="(error, key) in quickSendForm.errors" :key="key">{{ error }}</p></div>
+            <EmailEditor v-if="quickSendChannel === 'email'" v-model="quickSendForm.message" :error="quickSendForm.errors.message" :disabled="quickSendForm.processing" />
+            <div v-else><label for="crm-quick-message" class="mb-1 block text-sm font-medium">Message</label><textarea id="crm-quick-message" v-model="quickSendForm.message" rows="6" maxlength="3500" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm" /></div>
+            <p class="text-xs text-surface-500">This sends individual correspondence. Use a bulk campaign to contact an audience.</p>
             <div class="flex justify-end gap-3">
                 <Button variant="ghost" @click="closeQuickSend">Cancel</Button>
                 <Button variant="primary" @click="sendQuick" :disabled="quickSendForm.processing">
-                    {{ quickSendForm.processing ? 'Sending…' : 'Send' }}
+                    {{ quickSendForm.processing ? 'Queueing…' : 'Queue message' }}
                 </Button>
             </div>
         </div>
@@ -203,8 +165,8 @@
     <!-- Delete Modal -->
     <Modal :show="showDeleteModal" @close="showDeleteModal = false">
         <div class="p-6">
-            <h3 class="text-lg font-semibold text-surface-900">Delete Contact</h3>
-            <p class="mt-2 text-sm text-surface-500">Delete "{{ contactToDelete?.first_name }} {{ contactToDelete?.last_name }}"? This cannot be undone.</p>
+            <h3 class="text-lg font-semibold text-surface-900">Archive contact</h3>
+            <p class="mt-2 text-sm text-surface-500">Delete "{{ contactToDelete?.first_name }} {{ contactToDelete?.last_name }}"? This removes the contact from active lists and retains their history.</p>
             <div class="mt-6 flex justify-end gap-3">
                 <Button variant="ghost" @click="showDeleteModal = false">Cancel</Button>
                 <Button variant="danger" @click="deleteContact" :disabled="deleteForm.processing">Delete</Button>
@@ -214,15 +176,18 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, onBeforeUnmount } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import Button from '@/Components/UI/Button.vue';
 import Input from '@/Components/UI/Input.vue';
 import Badge from '@/Components/UI/Badge.vue';
 import Modal from '@/Components/UI/Modal.vue';
-import { UserPlus, Users, Eye, Mail, MessageCircle, Trash2, Search as SearchIcon } from 'lucide-vue-next';
-import axios from 'axios';
+import EmailEditor from '@/Components/Messaging/EmailEditor.vue';
+import { Upload, UserPlus, Users, Eye, Mail, MessageCircle, Trash2, Search as SearchIcon } from 'lucide-vue-next';
+import ContactFields from '@/Components/CRM/ContactFields.vue';
+import ContactImport from '@/Components/CRM/ContactImport.vue';
+import { contactValues, contactStatuses, titleCase } from '@/Components/CRM/contactFields';
 
 defineOptions({ layout: AdminLayout });
 
@@ -233,12 +198,13 @@ const props = defineProps({
 
 const filterForm = reactive({
     search: props.filters.search || '',
-    contact_type: props.filters.contact_type || '',
+    type: props.filters.type || '',
     status: props.filters.status || '',
     assigned_to_me: props.filters.assigned_to_me || false,
 });
 
 let filterTimer = null;
+onBeforeUnmount(() => clearTimeout(filterTimer));
 function debouncedFilter() {
     clearTimeout(filterTimer);
     filterTimer = setTimeout(applyFilters, 400);
@@ -256,7 +222,8 @@ function formatDate(dt) {
 
 // ─── New Contact ───
 const showNewContactForm = ref(false);
-const newForm = useForm({ first_name: '', last_name: '', email: '', phone: '', contact_type: 'lead', notes: '' });
+const newForm = useForm(contactValues());
+const showImport = ref(false);
 
 function saveContact() {
     newForm.post('/admin/erp/contacts', { onSuccess: () => { showNewContactForm.value = false; newForm.reset(); } });
@@ -285,6 +252,7 @@ function quickEmail(contact) {
     showQuickSend.value = true;
 }
 function sendQuick() {
+    quickSendForm.transform(data => ({ ...data, body_format: data.channel === 'email' ? 'html' : 'text' }));
     quickSendForm.post('/admin/erp/messaging/quick-send', { onSuccess: closeQuickSend });
 }
 function closeQuickSend() { showQuickSend.value = false; quickSendForm.reset(); quickSendContact.value = null; }

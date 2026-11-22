@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Lesson;
 use App\Models\UserNote;
+use App\Services\LearningAccessService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -10,6 +12,7 @@ class NoteController extends Controller
 {
     public function index(int $lessonId)
     {
+        app(LearningAccessService::class)->assertLesson(Lesson::findOrFail($lessonId), Auth::user(), true);
         $notes = Auth::user()->notes()
             ->where('lesson_id', $lessonId)
             ->latest()
@@ -20,13 +23,14 @@ class NoteController extends Controller
 
     public function store(Request $request, int $lessonId)
     {
+        app(LearningAccessService::class)->assertLesson(Lesson::findOrFail($lessonId), Auth::user(), true);
         $validated = $request->validate([
-            'content'        => 'required|string|max:5000',
+            'content' => 'required|string|max:5000',
             'highlight_text' => 'nullable|string|max:1000',
-            'position'       => 'nullable|array',
+            'position' => 'nullable|array',
         ]);
 
-        $validated['user_id']   = Auth::id();
+        $validated['user_id'] = Auth::id();
         $validated['lesson_id'] = $lessonId;
 
         $note = UserNote::create($validated);
@@ -41,9 +45,9 @@ class NoteController extends Controller
         }
 
         $validated = $request->validate([
-            'content'        => 'required|string|max:5000',
+            'content' => 'required|string|max:5000',
             'highlight_text' => 'nullable|string|max:1000',
-            'position'       => 'nullable|array',
+            'position' => 'nullable|array',
         ]);
 
         $note->update($validated);

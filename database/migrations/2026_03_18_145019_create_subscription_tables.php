@@ -37,7 +37,7 @@ return new class extends Migration
             $table->integer('resettable_period')->default(0); // 0 = never, 1 = month
             $table->string('resettable_interval')->default('month');
             $table->timestamps();
-            
+
             $table->unique(['plan_id', 'slug']);
         });
 
@@ -68,7 +68,7 @@ return new class extends Migration
             $table->string('timezone')->nullable();
             $table->timestamps();
             $table->softDeletes();
-            
+
             $table->unique(['subscription_id', 'feature_id']);
         });
     }

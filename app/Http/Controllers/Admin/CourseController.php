@@ -5,9 +5,15 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Course;
-use App\Models\Module;
 use App\Models\Lesson;
+use App\Models\Module;
 use App\Models\Resource;
+use App\Services\ContentWorkflowService;
+use App\Services\CourseReadinessService;
+use App\Services\CurriculumRevisionService;
+use App\Services\LessonActivityService;
+use App\Services\LessonAuthoringService;
+use App\Services\PrivateMediaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -37,9 +43,9 @@ class CourseController extends Controller
         $categories = Category::active()->orderBy('sort_order')->get(['id', 'name']);
 
         return Inertia::render('Admin/Courses/Index', [
-            'courses'    => $courses,
+            'courses' => $courses,
             'categories' => $categories,
-            'filters'    => $request->only(['search', 'category', 'level', 'type', 'status']),
+            'filters' => $request->only(['search', 'category', 'level', 'type', 'status']),
         ]);
     }
 
@@ -55,20 +61,20 @@ class CourseController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'title'             => 'required|string|max:255',
-            'subtitle'          => 'nullable|string|max:255',
-            'description'       => 'nullable|string',
-            'category_id'       => 'required|exists:categories,id',
-            'level'             => 'required|in:beginner,intermediate,advanced,expert',
-            'type'              => 'required|in:free,premium,certified,enterprise',
-            'duration_hours'    => 'nullable|numeric|min:0',
-            'price'             => 'nullable|numeric|min:0',
-            'currency'          => 'nullable|string|size:3',
-            'discount_price'    => 'nullable|numeric|min:0',
+            'title' => 'required|string|max:255',
+            'subtitle' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'category_id' => 'required|exists:categories,id',
+            'level' => 'required|in:beginner,intermediate,advanced',
+            'type' => 'required|in:self_paced,live,certified,bootcamp',
+            'duration_hours' => 'nullable|numeric|min:0|max:9999.9',
+            'price' => 'required|numeric|min:0|max:99999999.99',
+            'currency' => 'nullable|string|size:3',
+            'discount_price' => 'nullable|numeric|min:0|lte:price',
             'learning_outcomes' => 'nullable|array',
-            'prerequisites'     => 'nullable|array',
-            'tags'              => 'nullable|array',
-            'thumbnail'         => 'nullable|image|max:2048',
+            'prerequisites' => 'nullable|array',
+            'tags' => 'nullable|array',
+            'thumbnail' => 'nullable|image|max:2048',
         ]);
 
         // Handle thumbnail upload
@@ -80,7 +86,7 @@ class CourseController extends Controller
 
         $course = Course::create($validated);
 
-        return redirect()->route('admin.courses.edit', $course)
+        return redirect()->route('admin.courses.edit', ['course' => $course, 'tab' => 'curriculum'])
             ->with('success', 'Course created successfully. Now add modules and lessons.');
     }
 
@@ -97,28 +103,30 @@ class CourseController extends Controller
         $categories = Category::active()->orderBy('sort_order')->get(['id', 'name']);
 
         return Inertia::render('Admin/Courses/Edit', [
-            'course'     => $course,
+            'course' => $course,
+            'readinessIssues' => app(CourseReadinessService::class)->issues($course),
             'categories' => $categories,
         ]);
     }
 
     public function update(Request $request, Course $course)
     {
+        app(CurriculumRevisionService::class)->assertEditable($course);
         $validated = $request->validate([
-            'title'             => 'required|string|max:255',
-            'subtitle'          => 'nullable|string|max:255',
-            'description'       => 'nullable|string',
-            'category_id'       => 'required|exists:categories,id',
-            'level'             => 'required|in:beginner,intermediate,advanced,expert',
-            'type'              => 'required|in:free,premium,certified,enterprise',
-            'duration_hours'    => 'nullable|numeric|min:0',
-            'price'             => 'nullable|numeric|min:0',
-            'currency'          => 'nullable|string|size:3',
-            'discount_price'    => 'nullable|numeric|min:0',
+            'title' => 'required|string|max:255',
+            'subtitle' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'category_id' => 'required|exists:categories,id',
+            'level' => 'required|in:beginner,intermediate,advanced',
+            'type' => 'required|in:self_paced,live,certified,bootcamp',
+            'duration_hours' => 'nullable|numeric|min:0|max:9999.9',
+            'price' => 'required|numeric|min:0|max:99999999.99',
+            'currency' => 'nullable|string|size:3',
+            'discount_price' => 'nullable|numeric|min:0|lte:price',
             'learning_outcomes' => 'nullable|array',
-            'prerequisites'     => 'nullable|array',
-            'tags'              => 'nullable|array',
-            'thumbnail'         => 'nullable|image|max:2048',
+            'prerequisites' => 'nullable|array',
+            'tags' => 'nullable|array',
+            'thumbnail' => 'nullable|image|max:2048',
         ]);
 
         if ($request->hasFile('thumbnail')) {
@@ -133,6 +141,8 @@ class CourseController extends Controller
 
     public function destroy(Course $course)
     {
+        app(CurriculumRevisionService::class)->assertEditable($course);
+        abort_if($course->enrollments()->exists(), 409, 'Courses with learner records must be retained.');
         $course->delete();
 
         return redirect()->route('admin.courses.index')
@@ -141,10 +151,11 @@ class CourseController extends Controller
 
     public function publish(Course $course)
     {
-        $course->update([
-            'is_published'  => true,
-            'published_at'  => now(),
-        ]);
+        app(CourseReadinessService::class)->assertReady($course);
+        if ($course->created_by_role === 'facilitator' && $course->approval_status !== 'approved') {
+            return back()->withErrors(['readiness' => 'Approve this facilitator course before publishing.']);
+        }
+        app(ContentWorkflowService::class)->publish($course, auth()->user());
 
         return back()->with('success', 'Course published successfully.');
     }
@@ -164,9 +175,10 @@ class CourseController extends Controller
 
     public function storeModule(Request $request, Course $course)
     {
+        app(CurriculumRevisionService::class)->assertEditable($course);
         $validated = $request->validate([
-            'title'            => 'required|string|max:255',
-            'description'      => 'nullable|string',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
             'duration_minutes' => 'nullable|integer|min:0',
         ]);
 
@@ -179,11 +191,12 @@ class CourseController extends Controller
 
     public function updateModule(Request $request, Module $module)
     {
+        app(CurriculumRevisionService::class)->assertEditable($module->course);
         $validated = $request->validate([
-            'title'            => 'required|string|max:255',
-            'description'      => 'nullable|string',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
             'duration_minutes' => 'nullable|integer|min:0',
-            'is_published'     => 'boolean',
+            'is_published' => 'boolean',
         ]);
 
         $module->update($validated);
@@ -193,6 +206,7 @@ class CourseController extends Controller
 
     public function destroyModule(Module $module)
     {
+        app(CurriculumRevisionService::class)->assertEditable($module->course);
         $module->delete();
 
         return back()->with('success', 'Module deleted.');
@@ -200,14 +214,14 @@ class CourseController extends Controller
 
     public function reorderModules(Request $request, Course $course)
     {
+        app(CurriculumRevisionService::class)->assertEditable($course);
         $validated = $request->validate([
-            'order'   => 'required|array',
+            'order' => 'required|array',
             'order.*' => 'integer|exists:modules,id',
         ]);
 
         foreach ($validated['order'] as $position => $id) {
-            Module::where('id', $id)->where('course_id', $course->id)
-                ->update(['sort_order' => $position + 1]);
+            Module::where('id', $id)->where('course_id', $course->id)->firstOrFail()->update(['sort_order' => $position + 1]);
         }
 
         return back()->with('success', 'Modules reordered.');
@@ -219,23 +233,26 @@ class CourseController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function createLesson(Module $module)
+    public function createLesson(Request $request, Module $module)
     {
-        $module->load('course');
+        $module->load(['course.modules' => fn ($q) => $q->orderBy('sort_order'), 'course.modules.lessons' => fn ($q) => $q->orderBy('sort_order')]);
 
         return Inertia::render('Admin/Courses/Lessons/Create', [
             'module' => $module,
             'course' => $module->course,
+            'initialType' => in_array($request->query('type'), Lesson::CONTENT_TYPES, true) ? $request->query('type') : 'text',
+            'questionBank' => app(LessonActivityService::class)->questionBank($module->course),
         ]);
     }
 
     public function storeLesson(Request $request, Module $module)
     {
-        $validated = $this->validateLesson($request);
+        app(CurriculumRevisionService::class)->assertEditable($module->course);
+        $lesson = app(LessonAuthoringService::class)->persist($module, null, $this->validateLesson($request), $request->user());
 
-        $validated['sort_order'] = $module->lessons()->count() + 1;
-
-        $module->lessons()->create($validated);
+        if ($request->boolean('stay_in_editor')) {
+            return redirect()->route('admin.lessons.edit', $lesson)->with('success', 'Lesson saved.');
+        }
 
         return redirect()->route('admin.courses.edit', $module->course_id)
             ->with('success', 'Lesson added successfully.');
@@ -243,20 +260,26 @@ class CourseController extends Controller
 
     public function editLesson(Lesson $lesson)
     {
-        $lesson->load('module.course');
+        $lesson->load(['module.course.modules' => fn ($q) => $q->orderBy('sort_order'), 'module.course.modules.lessons' => fn ($q) => $q->orderBy('sort_order')]);
+        $activities = app(LessonActivityService::class);
 
         return Inertia::render('Admin/Courses/Lessons/Edit', [
             'lesson' => $lesson,
             'module' => $lesson->module,
             'course' => $lesson->module->course,
+            'activity' => $activities->editorPayload($lesson),
+            'questionBank' => $activities->questionBank($lesson->module->course),
         ]);
     }
 
     public function updateLesson(Request $request, Lesson $lesson)
     {
-        $validated = $this->validateLesson($request, true);
+        app(CurriculumRevisionService::class)->assertEditable($lesson->module->course);
+        app(LessonAuthoringService::class)->persist($lesson->module, $lesson, $this->validateLesson($request, true), $request->user());
 
-        $lesson->update($validated);
+        if ($request->boolean('stay_in_editor')) {
+            return redirect()->route('admin.lessons.edit', $lesson)->with('success', 'Lesson saved.');
+        }
 
         return redirect()->route('admin.courses.edit', $lesson->module->course_id)
             ->with('success', 'Lesson updated.');
@@ -264,6 +287,7 @@ class CourseController extends Controller
 
     public function destroyLesson(Lesson $lesson)
     {
+        app(CurriculumRevisionService::class)->assertEditable($lesson->module->course);
         $courseId = $lesson->module->course_id;
         $lesson->delete();
 
@@ -273,14 +297,14 @@ class CourseController extends Controller
 
     public function reorderLessons(Request $request, Module $module)
     {
+        app(CurriculumRevisionService::class)->assertEditable($module->course);
         $validated = $request->validate([
-            'order'   => 'required|array',
+            'order' => 'required|array',
             'order.*' => 'integer|exists:lessons,id',
         ]);
 
         foreach ($validated['order'] as $position => $id) {
-            Lesson::where('id', $id)->where('module_id', $module->id)
-                ->update(['sort_order' => $position + 1]);
+            Lesson::where('id', $id)->where('module_id', $module->id)->firstOrFail()->update(['sort_order' => $position + 1]);
         }
 
         return back()->with('success', 'Lessons reordered.');
@@ -294,24 +318,25 @@ class CourseController extends Controller
 
     public function storeResource(Request $request, Course $course)
     {
+        app(CurriculumRevisionService::class)->assertEditable($course);
         $validated = $request->validate([
-            'title'       => 'required|string|max:255',
-            'type'        => 'required|in:template,checklist,cheat_sheet,formula_sheet,case_study,playbook',
+            'title' => 'required|string|max:255',
+            'type' => 'required|in:template,checklist,cheat_sheet,formula_sheet,case_study,playbook',
             'description' => 'nullable|string',
-            'file'        => 'required|file|max:20480', // 20MB
+            'file' => 'required|file|max:20480', // 20MB
         ]);
 
         $file = $request->file('file');
-        $path = $file->store('courses/resources', 'public');
+        $asset = app(PrivateMediaService::class)->document($file, $request->user());
 
         $course->resources()->create([
-            'title'           => $validated['title'],
-            'type'            => $validated['type'],
-            'description'     => $validated['description'] ?? null,
-            'file_url'        => $path,
-            'file_type'       => $file->getClientMimeType(),
+            'title' => $validated['title'],
+            'type' => $validated['type'],
+            'description' => $validated['description'] ?? null,
+            'file_url' => $asset->url(),
+            'file_type' => $asset->mime,
             'file_size_bytes' => $file->getSize(),
-            'sort_order'      => $course->resources()->count() + 1,
+            'sort_order' => $course->resources()->count() + 1,
         ]);
 
         return back()->with('success', 'Resource uploaded.');
@@ -319,6 +344,7 @@ class CourseController extends Controller
 
     public function destroyResource(Resource $resource)
     {
+        app(CurriculumRevisionService::class)->assertEditable($resource->course);
         $resource->delete();
 
         return back()->with('success', 'Resource deleted.');
@@ -326,40 +352,6 @@ class CourseController extends Controller
 
     private function validateLesson(Request $request, bool $isUpdate = false): array
     {
-        $validated = $request->validate([
-            'title'                       => 'required|string|max:255',
-            'content_type'                => 'required|in:text,video,audio,pdf,slides,mixed',
-            'text_content'                => 'nullable|string',
-            'summary'                     => 'nullable|string',
-            'key_terms'                   => 'nullable|array',
-            'video_url'                   => 'nullable|url',
-            'video_duration_seconds'      => 'nullable|integer|min:0',
-            'video_transcript'            => 'nullable|string',
-            'audio_url'                   => 'nullable|url',
-            'audio_duration_seconds'      => 'nullable|integer|min:0',
-            'pdf_url'                     => 'nullable|string',
-            'slides_url'                  => 'nullable|string',
-            'scorm_path'                  => 'nullable|string|max:500',
-            'scorm_version'               => 'nullable|in:1.2,2004',
-            'duration_minutes'            => 'nullable|integer|min:0',
-            'is_free_preview'             => 'boolean',
-            'is_downloadable'             => 'boolean',
-            'unlock_type'                 => 'nullable|in:immediate,date,days_after_enrollment',
-            'unlock_at'                   => 'nullable|date',
-            'unlock_days_after_enrollment' => 'nullable|integer|min:1|max:365',
-            'is_published'                => $isUpdate ? 'boolean' : 'sometimes|boolean',
-        ]);
-
-        $validated['unlock_type'] = $validated['unlock_type'] ?? 'immediate';
-
-        if ($validated['unlock_type'] !== 'date') {
-            $validated['unlock_at'] = null;
-        }
-
-        if ($validated['unlock_type'] !== 'days_after_enrollment') {
-            $validated['unlock_days_after_enrollment'] = null;
-        }
-
-        return $validated;
+        return app(LessonAuthoringService::class)->validate($request, $isUpdate);
     }
 }

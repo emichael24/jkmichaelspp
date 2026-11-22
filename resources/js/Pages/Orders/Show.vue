@@ -5,14 +5,15 @@
         <a href="/orders" class="inline-flex items-center gap-1 text-sm text-surface-500 hover:text-surface-700">
             <ArrowLeft class="w-4 h-4" /> Back to orders
         </a>
+        <header><h1 class="text-2xl font-display font-bold text-surface-900">Order #{{ order.uuid.substring(0, 8).toUpperCase() }}</h1><p class="mt-1 text-sm text-surface-500">{{ order.created_at }}</p></header>
 
         <!-- Status banner -->
         <div v-if="gatewayReturn && order.status === 'pending'"
              class="bg-warning-50 border border-warning-200 rounded-xl p-4 flex items-center gap-3">
-            <Loader2 class="w-5 h-5 text-warning-600 animate-spin" />
+            <Loader2 class="w-5 h-5 text-warning-600" />
             <div>
-                <p class="font-semibold text-warning-900">Payment Processing</p>
-                <p class="text-sm text-warning-700">Your payment is being confirmed. This page will update automatically.</p>
+                <p class="font-semibold text-warning-900">Payment confirmation pending</p>
+                <p class="text-sm text-warning-700">Use “Check payment status” below to verify the provider's latest result. Do not pay again if you have already been charged.</p>
             </div>
         </div>
 
@@ -35,7 +36,7 @@
         </div>
 
         <!-- Order summary -->
-        <Card :title="`Order #${order.uuid.substring(0, 8).toUpperCase()}`" :subtitle="order.created_at">
+        <Card title="Order summary">
             <div class="space-y-4">
                 <!-- Items -->
                 <div class="space-y-2">
@@ -93,12 +94,18 @@
         </Card>
 
         <!-- Actions -->
+        <div v-if="order.status === 'pending'" class="rounded-xl border border-surface-200 bg-white p-4 space-y-3">
+            <h2 class="font-semibold text-surface-900">Continue your payment</h2>
+            <p class="text-sm text-surface-600">Your order and payment reference are saved. Check the status after checkout, or resume the existing checkout if you have not paid.</p>
+            <div v-if="Object.keys(paymentForm.errors).length" role="alert" class="text-sm text-error-700"><p v-for="error in paymentForm.errors" :key="error">{{ error }}</p></div>
+            <div class="flex flex-wrap gap-3"><Button v-if="order.payments.some(p => p.gateway === 'paystack' && p.status === 'pending')" :disabled="paymentForm.processing" @click="paymentForm.post(`/orders/${order.uuid}/refresh-payment`, { preserveScroll: true })">Check payment status</Button><Button variant="secondary" :disabled="paymentForm.processing" @click="paymentForm.post(`/orders/${order.uuid}/resume`, { preserveScroll: true })">Resume checkout</Button></div>
+        </div>
         <div class="flex gap-3">
             <a href="/storefront"
                class="flex-1 text-center py-2 rounded-xl bg-primary-600 text-white font-medium hover:bg-primary-700 transition-colors">
                 Continue Shopping
             </a>
-            <a v-if="order.status === 'paid'" href="/courses"
+            <a v-if="order.status === 'paid'" href="/my-courses"
                class="flex-1 text-center py-2 rounded-xl bg-success-600 text-white font-medium hover:bg-success-700 transition-colors">
                 Go to My Courses
             </a>
@@ -107,12 +114,14 @@
 </template>
 
 <script setup>
-import { Head } from '@inertiajs/vue3';
+import { Head, useForm } from '@inertiajs/vue3';
+import Button from '@/Components/UI/Button.vue';
 import { ArrowLeft, CheckCircle, XCircle, Loader2 } from 'lucide-vue-next';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Card from '@/Components/UI/Card.vue';
 
 defineOptions({ layout: AppLayout });
+const paymentForm = useForm({});
 
 defineProps({
     order: { type: Object, required: true },

@@ -26,7 +26,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->enum('job_type', [
                 'chat', 'lesson_summary', 'quiz_generation', 'content_repurpose',
-                'tts', 'avatar_video', 'transcription', 'embeddings', 'insights'
+                'tts', 'avatar_video', 'transcription', 'embeddings', 'insights',
             ]);
             $table->enum('status', ['pending', 'processing', 'completed', 'failed'])->default('pending');
             $table->json('input_payload')->nullable();
@@ -311,6 +311,7 @@ return new class extends Migration
 
         Schema::table('courses', function (Blueprint $table) {
             $table->dropForeign(['approved_by']);
+            $table->dropIndex(['approval_status']);
             $table->dropColumn(['created_by_role', 'approval_status', 'submitted_for_review_at', 'approved_by', 'approved_at', 'rejection_reason']);
         });
     }

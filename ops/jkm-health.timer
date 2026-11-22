@@ -1,0 +1,10 @@
+[Unit]
+Description=Check JK Michaels operational readiness every five minutes
+
+[Timer]
+OnCalendar=*-*-* *:0/5:00
+AccuracySec=1s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

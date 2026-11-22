@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\NotificationDeliveryService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -27,6 +28,7 @@ class NotificationController extends Controller
         // Transform for frontend
         $notifications->getCollection()->transform(function ($n) {
             $data = json_decode($n->data, true);
+
             return [
                 'id' => $n->id,
                 'type' => $data['type'] ?? 'generic',
@@ -52,6 +54,7 @@ class NotificationController extends Controller
     public function markRead(string $id)
     {
         $this->notificationService->markAsRead($id, auth()->user());
+
         return back();
     }
 
@@ -61,6 +64,7 @@ class NotificationController extends Controller
     public function markAllRead()
     {
         $count = $this->notificationService->markAllAsRead(auth()->user());
+
         return back()->with('success', "{$count} notifications marked as read.");
     }
 
@@ -73,6 +77,8 @@ class NotificationController extends Controller
 
         return Inertia::render('Notifications/Preferences', [
             'preferences' => $prefs,
+            'pushAvailable' => app(NotificationDeliveryService::class)->configured('push'),
+            'timezone' => auth()->user()->timezone ?: 'UTC',
         ]);
     }
 
@@ -82,6 +88,7 @@ class NotificationController extends Controller
     public function updatePreferences(Request $request)
     {
         $request->validate([
+            'marketing_email' => 'boolean', 'marketing_whatsapp' => 'boolean',
             'push_enabled' => 'boolean',
             'email_enabled' => 'boolean',
             'quiet_hours_start' => 'nullable|date_format:H:i',
@@ -94,7 +101,7 @@ class NotificationController extends Controller
 
         $this->notificationService->updatePreferences(auth()->user(), $request->only([
             'push_enabled', 'email_enabled', 'quiet_hours_start', 'quiet_hours_end',
-            'learning_reminders', 'internship_reminders', 'announcements', 'frequency',
+            'learning_reminders', 'internship_reminders', 'announcements', 'frequency', 'marketing_email', 'marketing_whatsapp',
         ]));
 
         return back()->with('success', 'Preferences updated.');

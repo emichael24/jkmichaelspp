@@ -27,9 +27,9 @@ class MeetingController extends Controller
         $members = $cohort->learners()->select('users.id', 'users.first_name', 'users.last_name')->get();
 
         return Inertia::render('Facilitator/Meetings/Index', [
-            'cohort'   => $cohort,
+            'cohort' => $cohort,
             'meetings' => $meetings,
-            'members'  => $members,
+            'members' => $members,
         ]);
     }
 
@@ -40,30 +40,30 @@ class MeetingController extends Controller
         $this->authorizeFacilitator($cohort);
 
         $validated = $request->validate([
-            'title'          => 'required|string|max:255',
-            'description'    => 'nullable|string',
-            'type'           => 'required|in:live_session,coaching,standup,review,webinar,bootcamp',
-            'platform'       => 'required|in:zoom,teams,google_meet,other',
-            'meeting_url'    => 'nullable|url|max:500',
-            'scheduled_at'   => 'required|date|after:now',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'type' => 'required|in:live_session,coaching,standup,review,webinar,bootcamp',
+            'platform' => 'required|in:zoom,teams,google_meet,other',
+            'meeting_url' => 'nullable|url|max:500',
+            'scheduled_at' => 'required|date|after:now',
             'duration_minutes' => 'integer|min:5|max:480',
-            'agenda'         => 'nullable|string',
-            'attendee_ids'   => 'nullable|array',
+            'agenda' => 'nullable|string',
+            'attendee_ids' => 'nullable|array',
             'attendee_ids.*' => 'exists:users,id',
         ]);
 
         $meeting = Meeting::create([
-            'title'            => $validated['title'],
-            'description'      => $validated['description'] ?? null,
-            'organizer_id'     => Auth::id(),
-            'meetable_type'    => Cohort::class,
-            'meetable_id'      => $cohort->id,
-            'type'             => $validated['type'],
-            'platform'         => $validated['platform'],
-            'meeting_url'      => $validated['meeting_url'] ?? null,
-            'scheduled_at'     => $validated['scheduled_at'],
+            'title' => $validated['title'],
+            'description' => $validated['description'] ?? null,
+            'organizer_id' => Auth::id(),
+            'meetable_type' => Cohort::class,
+            'meetable_id' => $cohort->id,
+            'type' => $validated['type'],
+            'platform' => $validated['platform'],
+            'meeting_url' => $validated['meeting_url'] ?? null,
+            'scheduled_at' => $validated['scheduled_at'],
             'duration_minutes' => $validated['duration_minutes'] ?? 60,
-            'agenda'           => $validated['agenda'] ?? null,
+            'agenda' => $validated['agenda'] ?? null,
         ]);
 
         // Invite attendees
@@ -71,7 +71,7 @@ class MeetingController extends Controller
         foreach ($attendeeIds as $userId) {
             MeetingAttendee::create([
                 'meeting_id' => $meeting->id,
-                'user_id'    => $userId,
+                'user_id' => $userId,
             ]);
         }
 
@@ -83,17 +83,18 @@ class MeetingController extends Controller
     public function update(Request $request, Cohort $cohort, Meeting $meeting)
     {
         $this->authorizeFacilitator($cohort);
+        abort_unless($meeting->meetable_type === Cohort::class && (int) $meeting->meetable_id === $cohort->id, 404);
 
         $validated = $request->validate([
-            'title'          => 'required|string|max:255',
-            'description'    => 'nullable|string',
-            'type'           => 'required|in:live_session,coaching,standup,review,webinar,bootcamp',
-            'platform'       => 'required|in:zoom,teams,google_meet,other',
-            'meeting_url'    => 'nullable|url|max:500',
-            'scheduled_at'   => 'required|date',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'type' => 'required|in:live_session,coaching,standup,review,webinar,bootcamp',
+            'platform' => 'required|in:zoom,teams,google_meet,other',
+            'meeting_url' => 'nullable|url|max:500',
+            'scheduled_at' => 'required|date',
             'duration_minutes' => 'integer|min:5|max:480',
-            'agenda'         => 'nullable|string',
-            'status'         => 'in:scheduled,in_progress,completed,cancelled',
+            'agenda' => 'nullable|string',
+            'status' => 'in:scheduled,in_progress,completed,cancelled',
         ]);
 
         $meeting->update($validated);
@@ -106,11 +107,12 @@ class MeetingController extends Controller
     public function markAttendance(Request $request, Cohort $cohort, Meeting $meeting)
     {
         $this->authorizeFacilitator($cohort);
+        abort_unless($meeting->meetable_type === Cohort::class && (int) $meeting->meetable_id === $cohort->id, 404);
 
         $validated = $request->validate([
-            'attendees'              => 'required|array',
-            'attendees.*.user_id'    => 'required|exists:users,id',
-            'attendees.*.attended'   => 'required|boolean',
+            'attendees' => 'required|array',
+            'attendees.*.user_id' => 'required|exists:users,id',
+            'attendees.*.attended' => 'required|boolean',
         ]);
 
         foreach ($validated['attendees'] as $record) {
@@ -131,20 +133,21 @@ class MeetingController extends Controller
     public function saveNotes(Request $request, Cohort $cohort, Meeting $meeting)
     {
         $this->authorizeFacilitator($cohort);
+        abort_unless($meeting->meetable_type === Cohort::class && (int) $meeting->meetable_id === $cohort->id, 404);
 
         $validated = $request->validate([
-            'notes'                      => 'nullable|string',
-            'action_items'               => 'nullable|array',
-            'action_items.*.task'        => 'required_with:action_items|string',
+            'notes' => 'nullable|string',
+            'action_items' => 'nullable|array',
+            'action_items.*.task' => 'required_with:action_items|string',
             'action_items.*.assignee_id' => 'nullable|exists:users,id',
-            'action_items.*.due_date'    => 'nullable|date',
-            'replay_url'                 => 'nullable|url|max:500',
+            'action_items.*.due_date' => 'nullable|date',
+            'replay_url' => 'nullable|url|max:500',
         ]);
 
         $meeting->update([
-            'notes'        => $validated['notes'] ?? null,
+            'notes' => $validated['notes'] ?? null,
             'action_items' => $validated['action_items'] ?? null,
-            'replay_url'   => $validated['replay_url'] ?? null,
+            'replay_url' => $validated['replay_url'] ?? null,
         ]);
 
         return back()->with('success', 'Notes saved.');
@@ -155,6 +158,7 @@ class MeetingController extends Controller
     public function destroy(Cohort $cohort, Meeting $meeting)
     {
         $this->authorizeFacilitator($cohort);
+        abort_unless($meeting->meetable_type === Cohort::class && (int) $meeting->meetable_id === $cohort->id, 404);
         $meeting->update(['status' => 'cancelled']);
 
         return back()->with('success', 'Meeting cancelled.');
@@ -165,7 +169,7 @@ class MeetingController extends Controller
     private function authorizeFacilitator(Cohort $cohort): void
     {
         $user = Auth::user();
-        if ($cohort->facilitator_id !== $user->id && !$user->hasRole('platform_admin')) {
+        if ($cohort->facilitator_id !== $user->id && ! $user->hasRole('platform_admin')) {
             abort(403, 'Unauthorized');
         }
     }

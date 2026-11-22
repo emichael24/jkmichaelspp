@@ -21,7 +21,7 @@
             <div class="flex flex-col sm:flex-row gap-3">
                 <div class="flex-1">
                     <Input
-                        v-model="filterForm.search"
+                        aria-label="Search courses" v-model="filterForm.search"
                         placeholder="Search courses..."
                         :icon="SearchIcon"
                         clearable
@@ -29,7 +29,7 @@
                     />
                 </div>
                 <select
-                    v-model="filterForm.category"
+                    aria-label="Filter by category" v-model="filterForm.category"
                     class="rounded-xl border-surface-200 text-sm px-3 py-2"
                     @change="applyFilters"
                 >
@@ -37,7 +37,7 @@
                     <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
                 </select>
                 <select
-                    v-model="filterForm.level"
+                    aria-label="Filter by level" v-model="filterForm.level"
                     class="rounded-xl border-surface-200 text-sm px-3 py-2"
                     @change="applyFilters"
                 >
@@ -45,10 +45,9 @@
                     <option value="beginner">Beginner</option>
                     <option value="intermediate">Intermediate</option>
                     <option value="advanced">Advanced</option>
-                    <option value="expert">Expert</option>
                 </select>
                 <select
-                    v-model="filterForm.status"
+                    aria-label="Filter by status" v-model="filterForm.status"
                     class="rounded-xl border-surface-200 text-sm px-3 py-2"
                     @change="applyFilters"
                 >
@@ -93,7 +92,7 @@
                             <td class="px-5 py-4 text-surface-600">{{ course.category?.name || '—' }}</td>
                             <td class="px-5 py-4 text-center text-surface-600">{{ course.modules_count }}</td>
                             <td class="px-5 py-4 text-center text-surface-600">{{ course.lessons_count }}</td>
-                            <td class="px-5 py-4 text-center text-surface-600">{{ course.enrollments_count }}</td>
+                            <td class="px-5 py-4 text-center text-surface-600"><Link :href="`/admin/courses/${course.id}/learners`" :aria-label="`Manage learners for ${course.title}`" class="rounded-lg px-3 py-2 font-semibold text-primary-700 hover:bg-primary-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-600">{{ course.enrollments_count }} <span class="text-xs font-normal">Manage</span></Link></td>
                             <td class="px-5 py-4 text-center">
                                 <Badge :variant="course.is_published ? 'success' : 'warning'" size="sm">
                                     {{ course.is_published ? 'Published' : 'Draft' }}
@@ -101,28 +100,24 @@
                             </td>
                             <td class="px-5 py-4 text-right">
                                 <div class="flex items-center justify-end gap-1">
-                                    <Link :href="`/admin/courses/${course.id}/edit`">
-                                        <button class="p-1.5 rounded-lg hover:bg-surface-100 text-surface-400 hover:text-primary-600 transition-colors">
-                                            <Pencil class="w-4 h-4" />
-                                        </button>
-                                    </Link>
+                                    <Link :href="`/admin/courses/${course.id}/edit`" :aria-label="`Edit ${course.title}`" class="p-1.5 rounded-lg hover:bg-surface-100 text-surface-400 hover:text-primary-600 transition-colors"><Pencil class="w-4 h-4" /></Link>
                                     <button
                                         v-if="!course.is_published"
                                         class="p-1.5 rounded-lg hover:bg-surface-100 text-surface-400 hover:text-success-600 transition-colors"
-                                        @click="publish(course)"
+                                        :aria-label="`Publish ${course.title}`" @click="publish(course)"
                                     >
                                         <Eye class="w-4 h-4" />
                                     </button>
                                     <button
                                         v-else
                                         class="p-1.5 rounded-lg hover:bg-surface-100 text-surface-400 hover:text-warning-600 transition-colors"
-                                        @click="unpublish(course)"
+                                        :aria-label="`Unpublish ${course.title}`" @click="unpublish(course)"
                                     >
                                         <EyeOff class="w-4 h-4" />
                                     </button>
                                     <button
                                         class="p-1.5 rounded-lg hover:bg-surface-100 text-surface-400 hover:text-danger-600 transition-colors"
-                                        @click="confirmDelete(course)"
+                                        :aria-label="`Delete ${course.title}`" @click="confirmDelete(course)"
                                     >
                                         <Trash2 class="w-4 h-4" />
                                     </button>

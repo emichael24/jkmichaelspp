@@ -2,19 +2,29 @@
 
 namespace App\Models;
 
+use App\Models\Traits\RecordsDomainAudit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InternshipTask extends Model
 {
-    public const STATUS_BACKLOG       = 'backlog';
-    public const STATUS_THIS_WEEK     = 'this_week';
-    public const STATUS_TODAY          = 'today';
-    public const STATUS_IN_PROGRESS   = 'in_progress';
-    public const STATUS_IN_REVIEW     = 'in_review';
-    public const STATUS_APPROVED      = 'approved';
+    use RecordsDomainAudit;
+
+    public const STATUS_BACKLOG = 'backlog';
+
+    public const STATUS_THIS_WEEK = 'this_week';
+
+    public const STATUS_TODAY = 'today';
+
+    public const STATUS_IN_PROGRESS = 'in_progress';
+
+    public const STATUS_IN_REVIEW = 'in_review';
+
+    public const STATUS_APPROVED = 'approved';
+
     public const STATUS_NEEDS_REVISION = 'needs_revision';
-    public const STATUS_DONE          = 'done';
+
+    public const STATUS_DONE = 'done';
 
     public const KANBAN_COLUMNS = [
         self::STATUS_BACKLOG,
@@ -60,6 +70,11 @@ class InternshipTask extends Model
         return $this->belongsTo(User::class, 'assigned_to');
     }
 
+    public function submissions()
+    {
+        return $this->hasMany(InternshipSubmission::class, 'task_id');
+    }
+
     /* ── Scopes ────────────────────────────────────── */
 
     public function scopeForEnrollment($query, int $enrollmentId)
@@ -90,6 +105,6 @@ class InternshipTask extends Model
     {
         return $this->due_date
             && $this->due_date->isPast()
-            && !in_array($this->status, [self::STATUS_APPROVED, self::STATUS_DONE]);
+            && ! in_array($this->status, [self::STATUS_APPROVED, self::STATUS_DONE]);
     }
 }

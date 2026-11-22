@@ -42,9 +42,10 @@ class Event extends Model
 
     public function isFull(): bool
     {
-        if (!$this->max_registrations) {
+        if (! $this->max_registrations) {
             return false;
         }
+
         return $this->registrations()->count() >= $this->max_registrations;
     }
 
@@ -60,7 +61,7 @@ class Event extends Model
 
     public function hasReplay(): bool
     {
-        return !empty($this->replay_url);
+        return ! empty($this->replay_url);
     }
 
     public function getRegistrationCount(): int
@@ -70,9 +71,10 @@ class Event extends Model
 
     public function getSpotsLeft(): ?int
     {
-        if (!$this->max_registrations) {
+        if (! $this->max_registrations) {
             return null;
         }
+
         return max(0, $this->max_registrations - $this->getRegistrationCount());
     }
 

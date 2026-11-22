@@ -7,7 +7,6 @@ use App\Models\DailyActivityLog;
 use App\Models\LessonProgress;
 use App\Models\QuestionResponse;
 use App\Models\ReadinessScore;
-use App\Models\UserGamification;
 use App\Services\ErrorPatternService;
 use App\Services\GamificationService;
 use App\Services\SpacedRepetitionService;
@@ -31,10 +30,11 @@ class DashboardController extends Controller
         if ($role !== 'learner') {
             $redirect = match ($role) {
                 'platform_admin' => route('admin.dashboard'),
-                'facilitator'    => route('facilitator.dashboard'),
-                'sme_reviewer'   => route('sme.dashboard'),
-                'sponsor'        => route('sponsor.dashboard'),
-                default          => null,
+                'org_admin' => route('organization.dashboard'),
+                'facilitator' => route('facilitator.dashboard'),
+                'sme_reviewer' => route('sme.dashboard'),
+                'sponsor' => route('sponsor.dashboard'),
+                default => null,
             };
             if ($redirect) {
                 return redirect($redirect);
@@ -42,22 +42,25 @@ class DashboardController extends Controller
         }
 
         // ── Gamification data ────────────────────────
-        $gamSummary = $this->gamificationService->getSummary($user->id);
-
         // Ensure daily missions are ready & streak is recorded
         $this->gamificationService->ensureMissionsAssigned($user->id);
         $this->gamificationService->awardXp($user->id, 'daily_login');
+        $gamSummary = $this->gamificationService->getSummary($user->id);
 
         // Get active enrollments with course info
         $enrollments = CourseEnrollment::where('user_id', $user->id)
             ->where('status', 'active')
+            ->whereHas('course', fn ($q) => $q->where('is_published', true))
             ->with([
                 'course' => fn ($q) => $q->select([
                     'id', 'title', 'slug', 'subtitle', 'thumbnail',
                     'level', 'type', 'duration_hours', 'category_id',
                 ])
-                ->with('category:id,name,slug')
-                ->withCount(['modules', 'lessons']),
+                    ->with('category:id,name,slug')
+                    ->withCount([
+                        'modules' => fn ($q) => $q->where('is_published', true),
+                        'lessons' => fn ($q) => $q->published()->where('modules.is_published', true),
+                    ]),
             ])
             ->orderByDesc('updated_at')
             ->limit(4)
@@ -71,48 +74,50 @@ class DashboardController extends Controller
 
             // Find the next incomplete lesson
             $completedLessonIds = LessonProgress::where('user_id', $user->id)
-                ->whereIn('lesson_id', $course->lessons()->pluck('lessons.id'))
+                ->whereIn('lesson_id', $course->lessons()->published()->where('modules.is_published', true)->pluck('lessons.id'))
                 ->where('status', 'completed')
                 ->pluck('lesson_id');
 
             $nextLesson = $course->lessons()
                 ->published()
+                ->where('modules.is_published', true)
                 ->whereNotIn('lessons.id', $completedLessonIds)
                 ->orderBy('modules.sort_order')
                 ->orderBy('lessons.sort_order')
-                ->first();
+                ->get()->first(fn ($lesson) => $lesson->isUnlockedFor($top));
 
             $totalLessons = $course->lessons_count;
             $lessonsLeft = $totalLessons - $completedLessonIds->count();
 
             $continueCourse = [
-                'id'            => $course->id,
-                'slug'          => $course->slug,
-                'title'         => $course->title,
-                'thumbnail'     => $course->thumbnail,
-                'progress'      => $top->progress_pct,
-                'currentLesson' => $nextLesson?->title ?? 'All lessons completed',
-                'timeLeft'      => $this->formatDuration($lessonsLeft * 15), // estimate
-                'lessonsLeft'   => $lessonsLeft,
+                'id' => $course->id,
+                'slug' => $course->slug,
+                'title' => $course->title,
+                'thumbnail' => $course->thumbnail,
+                'progress' => $top->progress_pct,
+                'currentLesson' => $nextLesson?->title ?? ($lessonsLeft > 0 ? 'Waiting for the next lesson release' : 'All lessons completed'),
+                'timeLeft' => $this->formatDuration($lessonsLeft * 15), // estimate
+                'lessonsLeft' => $lessonsLeft,
             ];
         }
 
         // Build course cards
         $courses = $enrollments->map(fn ($e) => [
-            'id'           => $e->course->id,
-            'slug'         => $e->course->slug,
-            'title'        => $e->course->title,
-            'subtitle'     => $e->course->subtitle,
-            'thumbnail'    => $e->course->thumbnail,
-            'level'        => $e->course->level,
-            'category'     => $e->course->category?->name,
-            'progress'     => $e->progress_pct,
+            'id' => $e->course->id,
+            'slug' => $e->course->slug,
+            'title' => $e->course->title,
+            'subtitle' => $e->course->subtitle,
+            'thumbnail' => $e->course->thumbnail,
+            'level' => $e->course->level,
+            'category' => $e->course->category?->name,
+            'progress' => $e->progress_pct,
             'lessons_count' => $e->course->lessons_count,
             'modules_count' => $e->course->modules_count,
         ]);
 
         $activeCount = CourseEnrollment::where('user_id', $user->id)
             ->where('status', 'active')
+            ->whereHas('course', fn ($q) => $q->where('is_published', true))
             ->count();
 
         // ── Readiness score ──────────────────────────
@@ -143,15 +148,15 @@ class DashboardController extends Controller
         $focusAreas = QuestionResponse::where('question_responses.user_id', $user->id)
             ->join('questions', 'questions.id', '=', 'question_responses.question_id')
             ->whereNotNull('questions.domain')
-            ->selectRaw("questions.domain, COUNT(*) as total, SUM(CASE WHEN question_responses.is_correct = 1 THEN 1 ELSE 0 END) as correct")
+            ->selectRaw('questions.domain, COUNT(*) as total, SUM(CASE WHEN question_responses.is_correct = 1 THEN 1 ELSE 0 END) as correct')
             ->groupBy('questions.domain')
             ->orderByRaw('SUM(CASE WHEN question_responses.is_correct = 1 THEN 1 ELSE 0 END) * 1.0 / COUNT(*)')
             ->limit(3)
             ->get()
             ->map(fn ($row) => [
-                'domain'    => $row->domain,
-                'accuracy'  => $row->total > 0 ? round(($row->correct / $row->total) * 100) : 0,
-                'total'     => $row->total,
+                'domain' => $row->domain,
+                'accuracy' => $row->total > 0 ? round(($row->correct / $row->total) * 100) : 0,
+                'total' => $row->total,
             ]);
 
         // ── Exam countdown ───────────────────────────
@@ -160,10 +165,10 @@ class DashboardController extends Controller
         if ($examDate) {
             $daysLeft = (int) now()->diffInDays($examDate, false);
             $examCountdown = [
-                'exam_date'     => $examDate,
-                'days_left'     => max(0, $daysLeft),
-                'is_past'       => $daysLeft < 0,
-                'urgency'       => $daysLeft <= 7 ? 'critical' : ($daysLeft <= 14 ? 'high' : ($daysLeft <= 30 ? 'medium' : 'low')),
+                'exam_date' => $examDate,
+                'days_left' => max(0, $daysLeft),
+                'is_past' => $daysLeft < 0,
+                'urgency' => $daysLeft <= 7 ? 'critical' : ($daysLeft <= 14 ? 'high' : ($daysLeft <= 30 ? 'medium' : 'low')),
             ];
         }
 
@@ -187,39 +192,39 @@ class DashboardController extends Controller
 
         return Inertia::render('Dashboard', [
             'user' => [
-                'first_name'    => $user->first_name,
-                'name'          => $user->full_name,
-                'level'         => $gamSummary['level'],
-                'level_title'   => $gamSummary['level_title'],
-                'xp'            => $gamSummary['total_xp'],
-                'xp_progress'   => $gamSummary['xp_progress_pct'],
+                'first_name' => $user->first_name,
+                'name' => $user->full_name,
+                'level' => $gamSummary['level'],
+                'level_title' => $gamSummary['level_title'],
+                'xp' => $gamSummary['total_xp'],
+                'xp_progress' => $gamSummary['xp_progress_pct'],
                 'next_level_xp' => $gamSummary['xp_for_next_level'],
-                'streak'        => $gamSummary['current_streak'],
+                'streak' => $gamSummary['current_streak'],
                 'longest_streak' => $gamSummary['longest_streak'],
                 'protection_tokens' => $gamSummary['protection_tokens'],
             ],
             'stats' => [
-                'streak'        => $gamSummary['current_streak'],
-                'daysActive'    => $daysActive,
-                'weeklyXp'      => $weeklyXp,
+                'streak' => $gamSummary['current_streak'],
+                'daysActive' => $daysActive,
+                'weeklyXp' => $weeklyXp,
                 'activeCourses' => $activeCount,
-                'readiness'     => $readiness?->score_pct ?? 0,
+                'readiness' => $readiness?->score_pct ?? 0,
                 'passLikelihood' => $passLikelihood,
                 'confidenceBand' => $readiness?->confidence_band ?? null,
                 'passLikelihoodMessage' => $passLikelihoodMessage,
             ],
-            'todayPlan'      => $todayPlan,
-            'nextSteps'      => $nextSteps,
+            'todayPlan' => $todayPlan,
+            'nextSteps' => $nextSteps,
             'continueCourse' => $continueCourse,
-            'courses'        => $courses,
-            'dueCards'       => $dueCards,
-            'coachInsight'   => $coachInsight,
-            'recentBadges'   => $recentBadges,
-            'dailyMissions'  => $dailyMissions,
+            'courses' => $courses,
+            'dueCards' => $dueCards,
+            'coachInsight' => $coachInsight,
+            'recentBadges' => $recentBadges,
+            'dailyMissions' => $dailyMissions,
             'dailyMissionsCompleted' => $dailyCompleted,
-            'dailyMissionsTotal'     => count($dailyMissions),
-            'focusAreas'     => $focusAreas,
-            'examCountdown'  => $examCountdown,
+            'dailyMissionsTotal' => count($dailyMissions),
+            'focusAreas' => $focusAreas,
+            'examCountdown' => $examCountdown,
         ]);
     }
 
@@ -233,12 +238,12 @@ class DashboardController extends Controller
         // 1. Flashcard review if due cards exist
         if ($dueCards > 0) {
             $plan[] = [
-                'type'     => 'flashcard_review',
-                'title'    => 'Review Flashcards',
+                'type' => 'flashcard_review',
+                'title' => 'Review Flashcards',
                 'subtitle' => "{$dueCards} cards due",
-                'time'     => min($dueCards * 0.5, 15) . ' min',
-                'url'      => '/practice/review',
-                'icon'     => 'brain',
+                'time' => min($dueCards * 0.5, 15).' min',
+                'url' => '/practice/review',
+                'icon' => 'brain',
             ];
         }
 
@@ -252,19 +257,20 @@ class DashboardController extends Controller
 
             $nextLesson = $course->lessons()
                 ->published()
+                ->where('modules.is_published', true)
                 ->whereNotIn('lessons.id', $completedIds)
                 ->orderBy('modules.sort_order')
                 ->orderBy('lessons.sort_order')
-                ->first();
+                ->get()->first(fn ($lesson) => $lesson->isUnlockedFor($latestEnrollment));
 
             if ($nextLesson) {
                 $plan[] = [
-                    'type'     => 'lesson',
-                    'title'    => 'Continue Lesson',
+                    'type' => 'lesson',
+                    'title' => 'Continue Lesson',
                     'subtitle' => $nextLesson->title,
-                    'time'     => ($nextLesson->duration_minutes ?? 15) . ' min',
-                    'url'      => "/courses/{$course->slug}/lessons/{$nextLesson->id}",
-                    'icon'     => 'book-open',
+                    'time' => ($nextLesson->duration_minutes ?? 15).' min',
+                    'url' => "/courses/{$course->slug}/lessons/{$nextLesson->id}",
+                    'icon' => 'book-open',
                 ];
             }
         }
@@ -272,12 +278,12 @@ class DashboardController extends Controller
         // 3. Practice quiz or mock exam suggestion
         if (count($plan) < 3) {
             $plan[] = [
-                'type'     => 'quiz',
-                'title'    => 'Practice Quiz',
+                'type' => 'quiz',
+                'title' => 'Practice Quiz',
                 'subtitle' => 'Strengthen weak areas',
-                'time'     => '10 min',
-                'url'      => '/quizzes',
-                'icon'     => 'clipboard-check',
+                'time' => '10 min',
+                'url' => '/quizzes',
+                'icon' => 'clipboard-check',
             ];
         }
 

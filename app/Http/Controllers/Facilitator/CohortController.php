@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Facilitator;
 use App\Http\Controllers\Controller;
 use App\Models\Cohort;
 use App\Models\CohortMember;
+use App\Models\Course;
 use App\Models\User;
 use App\Services\CohortHealthService;
 use Illuminate\Http\Request;
@@ -36,7 +37,7 @@ class CohortController extends Controller
     /* ── Create form ── */
     public function create()
     {
-        $courses = \App\Models\Course::published()
+        $courses = Course::published()
             ->orderBy('title')
             ->get(['id', 'title', 'slug']);
 
@@ -49,16 +50,16 @@ class CohortController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'          => 'required|string|max:255',
-            'description'   => 'nullable|string',
-            'course_id'     => 'required|exists:courses,id',
-            'start_date'    => 'required|date',
-            'end_date'      => 'required|date|after:start_date',
-            'max_learners'  => 'nullable|integer|min:1|max:500',
-            'status'        => 'nullable|in:draft,active',
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'course_id' => 'required|exists:courses,id',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after:start_date',
+            'max_learners' => 'nullable|integer|min:1|max:500',
+            'status' => 'nullable|in:draft,active',
         ]);
 
-        $validated['facilitator_id']  = Auth::id();
+        $validated['facilitator_id'] = Auth::id();
         $validated['organization_id'] = Auth::user()->organization_id;
 
         $cohort = Cohort::create($validated);
@@ -74,11 +75,11 @@ class CohortController extends Controller
 
         $cohort->load('course:id,title,slug,thumbnail');
 
-        $health         = $this->healthService->healthScore($cohort);
-        $atRisk         = $this->healthService->atRiskLearners($cohort);
+        $health = $this->healthService->healthScore($cohort);
+        $atRisk = $this->healthService->atRiskLearners($cohort);
         $masteryHeatmap = $this->healthService->masteryHeatmap($cohort);
-        $engagementMap  = $this->healthService->engagementHeatmap($cohort);
-        $mockDist       = $this->healthService->mockScoreDistribution($cohort);
+        $engagementMap = $this->healthService->engagementHeatmap($cohort);
+        $mockDist = $this->healthService->mockScoreDistribution($cohort);
 
         $members = $cohort->members()
             ->active()
@@ -86,13 +87,13 @@ class CohortController extends Controller
             ->get();
 
         return Inertia::render('Facilitator/Cohorts/Show', [
-            'cohort'           => $cohort,
-            'health'           => $health,
-            'atRisk'           => $atRisk,
-            'masteryHeatmap'   => $masteryHeatmap,
-            'engagementHeatmap'=> $engagementMap,
+            'cohort' => $cohort,
+            'health' => $health,
+            'atRisk' => $atRisk,
+            'masteryHeatmap' => $masteryHeatmap,
+            'engagementHeatmap' => $engagementMap,
             'mockDistribution' => $mockDist,
-            'members'          => $members,
+            'members' => $members,
         ]);
     }
 
@@ -101,12 +102,12 @@ class CohortController extends Controller
     {
         $this->authorizeFacilitator($cohort);
 
-        $courses = \App\Models\Course::published()
+        $courses = Course::published()
             ->orderBy('title')
             ->get(['id', 'title', 'slug']);
 
         return Inertia::render('Facilitator/Cohorts/Edit', [
-            'cohort'  => $cohort,
+            'cohort' => $cohort,
             'courses' => $courses,
         ]);
     }
@@ -117,12 +118,12 @@ class CohortController extends Controller
         $this->authorizeFacilitator($cohort);
 
         $validated = $request->validate([
-            'name'         => 'required|string|max:255',
-            'description'  => 'nullable|string',
-            'start_date'   => 'required|date',
-            'end_date'     => 'required|date|after:start_date',
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after:start_date',
             'max_learners' => 'nullable|integer|min:1|max:500',
-            'status'       => 'nullable|in:draft,active,completed,archived',
+            'status' => 'nullable|in:draft,active,completed,archived',
         ]);
 
         $cohort->update($validated);
@@ -138,10 +139,10 @@ class CohortController extends Controller
 
         $request->validate([
             'email' => 'required|email|exists:users,email',
-            'role'  => 'nullable|in:learner,co_facilitator',
+            'role' => 'nullable|in:learner,co_facilitator',
         ]);
 
-        $user = User::where('email', $request->email)->firstOrFail();
+        $user = User::where('email', $request->email)->where('organization_id', $cohort->organization_id)->where('is_active', true)->firstOrFail();
 
         if ($cohort->members()->where('user_id', $user->id)->exists()) {
             return back()->withErrors(['email' => 'User is already in this cohort.']);
@@ -153,8 +154,8 @@ class CohortController extends Controller
 
         CohortMember::create([
             'cohort_id' => $cohort->id,
-            'user_id'   => $user->id,
-            'role'      => $request->input('role', 'learner'),
+            'user_id' => $user->id,
+            'role' => $request->input('role', 'learner'),
             'joined_at' => now(),
         ]);
 
@@ -165,6 +166,7 @@ class CohortController extends Controller
     public function removeMember(Cohort $cohort, CohortMember $member)
     {
         $this->authorizeFacilitator($cohort);
+        abort_unless($member->cohort_id === $cohort->id, 404);
 
         $member->update(['status' => 'removed']);
 
@@ -175,11 +177,12 @@ class CohortController extends Controller
     public function learner360(Cohort $cohort, User $user)
     {
         $this->authorizeFacilitator($cohort);
+        abort_unless($cohort->members()->where('user_id', $user->id)->where('status', 'active')->exists(), 404);
 
         $profile = $this->healthService->learner360($user->id, $cohort);
 
         return Inertia::render('Facilitator/Cohorts/Learner360', [
-            'cohort'  => $cohort->load('course:id,title'),
+            'cohort' => $cohort->load('course:id,title'),
             'profile' => $profile,
         ]);
     }

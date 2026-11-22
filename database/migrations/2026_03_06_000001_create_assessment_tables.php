@@ -105,7 +105,7 @@ return new class extends Migration
             $table->unsignedInteger('total_count');
             $table->unsignedInteger('time_spent_seconds')->default(0);
             $table->json('domain_scores')->nullable();
-            $table->timestamp('started_at');
+            $table->dateTime('started_at');
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();
 

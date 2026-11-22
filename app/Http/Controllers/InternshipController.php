@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\InternshipEnrollment;
 use App\Models\InternshipTask;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class InternshipController extends Controller
@@ -16,10 +18,12 @@ class InternshipController extends Controller
     {
         $enrollment = InternshipEnrollment::with(['track', 'sponsor', 'teamLead'])
             ->forUser(Auth::id())
-            ->active()
+            ->whereIn('status', ['enrolled', 'active', 'completed'])
+            ->orderByRaw("CASE WHEN status = 'completed' THEN 1 ELSE 0 END")
+            ->orderByDesc('id')
             ->first();
 
-        if (!$enrollment) {
+        if (! $enrollment) {
             return Inertia::render('Internship/Dashboard', [
                 'enrollment' => null,
             ]);
@@ -36,8 +40,8 @@ class InternshipController extends Controller
         }
 
         // Stats
-        $totalTasks   = $tasks->count();
-        $doneTasks    = $tasks->whereIn('status', ['approved', 'done'])->count();
+        $totalTasks = $tasks->count();
+        $doneTasks = $tasks->whereIn('status', ['approved', 'done'])->count();
         $overdueTasks = $tasks->filter(fn ($t) => $t->isOverdue())->count();
         $dueTodayCount = $tasks->filter(fn ($t) => $t->due_date && $t->due_date->isToday())->count();
 
@@ -45,16 +49,16 @@ class InternshipController extends Controller
         $currentWeek = $enrollment->currentWeek();
 
         return Inertia::render('Internship/Dashboard', [
-            'enrollment'  => $enrollment,
-            'kanban'      => $kanban,
-            'stats'       => [
-                'total'        => $totalTasks,
-                'done'         => $doneTasks,
-                'overdue'      => $overdueTasks,
-                'due_today'    => $dueTodayCount,
+            'enrollment' => $enrollment,
+            'kanban' => $kanban,
+            'stats' => [
+                'total' => $totalTasks,
+                'done' => $doneTasks,
+                'overdue' => $overdueTasks,
+                'due_today' => $dueTodayCount,
                 'progress_pct' => $enrollment->progressPct(),
             ],
-            'milestones'   => $milestones,
+            'milestones' => $milestones,
             'current_week' => $currentWeek,
         ]);
     }
@@ -77,7 +81,7 @@ class InternshipController extends Controller
 
         return Inertia::render('Internship/TaskBoard', [
             'enrollment' => $enrollment->load('track'),
-            'kanban'     => $kanban,
+            'kanban' => $kanban,
         ]);
     }
 
@@ -89,10 +93,17 @@ class InternshipController extends Controller
         $this->authorizeEnrollment($enrollment);
 
         $validated = $request->validate([
-            'status' => 'required|in:' . implode(',', InternshipTask::KANBAN_COLUMNS),
+            'status' => 'required|in:backlog,this_week,today,in_progress',
         ]);
 
-        $task->update(['status' => $validated['status']]);
+        DB::transaction(function () use ($task, $validated) {
+            User::whereKey($task->enrollment->user_id)->lockForUpdate()->firstOrFail();
+            $enrollment = InternshipEnrollment::whereKey($task->enrollment_id)->lockForUpdate()->firstOrFail();
+            $current = InternshipTask::whereKey($task->id)->lockForUpdate()->firstOrFail();
+            abort_unless(in_array($enrollment->status, ['enrolled', 'active'], true), 409);
+            abort_if(in_array($current->status, ['in_review', 'approved', 'done'], true), 409, 'Reviewed and submitted work cannot be moved manually.');
+            $current->update(['status' => $validated['status']]);
+        }, 3);
 
         return back()->with('success', 'Task updated.');
     }
@@ -102,7 +113,7 @@ class InternshipController extends Controller
     private function authorizeEnrollment(InternshipEnrollment $enrollment): void
     {
         $user = Auth::user();
-        if ($enrollment->user_id !== $user->id && !$user->hasRole('platform_admin')) {
+        if ($enrollment->user_id !== $user->id && ! $user->hasRole('platform_admin')) {
             abort(403, 'Unauthorized');
         }
     }

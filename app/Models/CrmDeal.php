@@ -17,8 +17,8 @@ class CrmDeal extends Model
 
     protected $casts = [
         'expected_close_date' => 'date',
-        'closed_date'         => 'date',
-        'value'               => 'decimal:2',
+        'closed_date' => 'date',
+        'value' => 'decimal:2',
     ];
 
     public function contact()

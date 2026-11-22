@@ -35,7 +35,7 @@
                     </div>
 
                     <!-- Options -->
-                    <div class="bg-white rounded-2xl border border-surface-200 p-6">
+                    <div v-if="!textAnswer" class="bg-white rounded-2xl border border-surface-200 p-6">
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-base font-semibold text-surface-900">Answer Options</h2>
                             <button
@@ -57,6 +57,7 @@
                                 <!-- Correct answer toggle -->
                                 <button
                                     type="button"
+                                    v-if="!['ordering','matching'].includes(form.type)"
                                     @click="toggleCorrect(opt.id)"
                                     :class="[
                                         'mt-1.5 w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors',
@@ -82,6 +83,9 @@
                                     />
                                 </div>
 
+                                <label v-if="form.type === 'matching'" class="flex-1 text-xs font-medium">Match label
+                                    <input v-model="opt.match_text" class="mt-1 w-full rounded-lg border-surface-200" />
+                                </label>
                                 <!-- Remove -->
                                 <button
                                     v-if="form.options.length > 2"
@@ -96,6 +100,27 @@
                         <p v-if="form.errors.correct_answer_ids" class="text-danger-600 text-xs mt-2">{{ form.errors.correct_answer_ids }}</p>
                     </div>
 
+                    <section class="rounded-2xl border border-surface-200 bg-white p-6 space-y-4" v-if="['ordering','matching','fill_blank','formula','multiple_select'].includes(form.type)">
+                        <h2 class="font-semibold">Scoring setup</h2>
+                        <label v-if="form.type === 'formula'" class="flex items-center gap-2 text-sm"><input type="checkbox" v-model="form.grading_config.numeric_response" />Accept a numeric answer</label>
+                        <label v-if="textAnswer" class="block text-sm space-y-2">{{ form.type === 'formula' ? 'Correct numeric answer' : 'Accepted answers (one per line)' }}
+                            <textarea v-model="answerText" rows="3" class="block w-full rounded-xl border-surface-200" />
+                        </label>
+                        <label v-if="form.type === 'formula' && textAnswer" class="block text-sm">Numeric tolerance<input v-model.number="form.grading_config.tolerance" type="number" min="0" step="any" class="ml-3 rounded-lg border-surface-200" /></label>
+                        <label v-if="form.type === 'fill_blank'" class="flex gap-2 text-sm"><input type="checkbox" v-model="form.grading_config.case_sensitive" />Answers are case sensitive</label>
+                        <template v-if="form.type === 'ordering'">
+                            <p class="text-sm text-surface-500">Set the answer sequence. Learners arrange these steps themselves.</p>
+                            <label v-for="(option,index) in form.options" :key="option.id" class="flex items-center justify-between gap-3 text-sm">{{ option.text || 'Untitled step' }}
+                                <select :value="form.correct_answer_ids.indexOf(option.id)+1 || ''" @change="setPosition(option.id,Number($event.target.value))" class="rounded-lg border-surface-200"><option value="">Position</option><option v-for="n in form.options.length" :key="n" :value="n">{{ n }}</option></select>
+                            </label>
+                        </template>
+                        <template v-if="form.type === 'matching'">
+                            <label v-for="option in form.options" :key="option.id" class="grid grid-cols-2 items-center gap-3 text-sm">{{ option.text || 'Untitled item' }}
+                                <select :value="form.correct_answer_ids.find(p=>p.startsWith(option.id+':'))?.split(':')[1] || ''" @change="setMatch(option.id,$event.target.value)" class="rounded-lg border-surface-200"><option value="">Correct match</option><option v-for="right in form.options" :key="right.id" :value="right.id">{{ right.match_text || right.text }}</option></select>
+                            </label>
+                        </template>
+                        <label v-if="['ordering','matching','multiple_select'].includes(form.type)" class="flex gap-2 text-sm"><input type="checkbox" v-model="form.grading_config.partial_credit" />Award partial credit for correct parts</label>
+                    </section>
                     <!-- Explanations -->
                     <div class="bg-white rounded-2xl border border-surface-200 p-6">
                         <h2 class="text-base font-semibold text-surface-900 mb-4">Explanations</h2>
@@ -227,7 +252,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ArrowLeft, Plus, Check, X } from 'lucide-vue-next';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
@@ -267,6 +292,7 @@ const form = useForm({
     stem_media: props.question?.stem_media || null,
     options: props.question?.options || JSON.parse(JSON.stringify(defaultOptions)),
     correct_answer_ids: props.question?.correct_answer_ids || [],
+    grading_config: { partial_credit:false, case_sensitive:false, tolerance:0.000001, numeric_response:props.question?.type === 'formula' && !props.question?.options?.length, ...(props.question?.grading_config || {}) },
     explanation_correct: props.question?.explanation_correct || '',
     explanation_incorrect: props.question?.explanation_incorrect || null,
     exam_tip: props.question?.exam_tip || '',
@@ -275,6 +301,16 @@ const form = useForm({
     tags: props.question?.tags || [],
     status: props.question?.status || 'draft',
 });
+
+const textAnswer = computed(() => form.type === 'fill_blank' || (form.type === 'formula' && form.grading_config.numeric_response));
+const answerText = computed({get:()=>form.correct_answer_ids.join('\n'),set:value=>form.correct_answer_ids=value.split('\n').map(v=>v.trim()).filter(Boolean)});
+function setPosition(id, position) {
+    const available = form.options.map(option => option.id);
+    const ids = [...form.correct_answer_ids.filter(value => available.includes(value)), ...available.filter(value => !form.correct_answer_ids.includes(value))];
+    ids.splice(ids.indexOf(id), 1); ids.splice(Math.max(0, Number(position) - 1), 0, id);
+    form.correct_answer_ids = ids;
+}
+function setMatch(left,right) { form.correct_answer_ids=[...form.correct_answer_ids.filter(p=>!p.startsWith(left+':')),...(right ? [left+':'+right] : [])]; }
 
 function addOption() {
     form.options.push({ id: generateId(), text: '', media_url: null });
@@ -312,6 +348,7 @@ async function onCourseChange() {
 }
 
 function submit() {
+    form.transform(data => ({...data, options: textAnswer.value ? [] : data.options}));
     if (isEdit) {
         form.put(`/admin/questions/${props.question.id}`);
     } else {

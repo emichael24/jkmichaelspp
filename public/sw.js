@@ -1,261 +1,77 @@
-/**
- * JK Michaels PWA Service Worker
- * Handles caching, offline support, and background sync.
- */
+/* Only public bundles and the anonymous reading shell enter Cache Storage. */
+const BUILD = new URL(self.location.href).searchParams.get('build') || 'development';
+const STATIC_CACHE = `jkm-v7-static-${BUILD}`;
+const OFFLINE = '/offline';
 
-const CACHE_VERSION = 'jkm-v5';
-const STATIC_CACHE = `${CACHE_VERSION}-static`;
-const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
-const API_CACHE = `${CACHE_VERSION}-api`;
-
-// Static assets to pre-cache during install
-const STATIC_ASSETS = [
-    '/',
-    '/offline',
-    '/offline.html',
-    '/manifest.json',
-];
-
-// Cache strategies
-const CACHE_FIRST_PATHS = [
-    '/build/',
-    '/icons/',
-    '/images/',
-    '/fonts/',
-    '/storage/',
-];
-
-const NETWORK_FIRST_PATHS = [
-    '/api/',
-    '/dashboard',
-    '/courses',
-    '/forums',
-];
-
-// Install: Pre-cache static assets
-self.addEventListener('install', (event) => {
-    event.waitUntil(
-        caches.open(STATIC_CACHE).then((cache) => {
-            console.log('[SW] Pre-caching static assets');
-            return cache.addAll(STATIC_ASSETS).catch((err) => {
-                console.warn('[SW] Some assets failed to cache:', err);
-            });
-        })
-    );
-    self.skipWaiting();
+self.addEventListener('install', event => {
+    event.waitUntil((async () => {
+        const cache = await caches.open(STATIC_CACHE);
+        const shell = await fetch(OFFLINE, { credentials: 'omit', cache: 'reload' });
+        if (!shell.ok) throw new Error('Offline reader could not be installed');
+        const html = await shell.clone().text();
+        const assets = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map(match => new URL(match[1], self.location.origin))
+            .filter(url => url.origin === self.location.origin && url.pathname.startsWith('/build/'));
+        await cache.addAll([...new Set(assets.map(url => url.href)), '/manifest.json']);
+        await cache.put(OFFLINE, shell);
+        await self.skipWaiting();
+    })());
 });
 
-// Activate: Clean up old caches
-self.addEventListener('activate', (event) => {
-    event.waitUntil(
-        caches.keys().then((keys) => {
-            return Promise.all(
-                keys
-                    .filter((key) => key !== STATIC_CACHE && key !== DYNAMIC_CACHE && key !== API_CACHE)
-                    .map((key) => {
-                        console.log('[SW] Removing old cache:', key);
-                        return caches.delete(key);
-                    })
-            );
-        })
-    );
-    self.clients.claim();
+self.addEventListener('activate', event => {
+    event.waitUntil((async () => {
+        await Promise.all((await caches.keys()).filter(key => key.startsWith('jkm-') && key !== STATIC_CACHE).map(key => caches.delete(key)));
+        indexedDB.deleteDatabase('jkm-offline');
+        await self.clients.claim();
+    })());
 });
 
-// Fetch: Apply cache strategies
-self.addEventListener('fetch', (event) => {
+self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
-
-    // Skip non-GET requests
-    if (event.request.method !== 'GET') return;
-
-    // Skip external requests
-    if (url.origin !== self.location.origin) return;
-
-    // Cache-first for static assets
-    if (CACHE_FIRST_PATHS.some((path) => url.pathname.startsWith(path))) {
-        event.respondWith(cacheFirst(event.request));
-        return;
-    }
-
-    // Network-first for dynamic content
-    if (NETWORK_FIRST_PATHS.some((path) => url.pathname.startsWith(path))) {
-        event.respondWith(networkFirst(event.request));
-        return;
-    }
-
-    // Stale-while-revalidate for everything else
-    event.respondWith(staleWhileRevalidate(event.request));
-});
-
-// Cache-first strategy
-async function cacheFirst(request) {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-
-    try {
-        const response = await fetch(request);
-        if (response.ok) {
+    if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
+    if (['/build/', '/icons/', '/fonts/'].some(prefix => url.pathname.startsWith(prefix))) {
+        event.respondWith((async () => {
             const cache = await caches.open(STATIC_CACHE);
-            cache.put(request, response.clone());
-        }
-        return response;
-    } catch {
-        return offlineFallback(request);
-    }
-}
-
-// Network-first strategy
-async function networkFirst(request) {
-    try {
-        const response = await fetch(request);
-        if (response.ok) {
-            const cache = await caches.open(DYNAMIC_CACHE);
-            cache.put(request, response.clone());
-        }
-        return response;
-    } catch {
-        const cached = await caches.match(request);
-        return cached || offlineFallback(request);
-    }
-}
-
-// Stale-while-revalidate strategy
-async function staleWhileRevalidate(request) {
-    const cached = await caches.match(request);
-
-    const fetchPromise = fetch(request)
-        .then((response) => {
-            if (response.ok) {
-                caches.open(DYNAMIC_CACHE).then((cache) => cache.put(request, response.clone()));
-            }
+            const cached = await cache.match(event.request);
+            if (cached) return cached;
+            const response = await fetch(event.request);
+            if (response.ok && response.type === 'basic') await cache.put(event.request, response.clone());
             return response;
-        })
-        .catch(() => cached || offlineFallback(request));
-
-    return cached || fetchPromise;
-}
-
-// Offline fallback
-async function offlineFallback(request) {
-    if (request.destination === 'document') {
-        const offlinePage = await caches.match('/offline') || await caches.match('/offline.html');
-        if (offlinePage) return offlinePage;
+        })());
+        return;
     }
-
-    return new Response('Offline', {
-        status: 503,
-        statusText: 'Service Unavailable',
-        headers: { 'Content-Type': 'text/plain' },
-    });
-}
-
-// Background Sync for queued actions
-self.addEventListener('sync', (event) => {
-    if (event.tag === 'sync-progress') {
-        event.waitUntil(syncProgress());
-    }
-    if (event.tag === 'sync-quiz-attempts') {
-        event.waitUntil(syncQuizAttempts());
-    }
-});
-
-async function syncProgress() {
-    try {
-        const db = await openDB();
-        const tx = db.transaction('pendingProgress', 'readonly');
-        const store = tx.objectStore('pendingProgress');
-        const items = await getAllFromStore(store);
-
-        for (const item of items) {
-            try {
-                await fetch('/api/progress/sync', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(item),
-                });
-                // Remove synced item
-                const deleteTx = db.transaction('pendingProgress', 'readwrite');
-                deleteTx.objectStore('pendingProgress').delete(item.id);
-            } catch {
-                console.warn('[SW] Failed to sync progress item:', item.id);
-            }
+    event.respondWith(fetch(event.request).catch(async () => {
+        if (event.request.mode === 'navigate') {
+            const shell = await caches.match(OFFLINE);
+            if (shell) return shell;
         }
-    } catch (err) {
-        console.error('[SW] Sync progress error:', err);
-    }
-}
-
-async function syncQuizAttempts() {
-    console.log('[SW] Syncing quiz attempts...');
-    // Similar pattern as syncProgress
-}
-
-// Push Notifications
-self.addEventListener('push', (event) => {
-    const data = event.data?.json() || {};
-
-    const options = {
-        body: data.body || 'You have a new notification',
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/icon-72x72.png',
-        vibrate: [100, 50, 100],
-        data: {
-            url: data.url || '/dashboard',
-            dateOfArrival: Date.now(),
-        },
-        actions: data.actions || [
-            { action: 'open', title: 'Open' },
-            { action: 'dismiss', title: 'Dismiss' },
-        ],
-    };
-
-    event.waitUntil(self.registration.showNotification(data.title || 'JK Michaels', options));
+        return new Response('A connection is required for this action.', { status: 503, headers: { 'Content-Type': 'text/plain' } });
+    }));
 });
 
-// Notification click handler
-self.addEventListener('notificationclick', (event) => {
+// A signed-in page owns the encryption key and CSRF token. The worker never replays private data.
+self.addEventListener('sync', event => {
+    if (event.tag === 'sync-progress') event.waitUntil(self.clients.matchAll({ type: 'window' }).then(clients => {
+        clients.forEach(client => client.postMessage({ type: 'SYNC_PROGRESS' }));
+    }));
+});
+
+self.addEventListener('push', event => {
+    let data = {};
+    try { data = event.data?.json() || {}; } catch { /* Generic, non-sensitive fallback. */ }
+    event.waitUntil(self.registration.showNotification(data.title || 'JK Michaels', {
+        body: data.body || 'You have an update in your learning workspace.',
+        icon: '/icons/icon-192x192.png', badge: '/icons/icon-72x72.png',
+        data: { url: '/notifications' },
+        actions: [{ action: 'open', title: 'Open' }, { action: 'dismiss', title: 'Dismiss' }],
+    }));
+});
+
+self.addEventListener('notificationclick', event => {
     event.notification.close();
-
     if (event.action === 'dismiss') return;
-
-    const url = event.notification.data?.url || '/dashboard';
-    event.waitUntil(
-        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-            const existingClient = clients.find((c) => c.url.includes(url));
-            if (existingClient) {
-                return existingClient.focus();
-            }
-            return self.clients.openWindow(url);
-        })
-    );
+    event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async clients => {
+        const existing = clients.find(client => new URL(client.url).origin === self.location.origin);
+        if (existing) { await existing.navigate('/notifications'); return existing.focus(); }
+        return self.clients.openWindow('/notifications');
+    }));
 });
-
-// IndexedDB helper
-function openDB() {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open('jkm-offline', 1);
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result);
-        request.onupgradeneeded = (event) => {
-            const db = event.target.result;
-            if (!db.objectStoreNames.contains('pendingProgress')) {
-                db.createObjectStore('pendingProgress', { keyPath: 'id', autoIncrement: true });
-            }
-            if (!db.objectStoreNames.contains('pendingQuizAttempts')) {
-                db.createObjectStore('pendingQuizAttempts', { keyPath: 'id', autoIncrement: true });
-            }
-            if (!db.objectStoreNames.contains('downloadedLessons')) {
-                db.createObjectStore('downloadedLessons', { keyPath: 'lessonId' });
-            }
-        };
-    });
-}
-
-function getAllFromStore(store) {
-    return new Promise((resolve, reject) => {
-        const request = store.getAll();
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-    });
-}

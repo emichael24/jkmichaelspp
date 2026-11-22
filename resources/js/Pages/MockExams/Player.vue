@@ -135,9 +135,9 @@
                     <button @click="showPauseConfirm = false" class="px-6 py-2.5 text-sm font-medium border border-surface-300 rounded-xl hover:bg-surface-50">
                         Cancel
                     </button>
-                    <Link :href="route('mock-exams.show', mockExam.id)" class="px-6 py-2.5 text-sm font-semibold bg-accent-600 text-white rounded-xl hover:bg-accent-700">
+                    <button @click="router.post(route('mock-exams.pause', attempt.id))" class="px-6 py-2.5 text-sm font-semibold bg-accent-600 text-white rounded-xl hover:bg-accent-700">
                         Pause & Exit
-                    </Link>
+                    </button>
                 </div>
             </div>
         </div>
@@ -195,6 +195,7 @@ const currentConfidence = computed(() => responses.value[currentQuestion.value?.
 
 // Timer: compute remaining seconds from exam start
 const remainingSeconds = computed(() => {
+    if (props.attempt.expires_at) return Math.max(0, Math.ceil((new Date(props.attempt.expires_at).getTime() - Date.now()) / 1000));
     if (!props.mockExam.time_limit_minutes) return 0
     const elapsed = Math.floor((Date.now() - new Date(props.attempt.started_at).getTime()) / 1000)
     return Math.max(0, props.mockExam.time_limit_minutes * 60 - elapsed)

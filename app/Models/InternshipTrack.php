@@ -22,14 +22,16 @@ class InternshipTrack extends Model
         'skills_covered',
         'max_participants',
         'is_published',
+        'review_rubric',
     ];
 
     protected $casts = [
-        'price'          => 'decimal:2',
+        'price' => 'decimal:2',
         'tools_required' => 'array',
-        'templates'      => 'array',
+        'templates' => 'array',
         'skills_covered' => 'array',
-        'is_published'   => 'boolean',
+        'is_published' => 'boolean',
+        'review_rubric' => 'array',
     ];
 
     /* ── Relationships ─────────────────────────────── */
@@ -66,5 +68,10 @@ class InternshipTrack extends Model
     public function isFull(): bool
     {
         return $this->activeEnrollmentCount() >= $this->max_participants;
+    }
+
+    public function reviewRubric(): array
+    {
+        return $this->review_rubric ?: ['Quality', 'Timeliness', 'Communication', 'Initiative', 'Technical skill'];
     }
 }

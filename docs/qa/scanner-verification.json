@@ -1,0 +1,1 @@
+{"clean.txt": {"exit": 0, "clean": true, "detected": false, "stderr_empty": true}, "eicar.com": {"exit": 1, "clean": false, "detected": true, "stderr_empty": true}, "signature_check_age_seconds": 236}

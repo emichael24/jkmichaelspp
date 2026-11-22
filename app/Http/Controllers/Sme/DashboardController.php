@@ -8,7 +8,6 @@ use App\Models\Question;
 use App\Models\QuestionFlag;
 use App\Models\QuestionResponse;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
@@ -40,20 +39,20 @@ class DashboardController extends Controller
 
         // Quality metrics - difficulty distribution
         $difficultyDist = Question::where('status', 'published')
-            ->selectRaw("difficulty, COUNT(*) as count")
+            ->selectRaw('difficulty, COUNT(*) as count')
             ->groupBy('difficulty')
             ->pluck('count', 'difficulty');
 
         // Recent responses for accuracy tracking
         $avgAccuracy = QuestionResponse::where('created_at', '>=', now()->subDays(30))
-            ->selectRaw("ROUND(AVG(CASE WHEN is_correct = 1 THEN 100 ELSE 0 END), 1) as accuracy")
+            ->selectRaw('ROUND(AVG(CASE WHEN is_correct = 1 THEN 100 ELSE 0 END), 1) as accuracy')
             ->value('accuracy') ?? 0;
 
         // Items needing attention (low discrimination or very high/low difficulty)
         $problemItems = Question::where('status', 'published')
             ->where(function ($q) {
                 $q->where('discrimination_index', '<', 0.15)
-                  ->orWhereRaw("correct_rate < 20 OR correct_rate > 95");
+                    ->orWhereRaw('correct_rate < 20 OR correct_rate > 95');
             })
             ->select('id', 'stem', 'difficulty', 'discrimination_index', 'correct_rate')
             ->limit(5)
@@ -66,37 +65,37 @@ class DashboardController extends Controller
             ->limit(5)
             ->get()
             ->map(fn ($item) => [
-                'id'        => $item->id,
-                'type'      => $item->contentable_type ? class_basename($item->contentable_type) : 'Unknown',
-                'title'     => $item->title ?? 'Untitled',
-                'submitter' => $item->submitter ? $item->submitter->first_name . ' ' . $item->submitter->last_name : 'Unknown',
+                'id' => $item->id,
+                'type' => $item->contentable_type ? class_basename($item->contentable_type) : 'Unknown',
+                'title' => $item->title ?? 'Untitled',
+                'submitter' => $item->submitter ? $item->submitter->first_name.' '.$item->submitter->last_name : 'Unknown',
                 'submitted' => $item->created_at?->diffForHumans(),
             ]);
 
         // My review activity this week
         $weeklyActivity = ContentApproval::where('reviewed_by', $userId)
             ->where('updated_at', '>=', now()->startOfWeek())
-            ->selectRaw("DATE(updated_at) as date, COUNT(*) as count")
+            ->selectRaw('DATE(updated_at) as date, COUNT(*) as count')
             ->groupBy('date')
             ->orderBy('date')
             ->pluck('count', 'date');
 
         return Inertia::render('Sme/Dashboard', [
             'stats' => [
-                'pendingReview'      => $pendingReview,
-                'reviewedThisMonth'  => $reviewedThisMonth,
-                'totalQuestions'     => $totalQuestions,
+                'pendingReview' => $pendingReview,
+                'reviewedThisMonth' => $reviewedThisMonth,
+                'totalQuestions' => $totalQuestions,
                 'publishedQuestions' => $publishedQuestions,
-                'draftQuestions'     => $draftQuestions,
-                'inReviewQuestions'  => $inReviewQuestions,
-                'openFlags'          => $openFlags,
-                'avgAccuracy'        => $avgAccuracy,
+                'draftQuestions' => $draftQuestions,
+                'inReviewQuestions' => $inReviewQuestions,
+                'openFlags' => $openFlags,
+                'avgAccuracy' => $avgAccuracy,
             ],
-            'difficultyDist'  => $difficultyDist,
-            'recentFlags'     => $recentFlags,
-            'problemItems'    => $problemItems,
-            'pendingContent'  => $pendingContent,
-            'weeklyActivity'  => $weeklyActivity,
+            'difficultyDist' => $difficultyDist,
+            'recentFlags' => $recentFlags,
+            'problemItems' => $problemItems,
+            'pendingContent' => $pendingContent,
+            'weeklyActivity' => $weeklyActivity,
         ]);
     }
 }

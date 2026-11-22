@@ -34,11 +34,11 @@
                 </select>
                 <select v-model="filterForm.type" class="rounded-xl border-surface-200 text-sm px-3 py-2" @change="applyFilters">
                     <option value="">All Types</option>
-                    <option value="topic_quiz">Topic Quiz</option>
-                    <option value="module_test">Module Test</option>
-                    <option value="practice_exam">Practice Exam</option>
-                    <option value="diagnostic">Diagnostic</option>
-                    <option value="certification_prep">Certification Prep</option>
+                    <option value="lesson_check">Lesson Check</option>
+                    <option value="module_quiz">Module Quiz</option>
+                    <option value="domain_practice">Domain Practice</option>
+                    <option value="adaptive">Adaptive</option>
+                    <option value="custom">Custom</option>
                 </select>
                 <select v-model="filterForm.status" class="rounded-xl border-surface-200 text-sm px-3 py-2" @change="applyFilters">
                     <option value="">All Status</option>
@@ -182,8 +182,8 @@ function deleteQuiz() {
 
 function typeLabel(t) {
     return {
-        topic_quiz: 'Topic Quiz', module_test: 'Module Test', practice_exam: 'Practice Exam',
-        diagnostic: 'Diagnostic', certification_prep: 'Cert Prep',
+        lesson_check: 'Lesson Check', module_quiz: 'Module Quiz', domain_practice: 'Domain Practice',
+        adaptive: 'Adaptive', custom: 'Custom',
     }[t] || t;
 }
 </script>

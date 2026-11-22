@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\CourseEnrollment;
 use Illuminate\Http\Request;
 
@@ -59,7 +60,7 @@ class EnrollmentController extends Controller
         $enrollments->each(function (CourseEnrollment $enrollment) use ($payload) {
             $old = $enrollment->only(['status', 'deadline']);
             $enrollment->update($payload);
-            \App\Models\AuditLog::log(
+            AuditLog::log(
                 'bulk_enrollment_update',
                 CourseEnrollment::class,
                 $enrollment->id,

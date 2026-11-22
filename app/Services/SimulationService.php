@@ -16,6 +16,7 @@ class SimulationService
      */
     public function start(Simulation $simulation, User $user): array
     {
+        $this->assertAccess($simulation, $user);
         $startNode = $simulation->startNode;
 
         if (! $startNode) {
@@ -23,23 +24,23 @@ class SimulationService
         }
 
         $attempt = SimulationAttempt::create([
-            'user_id'       => $user->id,
+            'user_id' => $user->id,
             'simulation_id' => $simulation->id,
-            'path_taken'    => [$startNode->id],
-            'choices_made'  => [],
-            'scores'        => [
-                'judgment'             => 50,
-                'ethics'               => 50,
+            'path_taken' => [$startNode->id],
+            'choices_made' => [],
+            'scores' => [
+                'judgment' => 50,
+                'ethics' => 50,
                 'stakeholder_handling' => 50,
-                'risk_thinking'        => 50,
+                'risk_thinking' => 50,
             ],
-            'status'          => 'in_progress',
+            'status' => 'in_progress',
             'current_node_id' => $startNode->id,
         ]);
 
         return [
             'attempt' => $attempt,
-            'node'    => $this->formatNode($startNode),
+            'node' => $this->formatNode($startNode),
         ];
     }
 
@@ -48,6 +49,7 @@ class SimulationService
      */
     public function resume(SimulationAttempt $attempt): array
     {
+        $this->assertAccess($attempt->simulation, $attempt->user);
         if ($attempt->isCompleted()) {
             throw new \RuntimeException('Attempt is already completed.');
         }
@@ -56,7 +58,7 @@ class SimulationService
 
         return [
             'attempt' => $attempt,
-            'node'    => $this->formatNode($currentNode),
+            'node' => $this->formatNode($currentNode),
         ];
     }
 
@@ -65,21 +67,14 @@ class SimulationService
      */
     public function makeChoice(SimulationAttempt $attempt, int $nodeId, int $choiceId): array
     {
-        if ($attempt->isCompleted()) {
-            throw new \RuntimeException('Attempt is already completed.');
-        }
-
-        // Validate the choice belongs to the current node
-        $choice = SimulationChoice::where('id', $choiceId)
-            ->where('node_id', $nodeId)
-            ->firstOrFail();
-
-        // Validate this is the current node
-        if ($attempt->current_node_id !== $nodeId) {
-            throw new \RuntimeException('Choice does not belong to the current node.');
-        }
-
-        return DB::transaction(function () use ($attempt, $choice) {
+        return DB::transaction(function () use ($attempt, $nodeId, $choiceId) {
+            $attempt = SimulationAttempt::whereKey($attempt->id)->lockForUpdate()->firstOrFail();
+            $this->assertAccess($attempt->simulation, $attempt->user);
+            abort_if($attempt->isCompleted(), 409, 'This simulation is complete.');
+            abort_unless($attempt->current_node_id === $nodeId, 409, 'This step has already changed. Resume the simulation.');
+            $choice = SimulationChoice::whereKey($choiceId)->where('node_id', $nodeId)->firstOrFail();
+            abort_unless($choice->nextNode?->simulation_id === $attempt->simulation_id, 422, 'This choice has no valid next step.');
+            abort_if(count($attempt->path_taken ?? []) >= 500, 422, 'This simulation path exceeds the supported length.');
             // Record the choice
             $attempt->addChoice($choice->node_id, $choice->id);
 
@@ -102,8 +97,8 @@ class SimulationService
 
             return [
                 'attempt' => $attempt->fresh(),
-                'node'    => $this->formatNode($nextNode),
-                'scores'  => $attempt->scores,
+                'node' => $this->formatNode($nextNode),
+                'scores' => $attempt->scores,
             ];
         });
     }
@@ -113,31 +108,33 @@ class SimulationService
      */
     public function complete(SimulationAttempt $attempt, int $timeSpentSeconds): array
     {
-        if ($attempt->isCompleted()) {
-            throw new \RuntimeException('Attempt is already completed.');
-        }
-
         return DB::transaction(function () use ($attempt, $timeSpentSeconds) {
+            $attempt = SimulationAttempt::whereKey($attempt->id)->lockForUpdate()->firstOrFail();
+            $this->assertAccess($attempt->simulation, $attempt->user);
+            if ($attempt->isCompleted()) {
+                return $this->getReview($attempt);
+            }
+            abort_unless($attempt->currentNode?->isEnd(), 422, 'Finish the simulation path before completing it.');
             $totalScore = $attempt->calculateTotalScore();
 
             $attempt->update([
-                'status'             => 'completed',
-                'total_score_pct'    => $totalScore,
+                'status' => 'completed',
+                'total_score_pct' => $totalScore,
                 'time_spent_seconds' => $timeSpentSeconds,
-                'completed_at'       => now(),
+                'completed_at' => now(),
             ]);
 
             $simulation = $attempt->simulation;
             $bestPracticePath = $simulation->getBestPracticePath();
 
             return [
-                'attempt'             => $attempt->fresh(),
-                'scores'              => $attempt->scores,
-                'total_score_pct'     => $totalScore,
-                'best_practice_path'  => $bestPracticePath,
-                'your_path'           => $attempt->path_taken,
-                'time_spent_seconds'  => $timeSpentSeconds,
-                'path_comparison'     => $this->buildPathComparison($attempt, $bestPracticePath),
+                'attempt' => $attempt->fresh(),
+                'scores' => $attempt->scores,
+                'total_score_pct' => $totalScore,
+                'best_practice_path' => $bestPracticePath,
+                'your_path' => $attempt->path_taken,
+                'time_spent_seconds' => $timeSpentSeconds,
+                'path_comparison' => $this->buildPathComparison($attempt, $bestPracticePath),
             ];
         });
     }
@@ -151,20 +148,28 @@ class SimulationService
         $bestPracticePath = $simulation->getBestPracticePath();
 
         return [
-            'attempt'            => $attempt,
-            'simulation'         => $simulation,
-            'scores'             => $attempt->scores,
-            'total_score_pct'    => $attempt->total_score_pct,
+            'attempt' => $attempt,
+            'simulation' => $simulation,
+            'scores' => $attempt->scores,
+            'total_score_pct' => $attempt->total_score_pct,
             'best_practice_path' => $bestPracticePath,
-            'your_path'          => $attempt->path_taken,
-            'path_comparison'    => $this->buildPathComparison($attempt, $bestPracticePath),
-            'nodes_visited'      => $this->getNodesVisited($attempt),
+            'your_path' => $attempt->path_taken,
+            'path_comparison' => $this->buildPathComparison($attempt, $bestPracticePath),
+            'nodes_visited' => $this->getNodesVisited($attempt),
         ];
     }
 
     /**
      * Build a side-by-side comparison of the user's path vs best practice.
      */
+    private function assertAccess(Simulation $simulation, User $user): void
+    {
+        abort_unless($simulation->is_published, 404);
+        if ($simulation->course_id) {
+            app(LearningAccessService::class)->assertCourse($simulation->course, $user);
+        }
+    }
+
     private function buildPathComparison(SimulationAttempt $attempt, array $bestPracticePath): array
     {
         $yourPath = $attempt->path_taken ?? [];
@@ -185,18 +190,18 @@ class SimulationService
             $choiceData = $choicesMade->firstWhere('node_id', $yourNodeId);
 
             $comparison[] = [
-                'step'       => $i + 1,
-                'your_node'  => $yourNode ? [
-                    'id'      => $yourNode->id,
-                    'type'    => $yourNode->type,
+                'step' => $i + 1,
+                'your_node' => $yourNode ? [
+                    'id' => $yourNode->id,
+                    'type' => $yourNode->type,
                     'content' => $yourNode->content,
                 ] : null,
-                'best_node'  => $bestNode ? [
-                    'id'      => $bestNode->id,
-                    'type'    => $bestNode->type,
+                'best_node' => $bestNode ? [
+                    'id' => $bestNode->id,
+                    'type' => $bestNode->type,
                     'content' => $bestNode->content,
                 ] : null,
-                'diverged'    => $diverged,
+                'diverged' => $diverged,
                 'choice_made' => $choiceData ? SimulationChoice::find($choiceData['choice_id'])?->label : null,
             ];
         }
@@ -230,17 +235,17 @@ class SimulationService
         $node->load('choices.nextNode');
 
         return [
-            'id'               => $node->id,
-            'type'             => $node->type,
-            'content'          => $node->content,
-            'media_url'        => $node->media_url,
-            'is_start'         => $node->is_start,
+            'id' => $node->id,
+            'type' => $node->type,
+            'content' => $node->content,
+            'media_url' => $node->media_url,
+            'is_start' => $node->is_start,
             'is_best_practice' => $node->is_best_practice,
-            'is_end'           => $node->isEnd(),
-            'choices'          => $node->isDecision() ? $node->choices->map(fn ($c) => [
-                'id'           => $c->id,
-                'label'        => $c->label,
-                'sort_order'   => $c->sort_order,
+            'is_end' => $node->isEnd(),
+            'choices' => $node->isDecision() ? $node->choices->map(fn ($c) => [
+                'id' => $c->id,
+                'label' => $c->label,
+                'sort_order' => $c->sort_order,
             ])->toArray() : [],
         ];
     }

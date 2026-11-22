@@ -22,9 +22,9 @@ class SimulationNode extends Model
     protected function casts(): array
     {
         return [
-            'is_start'         => 'boolean',
+            'is_start' => 'boolean',
             'is_best_practice' => 'boolean',
-            'sort_order'       => 'integer',
+            'sort_order' => 'integer',
         ];
     }
 

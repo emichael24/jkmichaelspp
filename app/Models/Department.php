@@ -8,11 +8,13 @@ use Illuminate\Database\Eloquent\Model;
 class Department extends Model
 {
     use HasFactory;
+    use Traits\RecordsDomainAudit;
 
     protected $fillable = [
         'organization_id',
         'name',
         'parent_id',
+        'manager_id',
     ];
 
     /*
@@ -39,5 +41,10 @@ class Department extends Model
     public function users()
     {
         return $this->belongsToMany(User::class, 'department_user');
+    }
+
+    public function manager()
+    {
+        return $this->belongsTo(User::class, 'manager_id');
     }
 }

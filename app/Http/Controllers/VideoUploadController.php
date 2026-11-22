@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PrivateMediaService;
 use Illuminate\Http\Request;
 
 class VideoUploadController extends Controller
@@ -16,13 +17,12 @@ class VideoUploadController extends Controller
             'video' => 'required|file|mimetypes:video/mp4,video/quicktime|max:500000',
         ]);
 
-        $path = $request->file('video')->store('videos', 'public');
+        $asset = app(PrivateMediaService::class)->video($request->file('video'), $request->user());
 
         return response()->json([
             'status' => 'success',
-            'video_url' => asset("storage/{$path}"),
-            'video_provider' => 's3', 
+            'video_url' => $asset->url(),
+            'video_provider' => 's3',
         ]);
     }
 }
-

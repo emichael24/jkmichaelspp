@@ -3,8 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Product extends Model
 {
@@ -51,11 +51,21 @@ class Product extends Model
         return $query->where('is_active', true);
     }
 
+    public function scopePurchasable($query)
+    {
+        return $query->active()->where(function ($query) {
+            $query->whereHasMorph('productable', [Course::class], fn ($course) => $course->where('is_published', true))
+                ->orWhereHasMorph('productable', [Bundle::class], fn ($bundle) => $bundle->whereHas('courses')
+                    ->whereDoesntHave('courses', fn ($course) => $course->where('is_published', false)));
+        });
+    }
+
     public function scopeSearch($query, ?string $search)
     {
         if ($search) {
             $query->where('name', 'like', "%{$search}%");
         }
+
         return $query;
     }
 
@@ -63,22 +73,26 @@ class Product extends Model
 
     public function getCurrentPrice(): float
     {
-        if ($this->discount_price && $this->discount_expires_at && $this->discount_expires_at->isFuture()) {
+        if ($this->hasActiveDiscount()) {
             return (float) $this->discount_price;
         }
+
         return (float) $this->price;
     }
 
     public function hasActiveDiscount(): bool
     {
-        return $this->discount_price
+        return $this->discount_price !== null && $this->discount_price >= 0 && $this->discount_price < $this->price
             && $this->discount_expires_at
             && $this->discount_expires_at->isFuture();
     }
 
     public function getSavingsPercentage(): ?int
     {
-        if (!$this->hasActiveDiscount()) return null;
+        if (! $this->hasActiveDiscount()) {
+            return null;
+        }
+
         return (int) round((1 - $this->discount_price / $this->price) * 100);
     }
 }

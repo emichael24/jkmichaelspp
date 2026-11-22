@@ -26,9 +26,9 @@ class Resource extends Model
     {
         return [
             'file_size_bytes' => 'integer',
-            'download_count'  => 'integer',
-            'sort_order'      => 'integer',
-            'is_published'    => 'boolean',
+            'download_count' => 'integer',
+            'sort_order' => 'integer',
+            'is_published' => 'boolean',
         ];
     }
 
@@ -45,11 +45,13 @@ class Resource extends Model
     public function getFormattedSizeAttribute(): string
     {
         $bytes = $this->file_size_bytes;
-        if (!$bytes) return '0 B';
+        if (! $bytes) {
+            return '0 B';
+        }
 
         $units = ['B', 'KB', 'MB', 'GB'];
         $i = floor(log($bytes, 1024));
 
-        return round($bytes / pow(1024, $i), 1) . ' ' . $units[$i];
+        return round($bytes / pow(1024, $i), 1).' '.$units[$i];
     }
 }

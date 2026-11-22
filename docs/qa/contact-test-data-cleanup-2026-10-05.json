@@ -1,0 +1,13 @@
+{
+  "contacts_removed": 5003,
+  "background_import_batches_removed": 1,
+  "import_error_records_removed": 2,
+  "legacy_import_receipts_removed": 1,
+  "contacts_remaining": 0,
+  "import_queue_remaining": 0,
+  "audit_history_preserved": true,
+  "production_changed": false,
+  "cleaned_at": "2026-10-05T12:43:38.178449+00:00",
+  "environment": "Local synthetic preview",
+  "backup_git_ignored": true
+}

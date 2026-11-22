@@ -3,13 +3,12 @@
 namespace App\Http\Controllers\Facilitator;
 
 use App\Http\Controllers\Controller;
+use App\Models\AssignmentSubmission;
 use App\Models\Cohort;
 use App\Models\CohortMember;
-use App\Models\Intervention;
-use App\Models\AssignmentSubmission;
-use App\Models\Meeting;
 use App\Models\DailyActivityLog;
-use App\Models\QuizAttempt;
+use App\Models\Intervention;
+use App\Models\Meeting;
 use App\Services\CohortHealthService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -35,16 +34,17 @@ class DashboardController extends Controller
         $cohortSummaries = $cohorts->map(function ($cohort) {
             $health = $this->healthService->healthScore($cohort);
             $atRisk = $this->healthService->atRiskLearners($cohort);
+
             return [
-                'id'            => $cohort->id,
-                'name'          => $cohort->name,
-                'status'        => $cohort->status,
-                'course'        => $cohort->course?->title,
-                'thumbnail'     => $cohort->course?->thumbnail,
+                'id' => $cohort->id,
+                'name' => $cohort->name,
+                'status' => $cohort->status,
+                'course' => $cohort->course?->title,
+                'thumbnail' => $cohort->course?->thumbnail,
                 'learner_count' => $cohort->members_count,
-                'start_date'    => $cohort->start_date->format('M d, Y'),
-                'end_date'      => $cohort->end_date->format('M d, Y'),
-                'health_score'  => $health['score'],
+                'start_date' => $cohort->start_date->format('M d, Y'),
+                'end_date' => $cohort->end_date->format('M d, Y'),
+                'health_score' => $health['score'],
                 'at_risk_count' => count($atRisk),
             ];
         });
@@ -78,11 +78,11 @@ class DashboardController extends Controller
             ->limit(8)
             ->get()
             ->map(fn ($s) => [
-                'id'         => $s->id,
-                'learner'    => $s->user ? ($s->user->first_name . ' ' . $s->user->last_name) : 'Unknown',
+                'id' => $s->id,
+                'learner' => $s->user ? ($s->user->first_name.' '.$s->user->last_name) : 'Unknown',
                 'assignment' => $s->assignment?->title ?? 'Untitled',
-                'submitted'  => $s->submitted_at?->diffForHumans(),
-                'status'     => $s->status,
+                'submitted' => $s->submitted_at?->diffForHumans(),
+                'status' => $s->status,
             ]);
 
         // ── Upcoming sessions ────────────────────────
@@ -91,13 +91,13 @@ class DashboardController extends Controller
             ->limit(5)
             ->get()
             ->map(fn ($m) => [
-                'id'        => $m->id,
-                'title'     => $m->title,
-                'date'      => $m->scheduled_at->format('M d'),
-                'time'      => $m->scheduled_at->format('h:i A'),
-                'duration'  => $m->duration_minutes,
-                'platform'  => $m->platform,
-                'url'       => $m->meeting_url,
+                'id' => $m->id,
+                'title' => $m->title,
+                'date' => $m->scheduled_at->format('M d'),
+                'time' => $m->scheduled_at->format('h:i A'),
+                'duration' => $m->duration_minutes,
+                'platform' => $m->platform,
+                'url' => $m->meeting_url,
                 'attendees' => $m->attendees()->count(),
             ]);
 
@@ -108,11 +108,11 @@ class DashboardController extends Controller
             ->get();
 
         $engagementSummary = [
-            'activeLearners'   => $weekActivity->pluck('user_id')->unique()->count(),
-            'totalMinutes'     => $weekActivity->sum('time_spent_minutes'),
+            'activeLearners' => $weekActivity->pluck('user_id')->unique()->count(),
+            'totalMinutes' => $weekActivity->sum('time_spent_minutes'),
             'lessonsCompleted' => $weekActivity->sum('lessons_completed'),
-            'quizzesTaken'     => $weekActivity->sum('quizzes_completed'),
-            'avgAccuracy'      => $weekActivity->sum('questions_answered') > 0
+            'quizzesTaken' => $weekActivity->sum('quizzes_completed'),
+            'avgAccuracy' => $weekActivity->sum('questions_answered') > 0
                 ? round(($weekActivity->sum('questions_correct') / $weekActivity->sum('questions_answered')) * 100)
                 : 0,
         ];
@@ -128,14 +128,14 @@ class DashboardController extends Controller
             ->take(20); // Limit for performance
 
         return Inertia::render('Facilitator/Dashboard', [
-            'cohorts'             => $cohortSummaries,
-            'totalLearners'      => $totalLearners,
-            'totalAtRisk'        => $totalAtRisk,
-            'activeCohortCount'  => $cohorts->where('status', 'active')->count(),
+            'cohorts' => $cohortSummaries,
+            'totalLearners' => $totalLearners,
+            'totalAtRisk' => $totalAtRisk,
+            'activeCohortCount' => $cohorts->where('status', 'active')->count(),
             'recentInterventions' => $recentInterventions,
             'pendingSubmissions' => $pendingSubmissions,
-            'upcomingSessions'   => $upcomingSessions,
-            'engagementSummary'  => $engagementSummary,
+            'upcomingSessions' => $upcomingSessions,
+            'engagementSummary' => $engagementSummary,
         ]);
     }
 }

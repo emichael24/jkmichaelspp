@@ -2,27 +2,11 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Http;
+use App\Exceptions\ExternalIntegrationException;
 
 class WhatsAppService
 {
-    protected string $apiKey;
-    protected string $baseUrl;
-    protected string $defaultSession;
-
-    public function __construct()
-    {
-        $this->apiKey         = config('services.flexichurch.api_key');
-        $this->baseUrl        = rtrim(config('services.flexichurch.base_url', 'https://flexichurch.com/api/v1/external'), '/');
-        $this->defaultSession = config('services.flexichurch.whatsapp_session', 'jkmichaels-main');
-    }
-
-    protected function client(): \Illuminate\Http\Client\PendingRequest
-    {
-        return Http::withToken($this->apiKey)
-            ->baseUrl($this->baseUrl)
-            ->timeout(30);
-    }
+    public function __construct(protected ExternalApiClient $api) {}
 
     // ─────────────────────────────────────────────────────────────────────────
     // Messaging
@@ -33,18 +17,7 @@ class WhatsAppService
      */
     public function sendText(string $number, string $message): array
     {
-        $response = $this->client()->post('/whatsapp/send', [
-            'number'  => $this->normalizeNumber($number),
-            'message' => $message,
-        ]);
-
-        $data = $response->json();
-
-        if (! $response->successful() || ($data['status'] ?? '') !== 'success') {
-            throw new \RuntimeException('WhatsApp send failed: ' . ($data['message'] ?? 'Unknown error'));
-        }
-
-        return $data['data'];
+        return $this->api->request('POST', '/whatsapp/send', ['number' => $this->normalizeNumber($number), 'message' => $message], 30);
     }
 
     /**
@@ -52,23 +25,7 @@ class WhatsAppService
      */
     public function sendMedia(string $number, string $mediaUrl, string $caption = ''): array
     {
-        $payload = [
-            'number'    => $this->normalizeNumber($number),
-            'media_url' => $mediaUrl,
-        ];
-
-        if ($caption) {
-            $payload['caption'] = $caption;
-        }
-
-        $response = $this->client()->post('/whatsapp/send-media', $payload);
-        $data = $response->json();
-
-        if (! $response->successful() || ($data['status'] ?? '') !== 'success') {
-            throw new \RuntimeException('WhatsApp media send failed: ' . ($data['message'] ?? ''));
-        }
-
-        return $data['data'];
+        return $this->api->request('POST', '/whatsapp/send-media', ['number' => $this->normalizeNumber($number), 'media_url' => $mediaUrl, 'caption' => $caption], 30);
     }
 
     /**
@@ -77,25 +34,9 @@ class WhatsAppService
      */
     public function sendBulk(array $recipients, string $defaultMessage = ''): array
     {
-        // Normalize numbers
-        $normalized = array_map(function ($r) {
-            $r['number'] = $this->normalizeNumber($r['number']);
-            return $r;
-        }, $recipients);
+        $recipients = array_map(fn ($recipient) => [...$recipient, 'number' => $this->normalizeNumber($recipient['number'])], $recipients);
 
-        $payload = ['recipients' => $normalized];
-        if ($defaultMessage) {
-            $payload['message'] = $defaultMessage;
-        }
-
-        $response = $this->client()->post('/whatsapp/send-bulk', $payload);
-        $data = $response->json();
-
-        if (! $response->successful() || ($data['status'] ?? '') !== 'success') {
-            throw new \RuntimeException('WhatsApp bulk send failed: ' . ($data['message'] ?? ''));
-        }
-
-        return $data['data'];
+        return $this->api->request('POST', '/whatsapp/send-bulk', ['recipients' => $recipients, 'message' => $defaultMessage], 30);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -104,43 +45,51 @@ class WhatsAppService
 
     public function listSessions(): array
     {
-        $response = $this->client()->get('/whatsapp/sessions');
-        return $response->json('data', []);
+        return $this->api->request('GET', '/whatsapp/sessions', [], 15);
     }
 
     public function createSession(string $sessionName, string $webhookUrl = ''): array
     {
         $payload = ['session_name' => $sessionName];
-        if ($webhookUrl) {
+        if ($webhookUrl !== '') {
             $payload['webhook_url'] = $webhookUrl;
         }
+        $session = $this->api->request('POST', '/whatsapp/sessions', $payload, 30);
+        if (! is_string($session['id'] ?? null) || $session['id'] === '') {
+            throw new ExternalIntegrationException('The messaging gateway did not create a usable session. Please retry shortly.', 502);
+        }
 
-        $response = $this->client()->post('/whatsapp/sessions', $payload);
-        return $response->json('data', []);
+        return $session;
     }
 
     public function getSession(string $sessionId): array
     {
-        $response = $this->client()->get("/whatsapp/sessions/{$sessionId}");
-        return $response->json('data', []);
+        $session = $this->api->request('GET', '/whatsapp/sessions/'.rawurlencode($sessionId), [], 15);
+        if (! in_array($session['status'] ?? null, ['CONNECTED', 'WAITING_FOR_QR', 'CONNECTING', 'DISCONNECTED', 'ERROR'], true)) {
+            throw new ExternalIntegrationException('The messaging gateway did not return a valid session status.', 502);
+        }
+
+        return $session;
     }
 
     public function getQrCode(string $sessionId): array
     {
-        $response = $this->client()->get("/whatsapp/sessions/{$sessionId}/qr");
-        return $response->json('data', []);
+        return $this->api->request('GET', '/whatsapp/sessions/'.rawurlencode($sessionId).'/qr', [], 15);
     }
 
     public function logoutSession(string $sessionId): array
     {
-        $response = $this->client()->post("/whatsapp/sessions/{$sessionId}/logout");
-        return $response->json('data', []);
+        $result = $this->api->request('POST', '/whatsapp/sessions/'.rawurlencode($sessionId).'/logout', ['action' => 'logout'], 15);
+        if (($result['status'] ?? null) !== 'DISCONNECTED') {
+            throw new ExternalIntegrationException('The gateway has not confirmed disconnection. Refresh the connection status before retrying.', 502);
+        }
+
+        return $result;
     }
 
     public function gatewayStatus(): array
     {
-        $response = $this->client()->timeout(10)->get('/whatsapp/status');
-        return $response->json('data', []);
+        return $this->api->request('GET', '/whatsapp/status', [], 10);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -157,7 +106,7 @@ class WhatsAppService
 
         // Handle Nigerian local format (08..., 07..., 09...)
         if (strlen($number) === 11 && str_starts_with($number, '0')) {
-            $number = '234' . substr($number, 1);
+            $number = '234'.substr($number, 1);
         }
 
         return $number;

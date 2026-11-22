@@ -4,8 +4,8 @@ namespace App\Notifications;
 
 use App\Models\Course;
 use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
 
 class CourseRejected extends Notification
 {
@@ -32,11 +32,11 @@ class CourseRejected extends Notification
     public function toArray(object $notifiable): array
     {
         return [
-            'type'      => 'course_rejected',
+            'type' => 'course_rejected',
             'course_id' => $this->course->id,
-            'title'     => $this->course->title,
-            'reason'    => $this->reason,
-            'message'   => "Your course \"{$this->course->title}\" needs revisions.",
+            'title' => $this->course->title,
+            'reason' => $this->reason,
+            'message' => "Your course \"{$this->course->title}\" needs revisions.",
         ];
     }
 }

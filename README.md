@@ -1,59 +1,57 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# JK Michaels Professional Mastery Platform
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Laravel 12 + Inertia 2 + Vue 3 LMS for learners, facilitators, content reviewers, sponsors, organization administrators and platform administrators.
 
-## About Laravel
+## Current readiness
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+The enterprise audit and first remediation batch are documented here:
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- [Comprehensive audit and findings](docs/11-ENTERPRISE-AUDIT-2026-10-05.md)
+- [Specification and 59-feature traceability matrix](docs/12-REQUIREMENTS-TRACEABILITY.md)
+- [Implementation record and release gates](docs/13-IMPLEMENTATION-AND-RELEASE-PLAN.md)
+- [Verification results and screenshots](docs/qa/VERIFICATION.md)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+The platform is **not yet approved for an enterprise production launch**. Safe private media/SCORM delivery, full tenant policies, recurring billing, completion/certificates, unified content revisions and operational evidence remain release work. Historical docs describe intentions as well as implementation; use the current audit to distinguish them.
 
-## Learning Laravel
+## Local development
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+Requirements: PHP 8.2+ with the extensions required by Composer and the selected database, Composer, and a Node.js version supported by the locked Vite version. CI currently uses PHP 8.3 and Node 20. Use a local development database.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+```powershell
+composer install
+npm ci
+Copy-Item .env.example .env
+php artisan key:generate
+```
 
-## Laravel Sponsors
+Configure the local database in `.env`, then run migrations against that development database:
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+```powershell
+php artisan migrate
+npm run build
+php artisan serve
+```
 
-### Premium Partners
+Use `npm run dev` for Vite development. Configure optional payment, AI, mail, storage and meeting services separately; a visible screen does not imply the external service is configured. See `docs/06-DEPLOYMENT-DEVOPS.md` for the intended infrastructure and the release plan for unverified dependencies.
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## Verification
 
-## Contributing
+```powershell
+php artisan test --without-tty
+php docs/qa/workspace-inventory.php
+composer validate --strict
+composer audit
+npm audit
+npm run build
+php vendor/bin/pint --test
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Tests use an isolated fixture environment and in-memory SQLite connections, with unexpected HTTP calls blocked. They do not load the developer `.env`. The local suite passes 39 tests / 203 assertions; build, dependency audits, Composer validation and repository-wide Pint pass. MySQL/provider/concurrency/device testing is still required.
 
-## Code of Conduct
+## Authoring and rollout
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Admin and facilitator authoring now use the same lesson editor and validation contract. Course types are `self_paced`, `live`, `certified` and `bootcamp`; levels are `beginner`, `intermediate` and `advanced`. A free course has price zero. Readiness checks operate on saved content before review/publication.
 
-## Security Vulnerabilities
+The new assessment migration adds question snapshots, draft responses and deadlines. Apply it in staging before deploying the updated controllers. Legacy in-progress attempts without snapshots restart explicitly; retain completed history and communicate the transition. See the release plan for rollout and rollback details.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+The October audit preview uses synthetic data under ignored `tmp/`; it is not a production environment or a deployable dataset.

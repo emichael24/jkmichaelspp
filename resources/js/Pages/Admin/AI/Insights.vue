@@ -2,6 +2,7 @@
     <Head title="AI Platform Insights" />
 
     <div class="space-y-6">
+        <p v-if="error" role="alert" class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{{ error }}</p>
         <!-- Header -->
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -39,8 +40,8 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1.5">Content Type</label>
-                    <select v-model="contentForm.content_type" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    <label class="block text-sm font-medium text-surface-700 mb-1.5" for="admin-content-type">Content Type</label>
+                    <select id="admin-content-type" v-model="contentForm.type" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
                         <option value="course_description">Course Description</option>
                         <option value="announcement">Announcement</option>
                         <option value="email_subject">Email Subject Lines</option>
@@ -48,8 +49,8 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1.5">Tone</label>
-                    <select v-model="contentForm.tone" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    <label class="block text-sm font-medium text-surface-700 mb-1.5" for="admin-content-tone">Tone</label>
+                    <select id="admin-content-tone" v-model="contentForm.tone" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
                         <option value="professional">Professional</option>
                         <option value="friendly">Friendly</option>
                         <option value="motivational">Motivational</option>
@@ -58,9 +59,10 @@
                 </div>
             </div>
             <div>
-                <label class="block text-sm font-medium text-surface-700 mb-1.5">Context / Topic</label>
+                <label class="block text-sm font-medium text-surface-700 mb-1.5" for="admin-content-context">Context / Topic</label>
                 <textarea
-                    v-model="contentForm.context"
+                    id="admin-content-context" v-model="contentForm.context"
+                    maxlength="2000"
                     rows="3"
                     placeholder="Describe what you need content for…"
                     class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
@@ -120,38 +122,41 @@
         <div v-if="pastInsights.length" class="bg-white rounded-2xl border border-surface-200/60 shadow-sm p-5">
             <h3 class="font-semibold text-surface-800 mb-4">Insight History</h3>
             <div class="space-y-2">
-                <div
+                <button
                     v-for="(insight, i) in pastInsights"
                     :key="i"
-                    @click="latestInsight = insight"
-                    class="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-surface-50 cursor-pointer border border-surface-100 transition-colors"
+                    @click="latestInsight = { ...insight, insights: insight.output }"
+                    class="w-full text-left flex items-center justify-between px-4 py-3 rounded-xl hover:bg-surface-50 cursor-pointer border border-surface-100 transition-colors"
                 >
                     <div>
                         <p class="text-sm font-medium text-surface-800">{{ insight.type_label || 'Platform Overview' }}</p>
                         <p class="text-xs text-surface-400 mt-0.5">{{ formatDate(insight.created_at) }}</p>
                     </div>
                     <ChevronRight class="w-4 h-4 text-surface-400" />
-                </div>
+                </button>
             </div>
         </div>
     </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { Head } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+import { Head, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import axios from 'axios';
+import { integrationError } from '@/lib/integration';
 import { Sparkles, PenSquare, Loader2, Copy, ChevronRight } from 'lucide-vue-next';
 
 defineOptions({ layout: AdminLayout });
 
 const props = defineProps({
-    pastInsights: { type: Array, default: () => [] },
+    recentInsights: { type: Array, default: () => [] },
 });
 
 const isGenerating = ref(false);
-const latestInsight = ref(props.pastInsights[0] || null);
+const pastInsights = computed(() => props.recentInsights.filter(item => item.status === 'completed'));
+const latestInsight = ref(pastInsights.value[0] ? { ...pastInsights.value[0], insights: pastInsights.value[0].output } : null);
+const error = ref('');
 const selectedType = ref('overview');
 
 const insightTypes = [
@@ -163,32 +168,38 @@ const insightTypes = [
 ];
 
 async function generateInsights() {
+    if (isGenerating.value) return;
+    error.value = '';
     isGenerating.value = true;
     try {
         const { data } = await axios.post('/admin/erp/ai/platform-insights', { type: selectedType.value });
         latestInsight.value = { insights: data.insights, created_at: new Date().toISOString(), type_label: insightTypes.find(t => t.value === selectedType.value)?.label };
-    } catch {} finally { isGenerating.value = false; }
+        router.reload({ only: ['recentInsights'] });
+    } catch (e) { error.value = integrationError(e); } finally { isGenerating.value = false; }
 }
 
-function copyInsight() {
-    if (latestInsight.value) navigator.clipboard.writeText(latestInsight.value.insights);
+async function copyInsight() {
+    if (latestInsight.value) await copyText(latestInsight.value.insights);
 }
 
 // Content Generation
-const contentForm = ref({ content_type: 'course_description', tone: 'professional', context: '' });
+const contentForm = ref({ type: 'course_description', tone: 'professional', context: '' });
 const contentLoading = ref(false);
 const contentResult = ref('');
 
 async function generateContent() {
+    if (contentLoading.value) return;
+    error.value = '';
     contentLoading.value = true;
     contentResult.value = '';
     try {
         const { data } = await axios.post('/admin/erp/ai/generate-content', contentForm.value);
         contentResult.value = data.content;
-    } catch {} finally { contentLoading.value = false; }
+    } catch (e) { error.value = integrationError(e); } finally { contentLoading.value = false; }
 }
 
-function copyContent() { navigator.clipboard.writeText(contentResult.value); }
+async function copyContent() { await copyText(contentResult.value); }
+async function copyText(text) { try { await navigator.clipboard.writeText(text); } catch { error.value = 'Copy is unavailable. Select and copy the generated text.'; } }
 
 function formatDate(dt) {
     if (!dt) return '';

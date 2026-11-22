@@ -12,25 +12,25 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('crm_contacts', function (Blueprint $table) {
-            if (!Schema::hasColumn('crm_contacts', 'lead_score')) {
+            if (! Schema::hasColumn('crm_contacts', 'lead_score')) {
                 $table->integer('lead_score')->default(0)->index();
             }
-            if (!Schema::hasColumn('crm_contacts', 'engagement_level')) {
+            if (! Schema::hasColumn('crm_contacts', 'engagement_level')) {
                 $table->string('engagement_level')->nullable(); // Cold, Warm, Hot
             }
-            if (!Schema::hasColumn('crm_contacts', 'lifecycle_stage')) {
+            if (! Schema::hasColumn('crm_contacts', 'lifecycle_stage')) {
                 $table->string('lifecycle_stage')->default('subscriber'); // subscriber, lead, mql, sql, opportunity, customer, evangelist
             }
         });
 
         Schema::table('crm_deals', function (Blueprint $table) {
-            if (!Schema::hasColumn('crm_deals', 'weighted_value')) {
+            if (! Schema::hasColumn('crm_deals', 'weighted_value')) {
                 $table->decimal('weighted_value', 15, 2)->default(0.00)->after('value'); // value * probability
             }
-            if (!Schema::hasColumn('crm_deals', 'win_reason')) {
+            if (! Schema::hasColumn('crm_deals', 'win_reason')) {
                 $table->text('win_reason')->nullable()->after('lost_reason');
             }
-            if (!Schema::hasColumn('crm_deals', 'competitors')) {
+            if (! Schema::hasColumn('crm_deals', 'competitors')) {
                 $table->string('competitors')->nullable();
             }
         });
@@ -41,6 +41,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::table('crm_contacts', fn (Blueprint $table) => $table->dropIndex(['lead_score']));
         Schema::table('crm_contacts', function (Blueprint $table) {
             $table->dropColumn(['lead_score', 'engagement_level', 'lifecycle_stage']);
         });

@@ -8,7 +8,7 @@
 
         <h1 class="text-2xl font-display font-bold text-surface-900">Notification Preferences</h1>
 
-        <form @submit.prevent="save" class="space-y-6">
+        <form @submit.prevent="save" class="space-y-6"><div v-if="Object.keys(form.errors).length" role="alert" class="rounded-xl bg-danger-50 p-4 text-sm text-danger-800"><p v-for="(error, field) in form.errors" :key="field">{{ error }}</p></div>
             <!-- Channels -->
             <Card title="Delivery Channels">
                 <div class="space-y-4">
@@ -31,6 +31,8 @@
                 </div>
             </Card>
 
+            <Card title="This device"><p class="text-sm text-surface-600">{{ pushAvailable ? 'Connect this browser to receive private notification alerts.' : 'Browser push is not available yet. You can still receive in-app and email updates.' }}</p><div class="mt-4 flex flex-wrap gap-3"><button v-if="pushAvailable" type="button" :disabled="deviceBusy" @click="connectDevice" class="rounded-xl bg-primary-700 px-4 py-2.5 text-sm font-semibold text-white">Enable this device</button><button type="button" :disabled="deviceBusy" @click="disconnectDevice" class="rounded-xl border border-surface-300 px-4 py-2.5 text-sm">Disconnect this device</button></div><p v-if="deviceMessage" role="status" class="mt-3 text-sm text-surface-600">{{ deviceMessage }}</p></Card>
+            <Card title="News and offers" subtitle="Optional messages from the JK Michaels team. Off by default."><div class="space-y-4"><label class="flex items-center justify-between gap-4 text-sm"><span>Email campaigns</span><input v-model="form.marketing_email" type="checkbox" class="h-5 w-5 rounded border-surface-300 text-primary-600" /></label><label class="flex items-center justify-between gap-4 text-sm"><span>WhatsApp campaigns</span><input v-model="form.marketing_whatsapp" type="checkbox" class="h-5 w-5 rounded border-surface-300 text-primary-600" /></label></div></Card>
             <!-- Categories -->
             <Card title="Categories">
                 <div class="space-y-4">
@@ -78,7 +80,7 @@
             </Card>
 
             <!-- Quiet Hours -->
-            <Card title="Quiet Hours" subtitle="No push notifications during these hours">
+            <Card title="Quiet Hours" :subtitle="`Email and push delivery is delayed during these hours (${timezone}).`">
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-surface-700 mb-1">Start Time</label>
@@ -105,6 +107,8 @@
 </template>
 
 <script setup>
+import { ref } from 'vue';
+import { subscribeToPush, unsubscribeFromPush } from '@/pwa';
 import { Head, useForm } from '@inertiajs/vue3';
 import { ArrowLeft } from 'lucide-vue-next';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -113,7 +117,7 @@ import Card from '@/Components/UI/Card.vue';
 defineOptions({ layout: AppLayout });
 
 const props = defineProps({
-    preferences: { type: Object, required: true },
+    preferences: { type: Object, required: true }, pushAvailable: Boolean, timezone: String,
 });
 
 const frequencyOptions = [
@@ -123,16 +127,31 @@ const frequencyOptions = [
 ];
 
 const form = useForm({
+    marketing_email: props.preferences.marketing_email ?? false,
+    marketing_whatsapp: props.preferences.marketing_whatsapp ?? false,
     push_enabled: props.preferences.push_enabled ?? true,
     email_enabled: props.preferences.email_enabled ?? true,
     learning_reminders: props.preferences.learning_reminders ?? true,
     internship_reminders: props.preferences.internship_reminders ?? true,
     announcements: props.preferences.announcements ?? true,
     frequency: props.preferences.frequency ?? 'realtime',
-    quiet_hours_start: props.preferences.quiet_hours_start ?? null,
-    quiet_hours_end: props.preferences.quiet_hours_end ?? null,
+    quiet_hours_start: props.preferences.quiet_hours_start?.slice(0, 5) ?? null,
+    quiet_hours_end: props.preferences.quiet_hours_end?.slice(0, 5) ?? null,
 });
 
+const deviceBusy = ref(false); const deviceMessage = ref('');
+async function connectDevice() {
+    deviceBusy.value = true;
+    try { await subscribeToPush(); deviceMessage.value = 'This device is connected.'; }
+    catch (error) { deviceMessage.value = error.response?.data?.message || error.message; }
+    finally { deviceBusy.value = false; }
+}
+async function disconnectDevice() {
+    deviceBusy.value = true;
+    try { await unsubscribeFromPush(); deviceMessage.value = 'This device is disconnected.'; }
+    catch { deviceMessage.value = 'Could not disconnect. Check your connection and try again.'; }
+    finally { deviceBusy.value = false; }
+}
 function save() {
     form.put('/notifications/preferences');
 }

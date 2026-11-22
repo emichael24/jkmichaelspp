@@ -3,14 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Models\Course;
 use App\Models\CourseEnrollment;
-use App\Models\Order;
-use App\Models\Payment;
-use App\Models\QuizAttempt;
 use App\Models\DailyActivityLog;
-use Illuminate\Http\Request;
+use App\Models\Payment;
+use App\Models\User;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -72,11 +69,11 @@ class DashboardController extends Controller
             ->limit(8)
             ->get()
             ->map(fn ($u) => [
-                'id'       => $u->id,
-                'name'     => $u->full_name,
-                'email'    => $u->email,
-                'role'     => $u->getRoleNames()->first() ?? 'learner',
-                'date'     => $u->created_at->format('M d, Y'),
+                'id' => $u->id,
+                'name' => $u->full_name,
+                'email' => $u->email,
+                'role' => $u->getRoleNames()->first() ?? 'learner',
+                'date' => $u->created_at->format('M d, Y'),
                 'verified' => $u->email_verified_at !== null,
             ]);
 

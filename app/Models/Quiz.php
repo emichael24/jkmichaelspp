@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 class Quiz extends Model
 {
@@ -23,12 +24,12 @@ class Quiz extends Model
     protected function casts(): array
     {
         return [
-            'question_count'     => 'integer',
+            'question_count' => 'integer',
             'time_limit_minutes' => 'integer',
-            'passing_score_pct'  => 'integer',
-            'is_randomized'      => 'boolean',
-            'is_published'       => 'boolean',
-            'max_attempts'       => 'integer',
+            'passing_score_pct' => 'integer',
+            'is_randomized' => 'boolean',
+            'is_published' => 'boolean',
+            'max_attempts' => 'integer',
         ];
     }
 
@@ -82,7 +83,7 @@ class Quiz extends Model
     |--------------------------------------------------------------------------
     */
 
-    public function getQuestionsForAttempt(): \Illuminate\Support\Collection
+    public function getQuestionsForAttempt(): Collection
     {
         $questions = $this->questions()->published()->get();
 

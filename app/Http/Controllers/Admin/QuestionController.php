@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Course;
 use App\Models\Lesson;
 use App\Models\Question;
+use App\Services\CurriculumRevisionService;
+use App\Services\QuestionDefinitionValidator;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -35,10 +37,10 @@ class QuestionController extends Controller
 
         // Aggregate stats for the top summary bar
         $stats = [
-            'total'     => Question::count(),
+            'total' => Question::count(),
             'published' => Question::published()->count(),
-            'draft'     => Question::where('status', 'draft')->count(),
-            'review'    => Question::where('status', 'review')->count(),
+            'draft' => Question::where('status', 'draft')->count(),
+            'review' => Question::where('status', 'review')->count(),
         ];
 
         // Distinct domains from DB
@@ -50,10 +52,10 @@ class QuestionController extends Controller
 
         return Inertia::render('Admin/Questions/Index', [
             'questions' => $questions,
-            'courses'   => $courses,
-            'domains'   => $domains,
-            'stats'     => $stats,
-            'filters'   => $request->only(['search', 'course_id', 'domain', 'difficulty', 'type', 'status']),
+            'courses' => $courses,
+            'domains' => $domains,
+            'stats' => $stats,
+            'filters' => $request->only(['search', 'course_id', 'domain', 'difficulty', 'type', 'status']),
         ]);
     }
 
@@ -70,8 +72,8 @@ class QuestionController extends Controller
             : collect();
 
         return Inertia::render('Admin/Questions/Create', [
-            'courses'          => $courses,
-            'lessons'          => $lessons,
+            'courses' => $courses,
+            'lessons' => $lessons,
             'preselectedCourse' => $courseId ? (int) $courseId : null,
         ]);
     }
@@ -79,29 +81,37 @@ class QuestionController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'course_id'               => 'required|exists:courses,id',
-            'domain'                  => 'nullable|string|max:255',
-            'subtopic'                => 'nullable|string|max:255',
-            'type'                    => 'required|in:multiple_choice,multiple_select,true_false,scenario,situational_judgment,formula,fill_blank,ordering,matching',
-            'difficulty'              => 'required|in:easy,medium,hard,expert',
-            'bloom_level'             => 'nullable|in:remember,understand,apply,analyze,evaluate,create',
-            'stem'                    => 'required|string',
-            'stem_media'              => 'nullable|array',
-            'options'                 => 'required|array|min:2',
-            'options.*.id'            => 'required|string',
-            'options.*.text'          => 'required|string',
-            'options.*.media_url'     => 'nullable|string',
-            'correct_answer_ids'      => 'required|array|min:1',
-            'correct_answer_ids.*'    => 'string',
-            'explanation_correct'     => 'nullable|string',
-            'explanation_incorrect'   => 'nullable|array',
-            'exam_tip'               => 'nullable|string',
-            'linked_lesson_id'        => 'nullable|exists:lessons,id',
-            'time_estimate_seconds'   => 'nullable|integer|min:0',
-            'tags'                    => 'nullable|array',
-            'status'                  => 'required|in:draft,review,approved,published,archived',
+            'course_id' => 'required|exists:courses,id',
+            'domain' => 'nullable|string|max:255',
+            'subtopic' => 'nullable|string|max:255',
+            'type' => 'required|in:multiple_choice,multiple_select,true_false,scenario,situational_judgment,formula,fill_blank,ordering,matching',
+            'difficulty' => 'required|in:easy,medium,hard,expert',
+            'bloom_level' => 'nullable|in:remember,understand,apply,analyze,evaluate,create',
+            'stem' => 'required|string',
+            'stem_media' => 'nullable|array',
+            'options' => 'present|array|max:100',
+            'options.*.id' => 'required|string',
+            'options.*.text' => 'required|string',
+            'options.*.media_url' => 'nullable|url:http,https',
+            'options.*.match_text' => 'nullable|string|max:1000',
+            'grading_config' => 'nullable|array',
+            'grading_config.partial_credit' => 'boolean',
+            'grading_config.case_sensitive' => 'boolean',
+            'grading_config.numeric_response' => 'boolean',
+            'grading_config.tolerance' => 'nullable|numeric|min:0|max:1000',
+            'correct_answer_ids' => 'required|array|min:1',
+            'correct_answer_ids.*' => 'string',
+            'explanation_correct' => 'nullable|string',
+            'explanation_incorrect' => 'nullable|array',
+            'exam_tip' => 'nullable|string',
+            'linked_lesson_id' => 'nullable|exists:lessons,id',
+            'time_estimate_seconds' => 'nullable|integer|min:0',
+            'tags' => 'nullable|array',
+            'status' => 'required|in:draft,review,approved,published,archived',
         ]);
 
+        app(CurriculumRevisionService::class)->assertEditable(Course::findOrFail($validated['course_id']));
+        app(QuestionDefinitionValidator::class)->validate($validated);
         $question = Question::create($validated);
 
         return redirect()
@@ -119,37 +129,47 @@ class QuestionController extends Controller
 
         return Inertia::render('Admin/Questions/Edit', [
             'question' => $question,
-            'courses'  => $courses,
-            'lessons'  => $lessons,
+            'courses' => $courses,
+            'lessons' => $lessons,
         ]);
     }
 
     public function update(Request $request, Question $question)
     {
         $validated = $request->validate([
-            'course_id'               => 'required|exists:courses,id',
-            'domain'                  => 'nullable|string|max:255',
-            'subtopic'                => 'nullable|string|max:255',
-            'type'                    => 'required|in:multiple_choice,multiple_select,true_false,scenario,situational_judgment,formula,fill_blank,ordering,matching',
-            'difficulty'              => 'required|in:easy,medium,hard,expert',
-            'bloom_level'             => 'nullable|in:remember,understand,apply,analyze,evaluate,create',
-            'stem'                    => 'required|string',
-            'stem_media'              => 'nullable|array',
-            'options'                 => 'required|array|min:2',
-            'options.*.id'            => 'required|string',
-            'options.*.text'          => 'required|string',
-            'options.*.media_url'     => 'nullable|string',
-            'correct_answer_ids'      => 'required|array|min:1',
-            'correct_answer_ids.*'    => 'string',
-            'explanation_correct'     => 'nullable|string',
-            'explanation_incorrect'   => 'nullable|array',
-            'exam_tip'               => 'nullable|string',
-            'linked_lesson_id'        => 'nullable|exists:lessons,id',
-            'time_estimate_seconds'   => 'nullable|integer|min:0',
-            'tags'                    => 'nullable|array',
-            'status'                  => 'required|in:draft,review,approved,published,archived',
+            'course_id' => 'required|exists:courses,id',
+            'domain' => 'nullable|string|max:255',
+            'subtopic' => 'nullable|string|max:255',
+            'type' => 'required|in:multiple_choice,multiple_select,true_false,scenario,situational_judgment,formula,fill_blank,ordering,matching',
+            'difficulty' => 'required|in:easy,medium,hard,expert',
+            'bloom_level' => 'nullable|in:remember,understand,apply,analyze,evaluate,create',
+            'stem' => 'required|string',
+            'stem_media' => 'nullable|array',
+            'options' => 'present|array|max:100',
+            'options.*.id' => 'required|string',
+            'options.*.text' => 'required|string',
+            'options.*.media_url' => 'nullable|url:http,https',
+            'options.*.match_text' => 'nullable|string|max:1000',
+            'grading_config' => 'nullable|array',
+            'grading_config.partial_credit' => 'boolean',
+            'grading_config.case_sensitive' => 'boolean',
+            'grading_config.numeric_response' => 'boolean',
+            'grading_config.tolerance' => 'nullable|numeric|min:0|max:1000',
+            'correct_answer_ids' => 'required|array|min:1',
+            'correct_answer_ids.*' => 'string',
+            'explanation_correct' => 'nullable|string',
+            'explanation_incorrect' => 'nullable|array',
+            'exam_tip' => 'nullable|string',
+            'linked_lesson_id' => 'nullable|exists:lessons,id',
+            'time_estimate_seconds' => 'nullable|integer|min:0',
+            'tags' => 'nullable|array',
+            'status' => 'required|in:draft,review,approved,published,archived',
         ]);
 
+        app(CurriculumRevisionService::class)->assertEditable($question->course);
+        abort_unless((int) $validated['course_id'] === $question->course_id, 422, 'Create a new question to change its course.');
+        app(CurriculumRevisionService::class)->assertEditable(Course::findOrFail($validated['course_id']));
+        app(QuestionDefinitionValidator::class)->validate($validated);
         $question->update($validated);
 
         return redirect()
@@ -159,6 +179,7 @@ class QuestionController extends Controller
 
     public function destroy(Question $question)
     {
+        app(CurriculumRevisionService::class)->assertEditable($question->course);
         $question->delete(); // soft-delete
 
         return redirect()

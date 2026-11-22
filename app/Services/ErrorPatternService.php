@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\ErrorPattern;
-use App\Models\Question;
 use App\Models\QuestionResponse;
 use App\Models\QuizAttempt;
 use Illuminate\Support\Collection;
@@ -41,11 +40,11 @@ class ErrorPatternService
 
         // Run each detector
         $detectors = [
-            ErrorPattern::CARELESS_FAST       => fn () => $this->detectCarelessFast($recentResponses),
-            ErrorPattern::OVERTHINKING_SLOW   => fn () => $this->detectOverthinkingSlow($recentResponses),
+            ErrorPattern::CARELESS_FAST => fn () => $this->detectCarelessFast($recentResponses),
+            ErrorPattern::OVERTHINKING_SLOW => fn () => $this->detectOverthinkingSlow($recentResponses),
             ErrorPattern::CONFIDENCE_MISMATCH => fn () => $this->detectConfidenceMismatch($recentResponses),
-            ErrorPattern::CONCEPT_CONFUSION   => fn () => $this->detectConceptConfusion($recentResponses),
-            ErrorPattern::QUALIFIER_MISREAD   => fn () => $this->detectQualifierMisread($recentResponses),
+            ErrorPattern::CONCEPT_CONFUSION => fn () => $this->detectConceptConfusion($recentResponses),
+            ErrorPattern::QUALIFIER_MISREAD => fn () => $this->detectQualifierMisread($recentResponses),
             ErrorPattern::ELIMINATION_FAILURE => fn () => $this->detectEliminationFailure($recentResponses),
         ];
 
@@ -68,14 +67,15 @@ class ErrorPatternService
     {
         $candidates = $responses->filter(function ($r) {
             $expected = $r->question->time_estimate_seconds ?? 0;
+
             return $expected > 0 && $r->time_spent_seconds < ($expected * 0.3);
         });
 
         return [
-            'detected'     => $candidates->count() >= 3,
-            'count'        => $candidates->count(),
+            'detected' => $candidates->count() >= 3,
+            'count' => $candidates->count(),
             'question_ids' => $candidates->pluck('question_id')->take(5)->toArray(),
-            'domain'       => $candidates->groupBy(fn ($r) => $r->question->domain)
+            'domain' => $candidates->groupBy(fn ($r) => $r->question->domain)
                 ->sortByDesc(fn ($g) => $g->count())
                 ->keys()
                 ->first() ?? 'general',
@@ -89,14 +89,15 @@ class ErrorPatternService
     {
         $candidates = $responses->filter(function ($r) {
             $expected = $r->question->time_estimate_seconds ?? 0;
+
             return $expected > 0 && $r->time_spent_seconds > ($expected * 2.0);
         });
 
         return [
-            'detected'     => $candidates->count() >= 3,
-            'count'        => $candidates->count(),
+            'detected' => $candidates->count() >= 3,
+            'count' => $candidates->count(),
             'question_ids' => $candidates->pluck('question_id')->take(5)->toArray(),
-            'domain'       => $candidates->groupBy(fn ($r) => $r->question->domain)
+            'domain' => $candidates->groupBy(fn ($r) => $r->question->domain)
                 ->sortByDesc(fn ($g) => $g->count())
                 ->keys()
                 ->first() ?? 'general',
@@ -111,10 +112,10 @@ class ErrorPatternService
         $candidates = $responses->filter(fn ($r) => $r->confidence_level === 'high');
 
         return [
-            'detected'     => $candidates->count() >= 3,
-            'count'        => $candidates->count(),
+            'detected' => $candidates->count() >= 3,
+            'count' => $candidates->count(),
             'question_ids' => $candidates->pluck('question_id')->take(5)->toArray(),
-            'domain'       => $candidates->groupBy(fn ($r) => $r->question->domain)
+            'domain' => $candidates->groupBy(fn ($r) => $r->question->domain)
                 ->sortByDesc(fn ($g) => $g->count())
                 ->keys()
                 ->first() ?? 'general',
@@ -134,10 +135,10 @@ class ErrorPatternService
         $detected = $worstDomain && $worstDomain->count() >= 5;
 
         return [
-            'detected'     => $detected,
-            'count'        => $worstDomain?->count() ?? 0,
+            'detected' => $detected,
+            'count' => $worstDomain?->count() ?? 0,
             'question_ids' => $worstDomain?->pluck('question_id')->take(5)->toArray() ?? [],
-            'domain'       => $worstDomainName ?? 'general',
+            'domain' => $worstDomainName ?? 'general',
         ];
     }
 
@@ -158,10 +159,10 @@ class ErrorPatternService
         $detected = $qualifierErrorRate >= 3 && ($totalErrors > 0 && ($qualifierErrorRate / $totalErrors) > 0.25);
 
         return [
-            'detected'     => $detected,
-            'count'        => $candidates->count(),
+            'detected' => $detected,
+            'count' => $candidates->count(),
             'question_ids' => $candidates->pluck('question_id')->take(5)->toArray(),
-            'domain'       => $candidates->groupBy(fn ($r) => $r->question->domain)
+            'domain' => $candidates->groupBy(fn ($r) => $r->question->domain)
                 ->sortByDesc(fn ($g) => $g->count())
                 ->keys()
                 ->first() ?? 'general',
@@ -175,14 +176,15 @@ class ErrorPatternService
     {
         $candidates = $responses->filter(function ($r) {
             $type = $r->question->type ?? '';
+
             return in_array($type, ['scenario', 'case_study']);
         });
 
         return [
-            'detected'     => $candidates->count() >= 3,
-            'count'        => $candidates->count(),
+            'detected' => $candidates->count() >= 3,
+            'count' => $candidates->count(),
             'question_ids' => $candidates->pluck('question_id')->take(5)->toArray(),
-            'domain'       => $candidates->groupBy(fn ($r) => $r->question->domain)
+            'domain' => $candidates->groupBy(fn ($r) => $r->question->domain)
                 ->sortByDesc(fn ($g) => $g->count())
                 ->keys()
                 ->first() ?? 'general',
@@ -196,16 +198,16 @@ class ErrorPatternService
     {
         return ErrorPattern::updateOrCreate(
             [
-                'user_id'      => $userId,
-                'course_id'    => $courseId,
+                'user_id' => $userId,
+                'course_id' => $courseId,
                 'pattern_type' => $type,
-                'domain'       => $data['domain'],
+                'domain' => $data['domain'],
             ],
             [
-                'occurrence_count'     => $data['count'],
+                'occurrence_count' => $data['count'],
                 'example_question_ids' => $data['question_ids'],
-                'suggested_fix'        => ErrorPattern::FIX_SUGGESTIONS[$type] ?? '',
-                'detected_at'          => now(),
+                'suggested_fix' => ErrorPattern::FIX_SUGGESTIONS[$type] ?? '',
+                'detected_at' => now(),
             ]
         );
     }
@@ -238,13 +240,13 @@ class ErrorPatternService
         $worst = $patterns->first();
 
         return match ($worst->pattern_type) {
-            ErrorPattern::CARELESS_FAST       => "You're rushing through questions too quickly — {$worst->occurrence_count} careless errors detected. Slow down and re-read before answering.",
-            ErrorPattern::OVERTHINKING_SLOW   => "You're spending too long on some questions and still getting them wrong. Try the elimination strategy to save time.",
+            ErrorPattern::CARELESS_FAST => "You're rushing through questions too quickly — {$worst->occurrence_count} careless errors detected. Slow down and re-read before answering.",
+            ErrorPattern::OVERTHINKING_SLOW => "You're spending too long on some questions and still getting them wrong. Try the elimination strategy to save time.",
             ErrorPattern::CONFIDENCE_MISMATCH => "Your biggest leak is overconfidence — you felt sure on {$worst->occurrence_count} questions but got them wrong. Review the fundamentals.",
-            ErrorPattern::CONCEPT_CONFUSION   => "You're consistently struggling in {$worst->domain}. Review related lessons to distinguish between similar concepts.",
-            ErrorPattern::QUALIFIER_MISREAD   => "You're misreading qualifier words like MOST, LEAST, EXCEPT. Highlight these words before picking your answer.",
+            ErrorPattern::CONCEPT_CONFUSION => "You're consistently struggling in {$worst->domain}. Review related lessons to distinguish between similar concepts.",
+            ErrorPattern::QUALIFIER_MISREAD => "You're misreading qualifier words like MOST, LEAST, EXCEPT. Highlight these words before picking your answer.",
             ErrorPattern::ELIMINATION_FAILURE => "On scenario-based questions, you're not eliminating wrong answers effectively. Practice the 2-pass elimination method.",
-            default                           => "Focus on {$worst->domain} — it's your weakest area with {$worst->occurrence_count} errors in the last 30 days.",
+            default => "Focus on {$worst->domain} — it's your weakest area with {$worst->occurrence_count} errors in the last 30 days.",
         };
     }
 }

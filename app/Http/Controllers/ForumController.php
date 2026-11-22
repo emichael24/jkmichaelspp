@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Forum;
+use App\Services\CommunityAccessService;
 use App\Services\ForumService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -28,7 +30,7 @@ class ForumController extends Controller
      */
     public function show(int $forumId, Request $request): Response
     {
-        $forum = \App\Models\Forum::with('course:id,title', 'cohort:id,name')->findOrFail($forumId);
+        $forum = app(CommunityAccessService::class)->forum($forumId, $request->user())->load('course:id,title', 'cohort:id,name');
         $threads = $this->forumService->getThreads($forumId);
 
         return Inertia::render('Forums/Show', [
@@ -85,6 +87,7 @@ class ForumController extends Controller
     public function togglePin(int $threadId)
     {
         $this->forumService->togglePin($threadId);
+
         return back()->with('success', 'Thread pin status updated.');
     }
 
@@ -94,6 +97,7 @@ class ForumController extends Controller
     public function toggleLock(int $threadId)
     {
         $this->forumService->toggleLock($threadId);
+
         return back()->with('success', 'Thread lock status updated.');
     }
 
@@ -103,6 +107,7 @@ class ForumController extends Controller
     public function destroyThread(int $threadId)
     {
         $this->forumService->deleteThread($threadId);
+
         return back()->with('success', 'Thread deleted.');
     }
 
@@ -112,6 +117,7 @@ class ForumController extends Controller
     public function destroyReply(int $replyId)
     {
         $this->forumService->deleteReply($replyId);
+
         return back()->with('success', 'Reply deleted.');
     }
 
@@ -121,6 +127,7 @@ class ForumController extends Controller
     public function acceptAnswer(int $replyId)
     {
         $this->forumService->acceptAnswer($replyId);
+
         return back()->with('success', 'Answer accepted.');
     }
 

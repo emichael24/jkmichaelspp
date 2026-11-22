@@ -63,44 +63,45 @@
 
                     <!-- Discount code -->
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1">Discount Code</label>
+                        <label for="checkout-discount" class="block text-sm font-medium text-surface-700 mb-1">Discount code</label>
                         <div class="flex gap-2">
-                            <input v-model="discountCode" type="text" placeholder="Enter code"
-                                   class="flex-1 rounded-lg border-surface-300 text-sm" />
+                            <input id="checkout-discount" v-model="discountCode" type="text" placeholder="Enter code" maxlength="100" @input="discountValid = false; discountMessage = ''"
+                                   class="min-w-0 flex-1 rounded-lg border-surface-300 text-sm" />
                             <button @click="validateCode" :disabled="validating || !discountCode"
                                     class="px-3 py-2 rounded-lg text-sm font-medium bg-surface-100 text-surface-700 hover:bg-surface-200 disabled:opacity-50">
                                 {{ validating ? '...' : 'Apply' }}
                             </button>
                         </div>
-                        <p v-if="discountMessage" :class="['text-xs mt-1', discountValid ? 'text-success-600' : 'text-error-600']">
+                        <p v-if="discountMessage" role="status" :class="['text-xs mt-1', discountValid ? 'text-success-600' : 'text-error-600']">
                             {{ discountMessage }}
                         </p>
                     </div>
 
                     <!-- Gateway selection -->
-                    <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-2">Payment Method</label>
+                    <fieldset>
+                        <legend class="block text-sm font-medium text-surface-700 mb-2">Payment method</legend>
                         <div class="space-y-2">
                             <label v-for="gw in gateways" :key="gw.id"
                                    class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors"
                                    :class="selectedGateway === gw.id ? 'border-primary-500 bg-primary-50' : 'border-surface-200 hover:border-surface-300'">
-                                <input type="radio" v-model="selectedGateway" :value="gw.id"
+                                <input type="radio" name="payment-gateway" v-model="selectedGateway" :value="gw.id"
                                        class="text-primary-600 focus:ring-primary-500" />
                                 <div>
                                     <p class="text-sm font-medium text-surface-900">{{ gw.name }}</p>
-                                    <p class="text-xs text-surface-500">{{ gw.desc }}</p>
                                 </div>
                             </label>
                         </div>
-                    </div>
+                    </fieldset>
 
-                    <button @click="checkout" :disabled="purchasing"
+                    <p v-if="!gateways.length" role="status" class="text-sm text-surface-600">Checkout is temporarily unavailable. Please contact the learning team.</p>
+                    <p v-for="(message, field) in checkoutErrors" :key="field" role="alert" class="text-sm text-error-700">{{ message }}</p>
+                    <button @click="checkout" :disabled="purchasing || !selectedGateway"
                             class="w-full py-3 rounded-xl bg-primary-600 text-white font-semibold text-lg hover:bg-primary-700 transition-colors disabled:opacity-50">
                         {{ purchasing ? 'Processing...' : 'Buy Now' }}
                     </button>
 
                     <p class="text-xs text-surface-400 text-center">
-                        30-day money-back guarantee · Instant access
+                        Access is enabled after payment is verified. Keep your order reference for support.
                     </p>
                 </div>
             </div>
@@ -133,15 +134,11 @@ defineOptions({ layout: AppLayout });
 const props = defineProps({
     product: { type: Object, required: true },
     related: { type: Array, default: () => [] },
+    gateways: { type: Array, default: () => [] },
 });
 
-const gateways = [
-    { id: 'paystack', name: 'Paystack', desc: 'Card, Bank Transfer, USSD (Nigeria)' },
-    { id: 'flutterwave', name: 'Flutterwave', desc: 'Card, Bank Transfer, Mobile Money (Africa)' },
-    { id: 'stripe', name: 'Stripe', desc: 'International card payments' },
-];
-
-const selectedGateway = ref('paystack');
+const selectedGateway = ref(props.gateways[0]?.id ?? '');
+const checkoutErrors = ref({});
 const discountCode = ref('');
 const discountMessage = ref('');
 const discountValid = ref(false);
@@ -172,6 +169,7 @@ async function validateCode() {
 }
 
 function checkout() {
+    checkoutErrors.value = {};
     purchasing.value = true;
     router.post('/orders', {
         items: [{ product_id: props.product.id, quantity: 1 }],
@@ -179,6 +177,7 @@ function checkout() {
         payment_gateway: selectedGateway.value,
     }, {
         onFinish: () => { purchasing.value = false; },
+        onError: errors => { checkoutErrors.value = errors; },
     });
 }
 

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class StudyGroup extends Model
 {
     protected $fillable = [
+        'organization_id',
         'name',
         'course_id',
         'created_by',
@@ -53,6 +54,7 @@ class StudyGroup extends Model
         }
 
         $this->members()->attach($userId, ['joined_at' => now()]);
+
         return true;
     }
 

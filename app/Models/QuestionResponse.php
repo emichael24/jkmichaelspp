@@ -13,7 +13,7 @@ class QuestionResponse extends Model
         'question_id',
         'user_id',
         'selected_answer_ids',
-        'is_correct',
+        'is_correct', 'score_fraction',
         'time_spent_seconds',
         'confidence_level',
         'is_flagged',
@@ -23,10 +23,10 @@ class QuestionResponse extends Model
     {
         return [
             'selected_answer_ids' => 'array',
-            'is_correct'          => 'boolean',
-            'time_spent_seconds'  => 'integer',
-            'is_flagged'          => 'boolean',
-            'created_at'          => 'datetime',
+            'is_correct' => 'boolean', 'score_fraction' => 'float',
+            'time_spent_seconds' => 'integer',
+            'is_flagged' => 'boolean',
+            'created_at' => 'datetime',
         ];
     }
 

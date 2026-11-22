@@ -2,40 +2,38 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
-use App\Models\User;
+use App\Models\Announcement;
+use App\Models\CareerPathway;
 use App\Models\Category;
-use App\Models\Course;
-use App\Models\Module;
-use App\Models\Lesson;
-use App\Models\Quiz;
-use App\Models\Question;
-use App\Models\CourseEnrollment;
-use App\Models\Badge;
-use App\Models\Mission;
-use App\Models\Department;
-use App\Models\Organization;
 use App\Models\Cohort;
 use App\Models\CohortMember;
-use App\Models\InternshipTrack;
-use App\Models\InternshipMilestone;
-use App\Models\InternshipTask;
-use App\Models\InternshipEnrollment;
-use App\Models\MockExam;
-use App\Models\Forum;
-use App\Models\ForumThread;
-use App\Models\ForumReply;
-use App\Models\StudyGroup;
+use App\Models\Course;
+use App\Models\CourseEnrollment;
+use App\Models\Department;
 use App\Models\Event;
 use App\Models\EventRegistration;
-use App\Models\CareerPathway;
-use App\Models\Announcement;
 use App\Models\Flashcard;
+use App\Models\Forum;
+use App\Models\ForumReply;
+use App\Models\ForumThread;
+use App\Models\InternshipEnrollment;
+use App\Models\InternshipMilestone;
+use App\Models\InternshipTask;
+use App\Models\InternshipTrack;
+use App\Models\Lesson;
+use App\Models\MockExam;
+use App\Models\Module;
+use App\Models\Organization;
+use App\Models\Question;
+use App\Models\Quiz;
 use App\Models\SpacedRepetitionItem;
+use App\Models\StudyGroup;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class DemoDataSeeder extends Seeder
 {
@@ -175,7 +173,7 @@ class DemoDataSeeder extends Seeder
         for ($i = 0; $i < 20; $i++) {
             $fn = $firstNames[$i];
             $ln = $lastNames[$i];
-            $email = strtolower($fn) . '.' . strtolower($ln) . '@example.com';
+            $email = strtolower($fn).'.'.strtolower($ln).'@example.com';
             $user = User::firstOrCreate(['email' => $email], [
                 'uuid' => (string) Str::uuid(),
                 'first_name' => $fn,
@@ -205,7 +203,7 @@ class DemoDataSeeder extends Seeder
             ['title' => 'Professional Communication Skills', 'category' => 'professional-development', 'level' => 'beginner', 'price' => 0, 'modules' => 3],
         ];
 
-        $authorIds = User::whereHas('roles', fn($q) => $q->where('name', 'facilitator'))
+        $authorIds = User::whereHas('roles', fn ($q) => $q->where('name', 'facilitator'))
             ->pluck('id')->toArray();
         if (empty($authorIds)) {
             $authorIds = [User::first()?->id ?? 1];
@@ -216,7 +214,9 @@ class DemoDataSeeder extends Seeder
 
         foreach ($courses as $c) {
             $category = Category::where('slug', $c['category'])->first();
-            if (!$category) continue;
+            if (! $category) {
+                continue;
+            }
 
             $slug = Str::slug($c['title']);
             $course = Course::firstOrCreate(['slug' => $slug], [
@@ -239,7 +239,7 @@ class DemoDataSeeder extends Seeder
                     'sort_order' => $m,
                 ], [
                     'course_id' => $course->id,
-                    'title' => "Module {$m}: " . $lessonTopics[($m - 1) % count($lessonTopics)],
+                    'title' => "Module {$m}: ".$lessonTopics[($m - 1) % count($lessonTopics)],
                     'sort_order' => $m,
                 ]);
 
@@ -249,7 +249,7 @@ class DemoDataSeeder extends Seeder
                         'sort_order' => $l,
                     ], [
                         'module_id' => $module->id,
-                        'title' => $lessonTopics[($l - 1) % count($lessonTopics)] . " - Part {$l}",
+                        'title' => $lessonTopics[($l - 1) % count($lessonTopics)]." - Part {$l}",
                         'text_content' => "Detailed lesson content for Module {$m}, Lesson {$l}. This covers key concepts and practical applications.",
                         'content_type' => $contentTypes[array_rand($contentTypes)],
                         'duration_minutes' => rand(10, 45),
@@ -268,7 +268,9 @@ class DemoDataSeeder extends Seeder
 
         foreach ($courses as $course) {
             $module = $course->modules->first();
-            if (!$module) continue;
+            if (! $module) {
+                continue;
+            }
 
             // Create questions first
             $questionIds = [];
@@ -290,14 +292,14 @@ class DemoDataSeeder extends Seeder
 
                 $question = Question::firstOrCreate([
                     'course_id' => $course->id,
-                    'stem' => $qt['stem'] . " ({$course->title})",
+                    'stem' => $qt['stem']." ({$course->title})",
                 ], [
                     'uuid' => (string) Str::uuid(),
                     'course_id' => $course->id,
                     'domain' => $domains[$qi % count($domains)],
                     'type' => $qt['type'],
                     'difficulty' => ['easy', 'medium', 'hard', 'expert'][rand(0, 3)],
-                    'stem' => $qt['stem'] . " ({$course->title})",
+                    'stem' => $qt['stem']." ({$course->title})",
                     'options' => $options,
                     'correct_answer_ids' => json_encode(['a']),
                     'explanation_correct' => 'Option A is correct because it aligns with the core framework principles.',
@@ -336,7 +338,7 @@ class DemoDataSeeder extends Seeder
 
     private function seedEnrollments(): void
     {
-        $learners = User::whereHas('roles', fn($q) => $q->where('name', 'learner'))->get();
+        $learners = User::whereHas('roles', fn ($q) => $q->where('name', 'learner'))->get();
         $courses = Course::all();
 
         foreach ($learners as $learner) {
@@ -361,7 +363,7 @@ class DemoDataSeeder extends Seeder
     private function seedCohorts(): void
     {
         $courses = Course::take(3)->get();
-        $facilitators = User::whereHas('roles', fn($q) => $q->where('name', 'facilitator'))
+        $facilitators = User::whereHas('roles', fn ($q) => $q->where('name', 'facilitator'))
             ->pluck('id')->toArray();
         if (empty($facilitators)) {
             $facilitators = [User::first()?->id ?? 1];
@@ -387,7 +389,7 @@ class DemoDataSeeder extends Seeder
             ]);
 
             // Add some learners
-            $learners = User::whereHas('roles', fn($q) => $q->where('name', 'learner'))
+            $learners = User::whereHas('roles', fn ($q) => $q->where('name', 'learner'))
                 ->inRandomOrder()->take(rand(5, 12))->pluck('id');
             foreach ($learners as $learnerId) {
                 CohortMember::firstOrCreate([
@@ -445,7 +447,7 @@ class DemoDataSeeder extends Seeder
             }
 
             // Enroll some learners
-            $learners = User::whereHas('roles', fn($q) => $q->where('name', 'learner'))
+            $learners = User::whereHas('roles', fn ($q) => $q->where('name', 'learner'))
                 ->inRandomOrder()->take(5)->pluck('id');
 
             foreach ($learners as $learnerId) {
@@ -486,7 +488,9 @@ class DemoDataSeeder extends Seeder
     private function seedMockExams(): void
     {
         $course = Course::first();
-        if (!$course) return;
+        if (! $course) {
+            return;
+        }
 
         $exams = [
             ['title' => 'PMP Practice Exam 1', 'description' => 'Full-length PMP simulation exam', 'question_count' => 50, 'time_limit_minutes' => 60, 'passing_score_pct' => 65, 'type' => 'full_length'],
@@ -515,7 +519,7 @@ class DemoDataSeeder extends Seeder
             $forum = Forum::firstOrCreate(['title' => $f['title']], array_merge($f, ['is_general' => true]));
 
             // Add threads
-            $learners = User::whereHas('roles', fn($q) => $q->where('name', 'learner'))
+            $learners = User::whereHas('roles', fn ($q) => $q->where('name', 'learner'))
                 ->inRandomOrder()->take(3)->get();
             $threadTopics = [
                 'Tips for passing the PMP exam on first attempt',
@@ -536,7 +540,7 @@ class DemoDataSeeder extends Seeder
                 ]);
 
                 // Add replies
-                $repliers = User::whereHas('roles', fn($q) => $q->where('name', 'learner'))
+                $repliers = User::whereHas('roles', fn ($q) => $q->where('name', 'learner'))
                     ->where('id', '!=', $learner->id)
                     ->inRandomOrder()->take(2)->get();
                 foreach ($repliers as $replier) {
@@ -561,8 +565,10 @@ class DemoDataSeeder extends Seeder
             ['name' => 'Weekend Warriors', 'max_members' => 6, 'is_public' => false],
         ];
 
-        $learners = User::whereHas('roles', fn($q) => $q->where('name', 'learner'))->get();
-        if ($learners->isEmpty()) return;
+        $learners = User::whereHas('roles', fn ($q) => $q->where('name', 'learner'))->get();
+        if ($learners->isEmpty()) {
+            return;
+        }
 
         foreach ($groups as $gi => $g) {
             $creator = $learners[$gi] ?? $learners->first();
@@ -601,12 +607,12 @@ class DemoDataSeeder extends Seeder
                 'price' => $e['price'],
                 'speaker_name' => $e['speaker_name'],
                 'speaker_bio' => 'Expert professional with 15+ years of industry experience.',
-                'meeting_url' => 'https://zoom.us/j/' . rand(10000000, 99999999),
+                'meeting_url' => 'https://zoom.us/j/'.rand(10000000, 99999999),
                 'is_published' => true,
             ]);
 
             // Register some users
-            $users = User::whereHas('roles', fn($q) => $q->where('name', 'learner'))
+            $users = User::whereHas('roles', fn ($q) => $q->where('name', 'learner'))
                 ->inRandomOrder()->take(rand(5, 15))->pluck('id');
             foreach ($users as $userId) {
                 EventRegistration::firstOrCreate([
@@ -645,7 +651,7 @@ class DemoDataSeeder extends Seeder
 
     private function seedAnnouncements(): void
     {
-        $admin = User::whereHas('roles', fn($q) => $q->where('name', 'platform_admin'))->first();
+        $admin = User::whereHas('roles', fn ($q) => $q->where('name', 'platform_admin'))->first();
 
         $announcements = [
             ['title' => 'Welcome to JK Michaels Learning Platform!', 'body' => 'We are thrilled to launch our professional mastery platform. Explore courses, join study groups, and accelerate your career.'],
@@ -714,20 +720,20 @@ class DemoDataSeeder extends Seeder
                         'id' => $letter,
                         'text' => $idx === $correctPos
                             ? "Apply the appropriate {$topic} technique aligned with organizational standards"
-                            : "Option {$letter} — " . ['Escalate to senior management immediately', 'Document the issue and wait', 'Skip this step to save time', 'Defer to the next project phase'][($idx + $i) % 4],
+                            : "Option {$letter} — ".['Escalate to senior management immediately', 'Document the issue and wait', 'Skip this step to save time', 'Defer to the next project phase'][($idx + $i) % 4],
                     ];
                 }
 
                 Question::firstOrCreate([
                     'course_id' => $course->id,
-                    'stem' => $stem . " (Q" . ($existing + $i + 1) . ")",
+                    'stem' => $stem.' (Q'.($existing + $i + 1).')',
                 ], [
                     'uuid' => (string) Str::uuid(),
                     'course_id' => $course->id,
                     'domain' => $domain,
                     'type' => ['multiple_choice', 'multiple_choice', 'scenario', 'multiple_select'][rand(0, 3)],
                     'difficulty' => $difficulty,
-                    'stem' => $stem . " (Q" . ($existing + $i + 1) . ")",
+                    'stem' => $stem.' (Q'.($existing + $i + 1).')',
                     'options' => json_encode($options),
                     'correct_answer_ids' => json_encode([$letters[$correctPos]]),
                     'explanation_correct' => "The correct approach to {$topic} involves applying structured techniques that align with industry standards and organizational processes.",
@@ -743,7 +749,7 @@ class DemoDataSeeder extends Seeder
      */
     private function seedPracticeData(): void
     {
-        $learners = User::whereHas('roles', fn($q) => $q->where('name', 'learner'))
+        $learners = User::whereHas('roles', fn ($q) => $q->where('name', 'learner'))
             ->take(5)
             ->get();
 

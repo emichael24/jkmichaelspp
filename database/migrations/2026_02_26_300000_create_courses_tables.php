@@ -100,7 +100,7 @@ return new class extends Migration
             $table->enum('type', ['template', 'checklist', 'cheat_sheet', 'formula_sheet', 'case_study', 'playbook']);
             $table->text('description')->nullable();
             $table->string('file_url', 500);
-            $table->string('file_type', 10)->nullable();
+            $table->string('file_type', 127)->nullable();
             $table->unsignedInteger('file_size_bytes')->nullable();
             $table->unsignedInteger('download_count')->default(0);
             $table->integer('sort_order')->default(0);

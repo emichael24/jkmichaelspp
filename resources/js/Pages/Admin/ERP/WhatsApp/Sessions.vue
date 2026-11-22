@@ -1,173 +1,3 @@
-<template>
-    <Head title="WhatsApp Sessions" />
-
-    <div class="space-y-6">
-        <!-- Header -->
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div class="flex items-center gap-3">
-                <Link href="/admin/erp/messaging">
-                    <button class="p-2 rounded-xl hover:bg-surface-100">
-                        <ArrowLeft class="w-4 h-4 text-surface-500" />
-                    </button>
-                </Link>
-                <div>
-                    <h1 class="text-2xl font-display font-bold text-surface-900">WhatsApp Sessions</h1>
-                    <p class="text-surface-500 mt-0.5 text-sm">Manage connected WhatsApp numbers for messaging.</p>
-                </div>
-            </div>
-            <button @click="showNewSessionModal = true" class="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 flex items-center gap-2 self-start sm:self-auto">
-                <Plus class="w-4 h-4" /> Connect Number
-            </button>
-        </div>
-
-        <!-- Gateway Status -->
-        <div class="bg-white rounded-2xl border border-surface-200/60 shadow-sm p-5">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div :class="['w-3 h-3 rounded-full', gatewayOnline ? 'bg-success-500 animate-pulse' : 'bg-danger-500']"></div>
-                    <div>
-                        <p class="font-semibold text-surface-900">Gateway Status</p>
-                        <p class="text-sm text-surface-500">FlexiChurch WhatsApp API</p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-3">
-                    <span :class="['px-3 py-1 rounded-full text-xs font-semibold', gatewayOnline ? 'bg-success-50 text-success-700' : 'bg-danger-50 text-danger-700']">
-                        {{ gatewayOnline ? 'Online' : 'Offline' }}
-                    </span>
-                    <button @click="refreshSessions" class="p-2 rounded-xl hover:bg-surface-100 text-surface-400 hover:text-surface-700">
-                        <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': refreshing }" />
-                    </button>
-                </div>
-            </div>
-            <div v-if="props.gatewayStatus?.uptime" class="mt-2 text-xs text-surface-400">
-                Uptime: {{ props.gatewayStatus.uptime }}
-            </div>
-        </div>
-
-        <!-- Sessions List -->
-        <div class="bg-white rounded-2xl border border-surface-200/60 shadow-sm overflow-hidden">
-            <div class="px-5 py-4 border-b border-surface-100">
-                <h2 class="font-semibold text-surface-900">Connected Sessions</h2>
-            </div>
-            <div class="overflow-x-auto">
-                <table v-if="props.sessions?.length" class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-surface-100 bg-surface-50/50">
-                            <th class="text-left px-5 py-3 font-semibold text-surface-600">Session Name</th>
-                            <th class="text-left px-5 py-3 font-semibold text-surface-600">Phone Number</th>
-                            <th class="text-center px-5 py-3 font-semibold text-surface-600">Status</th>
-                            <th class="text-right px-5 py-3 font-semibold text-surface-600">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-surface-100">
-                        <tr v-for="session in props.sessions" :key="session.id || session.name" class="hover:bg-surface-50 transition-colors">
-                            <td class="px-5 py-4">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-9 h-9 bg-green-100 rounded-xl flex items-center justify-center">
-                                        <MessageCircle class="w-4 h-4 text-green-600" />
-                                    </div>
-                                    <div>
-                                        <p class="font-semibold text-surface-900">{{ session.name }}</p>
-                                        <p class="text-xs text-surface-400">{{ session.id || session.name }}</p>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="px-5 py-4 text-surface-600">
-                                {{ session.phone || session.wid?.user || '—' }}
-                            </td>
-                            <td class="px-5 py-4 text-center">
-                                <span :class="sessionStatusClass(session.status)" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium">
-                                    <span :class="sessionDotClass(session.status)" class="w-1.5 h-1.5 rounded-full"></span>
-                                    {{ session.status }}
-                                </span>
-                            </td>
-                            <td class="px-5 py-4 text-right">
-                                <div class="flex items-center justify-end gap-1">
-                                    <button
-                                        v-if="session.status === 'WAITING_FOR_QR'"
-                                        @click="showQR(session)"
-                                        class="px-3 py-1.5 text-xs font-medium bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 flex items-center gap-1"
-                                    >
-                                        <QrCode class="w-3.5 h-3.5" /> Show QR
-                                    </button>
-                                    <button
-                                        v-if="session.status === 'CONNECTED'"
-                                        @click="logoutSession(session)"
-                                        class="px-3 py-1.5 text-xs font-medium bg-danger-50 text-danger-700 rounded-lg hover:bg-danger-100 flex items-center gap-1"
-                                    >
-                                        <LogOut class="w-3.5 h-3.5" /> Disconnect
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <div v-if="!props.sessions?.length" class="p-16 text-center">
-                <MessageCircle class="w-12 h-12 text-surface-300 mx-auto mb-3" />
-                <p class="font-semibold text-surface-700">No WhatsApp sessions</p>
-                <p class="text-sm text-surface-400 mt-1">Connect a number to start sending WhatsApp messages.</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Connect New Number Modal -->
-    <Modal :show="showNewSessionModal" @close="cancelNewSession" maxWidth="sm">
-        <div class="p-6 space-y-4">
-            <h3 class="text-lg font-semibold text-surface-900">Connect WhatsApp Number</h3>
-
-            <div v-if="!pendingQR">
-                <div>
-                    <label class="text-xs font-medium text-surface-700 mb-1 block">Session Name</label>
-                    <Input v-model="newSessionName" placeholder="e.g. jkmichaels-main" :error="newSessionError" />
-                    <p class="text-xs text-surface-400 mt-1">Use a short, unique identifier. No spaces.</p>
-                </div>
-                <div class="flex justify-end gap-3 pt-3">
-                    <Button variant="ghost" @click="cancelNewSession">Cancel</Button>
-                    <Button variant="primary" @click="createSession" :disabled="creatingSession || !newSessionName.trim()">
-                        <span v-if="creatingSession" class="flex items-center gap-2"><span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span> Creating…</span>
-                        <span v-else>Create &amp; Get QR</span>
-                    </Button>
-                </div>
-            </div>
-
-            <!-- QR Code Display -->
-            <div v-else class="space-y-4">
-                <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
-                    Open WhatsApp on your phone → ⋮ → Linked Devices → Link a Device, then scan this QR code.
-                </div>
-                <div class="flex justify-center">
-                    <div v-if="loadingQR" class="w-48 h-48 bg-surface-100 rounded-xl flex items-center justify-center animate-pulse">
-                        <QrCode class="w-8 h-8 text-surface-300" />
-                    </div>
-                    <img v-else-if="qrBase64" :src="'data:image/png;base64,' + qrBase64" alt="WhatsApp QR Code" class="w-48 h-48 rounded-xl border-4 border-white shadow-lg" />
-                    <div v-else class="w-48 h-48 bg-danger-50 rounded-xl flex flex-col items-center justify-center gap-2">
-                        <XCircle class="w-8 h-8 text-danger-400" />
-                        <p class="text-xs text-danger-600">QR unavailable</p>
-                    </div>
-                </div>
-
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2 text-sm">
-                        <span :class="['w-2 h-2 rounded-full', sessionConnected ? 'bg-success-500' : 'bg-amber-400 animate-pulse']"></span>
-                        <span :class="sessionConnected ? 'text-success-700' : 'text-amber-700'">
-                            {{ sessionConnected ? 'Connected!' : 'Waiting for scan…' }}
-                        </span>
-                    </div>
-                    <button @click="refreshQR" class="text-xs text-primary-600 hover:underline flex items-center gap-1">
-                        <RefreshCw class="w-3 h-3" /> Refresh QR
-                    </button>
-                </div>
-
-                <div class="flex justify-end gap-3 pt-1 border-t border-surface-100">
-                    <Button variant="ghost" @click="cancelNewSession">Close</Button>
-                    <Button v-if="sessionConnected" variant="primary" @click="cancelNewSession">Done</Button>
-                </div>
-            </div>
-        </div>
-    </Modal>
-</template>
-
 <script setup>
 import { ref, computed, onUnmounted } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
@@ -176,128 +6,160 @@ import AdminLayout from '@/Layouts/AdminLayout.vue';
 import Button from '@/Components/UI/Button.vue';
 import Input from '@/Components/UI/Input.vue';
 import Modal from '@/Components/UI/Modal.vue';
-import { Plus, ArrowLeft, RefreshCw, MessageCircle, QrCode, LogOut, XCircle } from 'lucide-vue-next';
+import { Plus, RefreshCw, MessageCircle, QrCode, LogOut } from 'lucide-vue-next';
+import { integrationError, whatsappQrSource } from '@/lib/integration';
 
 defineOptions({ layout: AdminLayout });
+const props = defineProps({ sessions: { type: Array, default: () => [] }, gatewayStatus: Object, gatewayError: String });
+const online = computed(() => props.gatewayStatus?.status === 'ok');
+const modal = ref(false), name = ref(''), pendingId = ref(''), qr = ref(''), qrExpiresAt = ref(null);
+const busy = ref(false), connected = ref(false), error = ref(''), pageError = ref(''), refreshing = ref(false);
+const disconnecting = ref('');
+let timer, generation = 0, pollUntil = 0;
+const sessionUrl = id => `/admin/erp/whatsapp/sessions/${encodeURIComponent(id)}`;
 
-const props = defineProps({
-    sessions: { type: Array, default: () => [] },
-    gatewayStatus: { type: Object, default: () => ({}) },
-});
-
-const refreshing = ref(false);
-const showNewSessionModal = ref(false);
-const newSessionName = ref('');
-const newSessionError = ref('');
-const creatingSession = ref(false);
-const pendingQR = ref(null);
-const qrBase64 = ref('');
-const loadingQR = ref(false);
-const sessionConnected = ref(false);
-let pollInterval = null;
-
-const gatewayOnline = computed(() => props.gatewayStatus?.status === 'ok' || props.gatewayStatus?.uptime);
-
-function refreshSessions() {
+async function refresh() {
+    if (refreshing.value) return;
     refreshing.value = true;
-    router.reload({ only: ['sessions', 'gatewayStatus'], onFinish: () => { refreshing.value = false; } });
-}
-
-function sessionStatusClass(status) {
-    return {
-        CONNECTED: 'bg-success-50 text-success-700',
-        WAITING_FOR_QR: 'bg-amber-50 text-amber-700',
-        DISCONNECTED: 'bg-surface-100 text-surface-500',
-    }[status] || 'bg-surface-100 text-surface-500';
-}
-
-function sessionDotClass(status) {
-    return {
-        CONNECTED: 'bg-success-500',
-        WAITING_FOR_QR: 'bg-amber-400 animate-pulse',
-        DISCONNECTED: 'bg-surface-400',
-    }[status] || 'bg-surface-400';
-}
-
-async function createSession() {
-    newSessionError.value = '';
-    if (!newSessionName.value.trim()) { newSessionError.value = 'Session name is required.'; return; }
-    creatingSession.value = true;
-    try {
-        const res = await axios.post('/admin/erp/whatsapp/sessions', { session_name: newSessionName.value.trim() });
-        pendingQR.value = res.data.session_name || newSessionName.value.trim();
-        await fetchQR(pendingQR.value);
-        startPolling(pendingQR.value);
-    } catch (e) {
-        newSessionError.value = e.response?.data?.message || 'Failed to create session.';
-    } finally {
-        creatingSession.value = false;
+    pageError.value = '';
+    for (let i = 0; i < props.sessions.length; i += 3) {
+        const results = await Promise.allSettled(props.sessions.slice(i, i + 3).map(session => axios.get(`${sessionUrl(session.session_id)}/status`)));
+        const failed = results.find(result => result.status === 'rejected');
+        if (failed) { pageError.value = integrationError(failed.reason); break; }
     }
+    router.reload({ only: ['sessions', 'gatewayStatus', 'gatewayError'], onFinish: () => refreshing.value = false });
 }
-
-async function fetchQR(sessionName) {
-    loadingQR.value = true;
-    qrBase64.value = '';
+function stop() { clearTimeout(timer); generation++; }
+function close() {
+    stop(); modal.value = false; pendingId.value = ''; qr.value = ''; qrExpiresAt.value = null;
+    connected.value = false; name.value = ''; error.value = ''; busy.value = false;
+    router.reload({ only: ['sessions'] });
+}
+function openNew() { stop(); name.value = ''; pendingId.value = ''; qr.value = ''; connected.value = false; error.value = ''; modal.value = true; }
+function validRun(run) { return modal.value && run === generation; }
+function setQr(data) {
+    qr.value = whatsappQrSource(data.qrCode);
+    const expiry = Date.parse(data.qrExpiresAt);
+    qrExpiresAt.value = Number.isFinite(expiry) ? expiry : Date.now() + 45000;
+}
+async function fetchQr(id, run) {
+    const { data } = await axios.get(`${sessionUrl(id)}/qr`);
+    if (validRun(run)) setQr(data);
+}
+async function poll(id, run) {
+    if (!validRun(run)) return;
+    if (Date.now() > pollUntil) { qr.value = ''; error.value = 'Pairing timed out. Select Refresh QR to try again.'; return; }
     try {
-        const res = await axios.get(`/admin/erp/whatsapp/sessions/${sessionName}/qr`);
-        qrBase64.value = res.data.qr_code || '';
-    } catch { /* QR might not be ready yet, ignore */ }
-    finally { loadingQR.value = false; }
+        const { data } = await axios.get(`${sessionUrl(id)}/status`);
+        if (!validRun(run)) return;
+        if (data.status === 'CONNECTED') {
+            connected.value = true; qr.value = ''; stop(); router.reload({ only: ['sessions'] }); return;
+        }
+        if (['DISCONNECTED', 'ERROR'].includes(data.status)) {
+            qr.value = ''; error.value = 'The session disconnected. Close this dialog and connect a new session.'; return;
+        }
+        if (!qr.value || Date.now() >= qrExpiresAt.value) await fetchQr(id, run);
+        if (validRun(run)) timer = setTimeout(() => poll(id, run), 4000);
+    } catch (e) { if (validRun(run)) { qr.value = ''; error.value = integrationError(e); } }
 }
-
-async function refreshQR() {
-    if (!pendingQR.value) return;
-    await fetchQR(pendingQR.value);
-}
-
-async function showQR(session) {
-    showNewSessionModal.value = true;
-    pendingQR.value = session.name || session.id;
-    await fetchQR(pendingQR.value);
-    startPolling(pendingQR.value);
-}
-
-function startPolling(sessionName) {
-    stopPolling();
-    pollInterval = setInterval(async () => {
-        try {
-            const res = await axios.get(`/admin/erp/whatsapp/sessions/${sessionName}/status`);
-            const status = res.data?.status;
-            if (status === 'CONNECTED') {
-                sessionConnected.value = true;
-                stopPolling();
-                router.reload({ only: ['sessions'] });
-            } else if (status === 'WAITING_FOR_QR' && !qrBase64.value) {
-                await fetchQR(sessionName);
-            }
-        } catch { /* silent */ }
-    }, 3000);
-}
-
-function stopPolling() {
-    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
-}
-
-function cancelNewSession() {
-    stopPolling();
-    showNewSessionModal.value = false;
-    pendingQR.value = null;
-    qrBase64.value = '';
-    sessionConnected.value = false;
-    newSessionName.value = '';
-    newSessionError.value = '';
-}
-
-async function logoutSession(session) {
-    const name = session.name || session.id;
-    if (!confirm(`Disconnect "${name}" from WhatsApp? This will stop all messaging through this number.`)) return;
+async function refreshQr() {
+    if (!pendingId.value || busy.value) return;
+    stop(); const run = generation; busy.value = true; error.value = ''; qr.value = ''; pollUntil = Date.now() + 180000;
     try {
-        await axios.post(`/admin/erp/whatsapp/sessions/${name}/logout`);
+        await fetchQr(pendingId.value, run);
+        if (validRun(run)) timer = setTimeout(() => poll(pendingId.value, run), 2000);
+    } catch (e) { if (validRun(run)) error.value = integrationError(e); }
+    finally { if (validRun(run)) busy.value = false; }
+}
+async function create() {
+    if (busy.value || !name.value.trim()) return;
+    stop(); const run = generation; busy.value = true; error.value = '';
+    try {
+        const { data } = await axios.post('/admin/erp/whatsapp/sessions', { session_name: name.value.trim() });
+        if (!validRun(run)) return;
+        pendingId.value = data.session.id;
+        connected.value = data.session.status === 'CONNECTED';
+        setQr(data.session);
+        pollUntil = Date.now() + 180000;
+        if (!connected.value) timer = setTimeout(() => poll(pendingId.value, run), 1000);
         router.reload({ only: ['sessions'] });
-    } catch (e) {
-        alert(e.response?.data?.message || 'Failed to logout session.');
-    }
+    } catch (e) { if (validRun(run)) error.value = integrationError(e); }
+    finally { if (validRun(run)) busy.value = false; }
 }
-
-onUnmounted(() => stopPolling());
+async function showQr(session) {
+    stop(); pendingId.value = session.session_id; name.value = session.name; connected.value = false; modal.value = true;
+    await refreshQr();
+}
+async function disconnect(session) {
+    if (disconnecting.value || !confirm(`Disconnect ${session.name}?`)) return;
+    disconnecting.value = session.session_id; pageError.value = '';
+    try { await axios.post(`${sessionUrl(session.session_id)}/logout`); refresh(); }
+    catch (e) { pageError.value = integrationError(e); }
+    finally { disconnecting.value = ''; }
+}
+const statusLabel = status => ({ CONNECTED: 'Connected', WAITING_FOR_QR: 'Ready to pair', CONNECTING: 'Connecting', DISCONNECTED: 'Disconnected', ERROR: 'Needs attention' }[status] || status);
+onUnmounted(stop);
 </script>
+
+<template>
+    <Head title="WhatsApp connections" />
+    <div class="space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+                <Link href="/admin/erp/messaging" class="text-sm font-medium text-primary-700">Back to messaging</Link>
+                <h1 class="mt-2 text-2xl font-display font-bold text-surface-900">WhatsApp connections</h1>
+                <p class="text-sm text-surface-600 mt-1">Link a phone securely and check its connection status.</p>
+            </div>
+            <Button @click="openNew"><Plus class="w-4 h-4 mr-2" />Connect number</Button>
+        </div>
+        <div v-if="pageError || gatewayError" role="alert" class="rounded-xl border border-red-200 bg-red-50 text-red-800 p-4 text-sm">{{ pageError || gatewayError }}</div>
+        <div class="bg-white rounded-2xl border border-surface-200 p-5 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <span class="w-2.5 h-2.5 rounded-full" :class="online ? 'bg-green-500' : 'bg-amber-500'"></span>
+                <div><p class="font-semibold text-surface-900">Messaging gateway</p><p class="text-sm text-surface-500">{{ online ? 'Service reachable' : 'Connection needs attention' }}</p></div>
+            </div>
+            <Button variant="secondary" :disabled="refreshing" @click="refresh"><RefreshCw class="w-4 h-4 mr-2" :class="{ 'animate-spin': refreshing }" />Refresh</Button>
+        </div>
+        <p class="text-sm text-surface-600">These are JK Michaels phone connections. Outbound messages currently use the sender configured by the messaging provider; connecting a phone does not change that sender.</p>
+        <div class="bg-white rounded-2xl border border-surface-200 overflow-hidden">
+            <div class="px-5 py-4 border-b border-surface-100 font-semibold">Your connections</div>
+            <div v-if="!sessions.length" class="p-10 text-center">
+                <MessageCircle class="w-10 h-10 mx-auto text-surface-400 mb-3" />
+                <h2 class="font-semibold text-surface-900">Connect your first phone</h2>
+                <p class="text-sm text-surface-500 mt-1">Keep WhatsApp open on your phone, then select Connect number.</p>
+            </div>
+            <div v-for="session in sessions" :key="session.session_id" class="p-5 border-b last:border-b-0 border-surface-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="min-w-0"><p class="font-semibold text-surface-900">{{ session.name }}</p><p class="text-sm text-surface-500">{{ session.phone || 'No phone linked yet' }}</p></div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <span class="text-xs font-semibold rounded-full px-3 py-1" :class="session.status === 'CONNECTED' ? 'bg-green-50 text-green-800' : 'bg-surface-100 text-surface-700'">{{ statusLabel(session.status) }}</span>
+                    <Button v-if="['WAITING_FOR_QR', 'CONNECTING'].includes(session.status)" variant="secondary" @click="showQr(session)"><QrCode class="w-4 h-4 mr-2" />Show QR</Button>
+                    <Button v-if="session.status === 'CONNECTED'" variant="ghost" :disabled="!!disconnecting" @click="disconnect(session)"><LogOut class="w-4 h-4 mr-2" />Disconnect</Button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <Modal :show="modal" @close="close" maxWidth="sm" :title="pendingId ? name : 'Connect WhatsApp'">
+        <div class="space-y-5">
+            <p v-if="error" role="alert" class="rounded-xl bg-red-50 text-red-800 p-3 text-sm">{{ error }}</p>
+            <template v-if="!pendingId">
+                <label class="block text-sm font-medium" for="wa-name">Connection name</label>
+                <Input id="wa-name" v-model="name" maxlength="100" placeholder="e.g. JK Michaels support" @keydown.enter="create" />
+                <p class="text-sm text-surface-500">Choose a name your team will recognize.</p>
+                <Button class="w-full" :disabled="busy || !name.trim()" @click="create">{{ busy ? 'Creating connection…' : 'Continue to QR code' }}</Button>
+            </template>
+            <template v-else>
+                <div v-if="connected" role="status" class="p-5 rounded-xl bg-green-50 text-green-800 text-center font-medium">Your phone is connected.</div>
+                <template v-else>
+                    <ol class="list-decimal pl-5 text-sm text-surface-600 space-y-2"><li>Open WhatsApp on your phone.</li><li>Open Settings or the menu, then Linked devices.</li><li>Select Link a device and scan below.</li></ol>
+                    <div class="min-h-56 flex items-center justify-center bg-surface-50 rounded-xl p-4">
+                        <img v-if="qr" :src="qr" alt="Scan this code using WhatsApp Linked devices" class="w-56 h-56 bg-white p-2 rounded-lg" />
+                        <p v-else role="status" class="text-sm text-surface-600">{{ error ? 'QR code unavailable' : 'Preparing your QR code…' }}</p>
+                    </div>
+                    <p class="text-xs text-surface-500">QR codes refresh automatically for three minutes. Keep this window open while linking.</p>
+                    <Button variant="secondary" :disabled="busy" @click="refreshQr">{{ busy ? 'Refreshing…' : 'Refresh QR' }}</Button>
+                </template>
+            </template>
+            <Button variant="ghost" @click="close">{{ connected ? 'Done' : 'Close' }}</Button>
+        </div>
+    </Modal>
+</template>

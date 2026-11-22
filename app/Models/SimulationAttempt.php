@@ -25,12 +25,12 @@ class SimulationAttempt extends Model
     protected function casts(): array
     {
         return [
-            'path_taken'        => 'array',
-            'choices_made'      => 'array',
-            'scores'            => 'array',
-            'total_score_pct'   => 'decimal:2',
+            'path_taken' => 'array',
+            'choices_made' => 'array',
+            'scores' => 'array',
+            'total_score_pct' => 'decimal:2',
             'time_spent_seconds' => 'integer',
-            'completed_at'      => 'datetime',
+            'completed_at' => 'datetime',
         ];
     }
 
@@ -104,10 +104,10 @@ class SimulationAttempt extends Model
     public function applyScoreImpact(array $impact): void
     {
         $scores = $this->scores ?? [
-            'judgment'             => 50,
-            'ethics'               => 50,
+            'judgment' => 50,
+            'ethics' => 50,
             'stakeholder_handling' => 50,
-            'risk_thinking'        => 50,
+            'risk_thinking' => 50,
         ];
 
         foreach ($impact as $dimension => $value) {
@@ -122,7 +122,9 @@ class SimulationAttempt extends Model
     public function calculateTotalScore(): float
     {
         $scores = $this->scores ?? [];
-        if (empty($scores)) return 0;
+        if (empty($scores)) {
+            return 0;
+        }
 
         return round(array_sum($scores) / count($scores), 2);
     }

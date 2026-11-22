@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\RecordsDomainAudit;
 use Illuminate\Database\Eloquent\Model;
 
 class CourseEnrollment extends Model
 {
+    use RecordsDomainAudit;
+
     protected $fillable = [
         'user_id',
         'course_id',
@@ -15,14 +18,16 @@ class CourseEnrollment extends Model
         'progress_pct',
         'status',
         'completed_at',
+        'source_order_id',
+        'organization_course_license_id',
     ];
 
     protected function casts(): array
     {
         return [
-            'enrolled_at'  => 'datetime',
+            'enrolled_at' => 'datetime',
             'completed_at' => 'datetime',
-            'deadline'     => 'date',
+            'deadline' => 'date',
             'progress_pct' => 'integer',
         ];
     }
@@ -49,6 +54,8 @@ class CourseEnrollment extends Model
 
     public function allowsAccess(): bool
     {
-        return in_array($this->status, ['active', 'completed'], true);
+        return in_array($this->status, ['active', 'completed'], true)
+            && (! $this->organization_course_license_id || OrganizationCourseLicense::find($this->organization_course_license_id)?->permits($this))
+            && (! $this->source_order_id || Order::whereKey($this->source_order_id)->where('status', 'paid')->exists());
     }
 }

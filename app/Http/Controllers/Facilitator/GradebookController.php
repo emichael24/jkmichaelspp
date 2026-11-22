@@ -27,6 +27,7 @@ class GradebookController extends Controller
         $members = $cohort->members()
             ->active()
             ->learners()
+            ->whereHas('user', fn ($query) => $query->when($cohort->organization_id, fn ($query, $organizationId) => $query->where('organization_id', $organizationId)))
             ->with('user:id,first_name,last_name,email')
             ->get();
 
@@ -42,7 +43,7 @@ class GradebookController extends Controller
             ->orderByDesc('submission_number')
             ->orderByDesc('submitted_at')
             ->get()
-            ->groupBy(fn ($submission) => $submission->assignment_id . ':' . $submission->user_id)
+            ->groupBy(fn ($submission) => $submission->assignment_id.':'.$submission->user_id)
             ->map(fn (Collection $items) => $items->first());
 
         $enrollments = CourseEnrollment::where('course_id', $cohort->course_id)
@@ -56,21 +57,18 @@ class GradebookController extends Controller
         $attempts = QuizAttempt::whereIn('user_id', $learnerIds)
             ->where('status', 'completed')
             ->where(function ($query) use ($quizIds, $mockIds) {
-                $query->when($quizIds->isNotEmpty(), function ($q) use ($quizIds) {
-                    $q->where(function ($inner) use ($quizIds) {
-                        $inner->where('quizzable_type', Quiz::class)
-                            ->whereIn('quizzable_id', $quizIds);
-                    });
-                })->when($mockIds->isNotEmpty(), function ($q) use ($mockIds) {
-                    $q->orWhere(function ($inner) use ($mockIds) {
-                        $inner->where('quizzable_type', MockExam::class)
-                            ->whereIn('quizzable_id', $mockIds);
-                    });
+                $query->where(function ($inner) use ($quizIds) {
+                    $inner->where('quizzable_type', Quiz::class)
+                        ->whereIn('quizzable_id', $quizIds);
+                })->orWhere(function ($inner) use ($mockIds) {
+                    $inner->where('quizzable_type', MockExam::class)
+                        ->whereIn('quizzable_id', $mockIds);
                 });
             })
             ->orderByDesc('completed_at')
+            ->orderByDesc('id')
             ->get()
-            ->groupBy(fn ($attempt) => $attempt->user_id . ':' . $attempt->quizzable_type . ':' . $attempt->quizzable_id)
+            ->groupBy(fn ($attempt) => $attempt->user_id.':'.$attempt->quizzable_type.':'.$attempt->quizzable_id)
             ->map(fn (Collection $items) => $items->first());
 
         $attemptsByUser = $attempts->groupBy('user_id');
@@ -89,10 +87,10 @@ class GradebookController extends Controller
         $totalMeetings = $meetings->count();
 
         $assignmentColumns = $assignments->map(fn (Assignment $assignment) => [
-            'id'        => $assignment->id,
-            'title'     => $assignment->title,
+            'id' => $assignment->id,
+            'title' => $assignment->title,
             'max_score' => $assignment->max_score,
-            'due_date'  => $assignment->due_date?->toISOString(),
+            'due_date' => $assignment->due_date?->toISOString(),
         ])->values();
 
         $learners = $members->map(function ($member) use ($assignments, $submissions, $enrollments) {
@@ -115,7 +113,7 @@ class GradebookController extends Controller
                 &$missingCount,
                 &$lastSubmittedAt
             ) {
-                $submission = $submissions->get($assignment->id . ':' . $member->user_id);
+                $submission = $submissions->get($assignment->id.':'.$member->user_id);
                 $status = 'not_submitted';
 
                 if ($submission) {
@@ -142,29 +140,29 @@ class GradebookController extends Controller
 
                 return [
                     'assignment_id' => $assignment->id,
-                    'status'        => $status,
-                    'score'         => $submission?->score,
-                    'score_pct'     => $submission && $submission->score !== null
+                    'status' => $status,
+                    'score' => $submission?->score,
+                    'score_pct' => $submission && $submission->score !== null
                         ? round(($submission->score / max($assignment->max_score ?: 100, 1)) * 100, 1)
                         : null,
-                    'submitted_at'  => $submission?->submitted_at?->toISOString(),
-                    'graded_at'     => $submission?->graded_at?->toISOString(),
+                    'submitted_at' => $submission?->submitted_at?->toISOString(),
+                    'graded_at' => $submission?->graded_at?->toISOString(),
                 ];
             })->values();
 
             return [
-                'id'                => $user->id,
-                'name'              => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')),
-                'email'             => $user->email,
-                'progress_pct'      => $enrollment?->progress_pct ?? 0,
+                'id' => $user->id,
+                'name' => trim(($user->first_name ?? '').' '.($user->last_name ?? '')),
+                'email' => $user->email,
+                'progress_pct' => $enrollment?->progress_pct ?? 0,
                 'enrollment_status' => $enrollment?->status ?? 'not_enrolled',
                 'average_score_pct' => $gradedScores->count() ? round($gradedScores->avg(), 1) : null,
-                'submitted_count'   => $submittedCount,
-                'graded_count'      => $gradedCount,
-                'pending_count'     => $pendingCount,
-                'missing_count'     => $missingCount,
+                'submitted_count' => $submittedCount,
+                'graded_count' => $gradedCount,
+                'pending_count' => $pendingCount,
+                'missing_count' => $missingCount,
                 'last_submitted_at' => $lastSubmittedAt,
-                'assignments'       => $assignmentCells,
+                'assignments' => $assignmentCells,
             ];
         })->values();
 
@@ -193,23 +191,23 @@ class GradebookController extends Controller
         })->values();
 
         $summary = [
-            'learners'            => $learners->count(),
-            'assignments'         => $assignmentColumns->count(),
-            'average_progress'    => round($learners->avg('progress_pct') ?? 0),
-            'average_grade'       => round($learners->filter(fn ($learner) => $learner['average_score_pct'] !== null)->avg('average_score_pct') ?? 0, 1),
-            'pending_reviews'     => $learners->sum('pending_count'),
+            'learners' => $learners->count(),
+            'assignments' => $assignmentColumns->count(),
+            'average_progress' => round($learners->avg('progress_pct') ?? 0),
+            'average_grade' => round($learners->filter(fn ($learner) => $learner['average_score_pct'] !== null)->avg('average_score_pct') ?? 0, 1),
+            'pending_reviews' => $learners->sum('pending_count'),
             'missing_submissions' => $learners->sum('missing_count'),
-            'average_quiz_score'  => round($learners->filter(fn ($learner) => $learner['quiz_avg_pct'] !== null)->avg('quiz_avg_pct') ?? 0, 1),
-            'average_mock_score'  => round($learners->filter(fn ($learner) => $learner['mock_avg_pct'] !== null)->avg('mock_avg_pct') ?? 0, 1),
-            'attendance_rate'     => round($learners->filter(fn ($learner) => $learner['attendance_rate'] !== null)->avg('attendance_rate') ?? 0, 1),
-            'meetings'            => $totalMeetings,
+            'average_quiz_score' => round($learners->filter(fn ($learner) => $learner['quiz_avg_pct'] !== null)->avg('quiz_avg_pct') ?? 0, 1),
+            'average_mock_score' => round($learners->filter(fn ($learner) => $learner['mock_avg_pct'] !== null)->avg('mock_avg_pct') ?? 0, 1),
+            'attendance_rate' => round($learners->filter(fn ($learner) => $learner['attendance_rate'] !== null)->avg('attendance_rate') ?? 0, 1),
+            'meetings' => $totalMeetings,
         ];
 
         return Inertia::render('Facilitator/Gradebook/Index', [
-            'cohort'      => $cohort,
-            'summary'     => $summary,
+            'cohort' => $cohort,
+            'summary' => $summary,
             'assignments' => $assignmentColumns,
-            'learners'    => $learners,
+            'learners' => $learners,
         ]);
     }
 
@@ -228,6 +226,7 @@ class GradebookController extends Controller
 
     private function authorizeFacilitator(Cohort $cohort): void
     {
+        abort_if($cohort->organization_id && ! $cohort->organization?->is_active && ! Auth::user()->hasRole('platform_admin'), 403, 'This organization is inactive.');
         abort_unless(
             $cohort->facilitator_id === Auth::id() || Auth::user()->hasRole('platform_admin'),
             403,

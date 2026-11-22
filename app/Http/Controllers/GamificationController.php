@@ -24,8 +24,8 @@ class GamificationController extends Controller
         $totalBadges = collect($badges)->flatten(1)->count();
 
         return Inertia::render('Gamification/Badges', [
-            'badges'      => $badges,
-            'summary'     => $summary,
+            'badges' => $badges,
+            'summary' => $summary,
             'totalEarned' => $totalEarned,
             'totalBadges' => $totalBadges,
         ]);
@@ -41,7 +41,7 @@ class GamificationController extends Controller
 
         return Inertia::render('Gamification/Missions', [
             'missions' => $missions,
-            'summary'  => $summary,
+            'summary' => $summary,
         ]);
     }
 
@@ -55,7 +55,7 @@ class GamificationController extends Controller
 
         return Inertia::render('Gamification/Leaderboard', [
             'leaderboard' => $data,
-            'summary'     => $summary,
+            'summary' => $summary,
         ]);
     }
 

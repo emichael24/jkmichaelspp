@@ -5,9 +5,10 @@ import vue from '@vitejs/plugin-vue';
 import path from 'path';
 
 export default defineConfig({
+    define: { __JK_BUILD_ID__: JSON.stringify(process.env.JK_BUILD_ID || Date.now().toString(36)) },
     plugins: [
         laravel({
-            input: ['resources/css/app.css', 'resources/js/app.js'],
+            input: ['resources/css/app.css', 'resources/js/app.js', 'resources/js/offline.js'],
             refresh: true,
         }),
         tailwindcss(),

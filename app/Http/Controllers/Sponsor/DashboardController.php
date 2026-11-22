@@ -19,7 +19,7 @@ class DashboardController extends Controller
         $sponsorId = Auth::id();
 
         // Get active enrollments where this user is sponsor
-        $enrollments = InternshipEnrollment::where('sponsor_id', $sponsorId)
+        $enrollments = InternshipEnrollment::where('sponsor_id', $sponsorId)->whereHas('user', fn ($q) => $q->where('organization_id', Auth::user()->organization_id))
             ->with(['user:id,first_name,last_name,avatar', 'track:id,title,duration_weeks'])
             ->get();
 
@@ -28,16 +28,16 @@ class DashboardController extends Controller
 
         // Submissions pending review
         $pendingReviews = InternshipSubmission::whereHas('task', function ($q) use ($enrollmentIds) {
-                $q->whereIn('enrollment_id', $enrollmentIds);
-            })
+            $q->whereIn('enrollment_id', $enrollmentIds);
+        })
             ->whereIn('status', ['submitted', 'in_review'])
-            ->with(['task:id,enrollment_id,title,task_type,due_date', 'task.enrollment.user:id,first_name,last_name'])
+            ->with(['task:id,enrollment_id,title,type,due_date', 'task.enrollment.user:id,first_name,last_name'])
             ->latest('submitted_at')
             ->limit(10)
             ->get();
 
         // Recent reviews done by this sponsor
-        $recentReviews = SponsorReview::where('sponsor_id', $sponsorId)
+        $recentReviews = SponsorReview::where('sponsor_id', $sponsorId)->whereHas('submission.task', fn ($q) => $q->whereIn('enrollment_id', $enrollmentIds))
             ->with(['submission.task:id,title,enrollment_id', 'submission.task.enrollment.user:id,first_name,last_name'])
             ->latest('reviewed_at')
             ->limit(5)
@@ -58,49 +58,50 @@ class DashboardController extends Controller
             ->limit(3)
             ->get()
             ->map(fn ($meeting) => [
-                'id'               => $meeting->id,
-                'title'            => $meeting->title,
-                'scheduled_at'     => $meeting->scheduled_at,
+                'id' => $meeting->id,
+                'title' => $meeting->title,
+                'scheduled_at' => $meeting->scheduled_at,
                 'duration_minutes' => $meeting->duration_minutes,
-                'meeting_url'      => $meeting->meeting_url,
+                'meeting_url' => $meeting->meeting_url,
             ]);
 
         // Average scorecard score
-        $avgScore = SponsorScorecard::where('sponsor_id', $sponsorId)->avg('overall_score');
+        $avgScore = SponsorScorecard::where('sponsor_id', $sponsorId)->whereIn('enrollment_id', $enrollmentIds)->avg('overall_score');
 
         // Intern progress summaries
         $internSummaries = $activeEnrollments->map(function ($enrollment) {
             $tasksDone = $enrollment->tasks->where('status', 'done')->count();
             $tasksTotal = $enrollment->tasks->count();
+
             return [
-                'id'            => $enrollment->id,
-                'intern'        => $enrollment->user ? [
-                    'name'   => $enrollment->user->first_name . ' ' . $enrollment->user->last_name,
+                'id' => $enrollment->id,
+                'intern' => $enrollment->user ? [
+                    'name' => $enrollment->user->first_name.' '.$enrollment->user->last_name,
                     'avatar' => $enrollment->user->avatar,
                 ] : null,
-                'track'         => $enrollment->track?->title,
-                'progress_pct'  => $enrollment->progress_pct ?? round($tasksTotal > 0 ? ($tasksDone / $tasksTotal) * 100 : 0),
-                'status'        => $enrollment->status,
-                'current_week'  => $enrollment->currentWeek(),
-                'duration_weeks'=> $enrollment->track?->duration_weeks,
+                'track' => $enrollment->track?->title,
+                'progress_pct' => $enrollment->progress_pct ?? round($tasksTotal > 0 ? ($tasksDone / $tasksTotal) * 100 : 0),
+                'status' => $enrollment->status,
+                'current_week' => $enrollment->currentWeek(),
+                'duration_weeks' => $enrollment->track?->duration_weeks,
                 'overall_score' => $enrollment->overall_score,
             ];
         });
 
         return Inertia::render('Sponsor/Dashboard', [
             'stats' => [
-                'activeInterns'  => $activeEnrollments->count(),
+                'activeInterns' => $activeEnrollments->count(),
                 'pendingReviews' => $pendingReviews->count(),
                 'completedTasks' => $completedTasks,
-                'totalTasks'     => $totalTasks,
-                'overdueTasks'   => $overdueTasks,
-                'avgScore'       => $avgScore ? round($avgScore, 1) : null,
-                'totalReviews'   => SponsorReview::where('sponsor_id', $sponsorId)->count(),
+                'totalTasks' => $totalTasks,
+                'overdueTasks' => $overdueTasks,
+                'avgScore' => $avgScore ? round($avgScore, 1) : null,
+                'totalReviews' => SponsorReview::where('sponsor_id', $sponsorId)->whereHas('submission.task', fn ($q) => $q->whereIn('enrollment_id', $enrollmentIds))->count(),
             ],
-            'interns'         => $internSummaries,
-            'pendingReviews'  => $pendingReviews,
-            'recentReviews'   => $recentReviews,
-            'upcomingMeetings'=> $upcomingMeetings,
+            'interns' => $internSummaries,
+            'pendingReviews' => $pendingReviews,
+            'recentReviews' => $recentReviews,
+            'upcomingMeetings' => $upcomingMeetings,
         ]);
     }
 }

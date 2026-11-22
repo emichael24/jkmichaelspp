@@ -10,7 +10,7 @@ class MessagingCampaign extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'uuid', 'created_by', 'name', 'channel', 'type', 'subject', 'body',
+        'uuid', 'created_by', 'name', 'channel', 'type', 'subject', 'body', 'body_format',
         'media_url', 'status', 'audience_filter', 'recipient_count', 'sent_count',
         'delivered_count', 'opened_count', 'failed_count', 'scheduled_at',
         'started_at', 'completed_at',
@@ -18,9 +18,9 @@ class MessagingCampaign extends Model
 
     protected $casts = [
         'audience_filter' => 'array',
-        'scheduled_at'    => 'datetime',
-        'started_at'      => 'datetime',
-        'completed_at'    => 'datetime',
+        'scheduled_at' => 'datetime',
+        'started_at' => 'datetime',
+        'completed_at' => 'datetime',
     ];
 
     public function createdBy()

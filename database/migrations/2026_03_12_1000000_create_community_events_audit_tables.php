@@ -102,7 +102,7 @@ return new class extends Migration
             $table->text('speaker_bio')->nullable();
             $table->enum('platform', ['zoom', 'teams', 'google_meet', 'other'])->default('zoom');
             $table->string('meeting_url', 500)->nullable();
-            $table->timestamp('scheduled_at');
+            $table->dateTime('scheduled_at');
             $table->unsignedInteger('duration_minutes')->default(60);
             $table->unsignedInteger('max_registrations')->nullable();
             $table->decimal('price', 10, 2)->default(0);

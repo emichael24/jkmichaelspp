@@ -12,10 +12,10 @@ use Inertia\Inertia;
 class InterventionController extends Controller
 {
     public const NUDGE_TEMPLATES = [
-        'miss_you'    => 'We miss you! Come back and continue your streak.',
-        'mock_prep'   => 'Your mock exam is tomorrow. Review your weak areas tonight.',
-        'great_week'  => 'Great progress this week! Keep it up.',
-        'behind'      => "You're falling behind schedule. Let's get back on track — reach out if you need help.",
+        'miss_you' => 'We miss you! Come back and continue your streak.',
+        'mock_prep' => 'Your mock exam is tomorrow. Review your weak areas tonight.',
+        'great_week' => 'Great progress this week! Keep it up.',
+        'behind' => "You're falling behind schedule. Let's get back on track — reach out if you need help.",
         'streak_risk' => 'Your 7-day streak is at risk! Log in today to keep it alive.',
     ];
 
@@ -33,7 +33,7 @@ class InterventionController extends Controller
             ->paginate(20);
 
         return Inertia::render('Facilitator/Interventions/Index', [
-            'cohort'        => $cohort->load('course:id,title'),
+            'cohort' => $cohort->load('course:id,title'),
             'interventions' => $interventions,
         ]);
     }
@@ -44,20 +44,20 @@ class InterventionController extends Controller
         $this->authorizeFacilitator($cohort);
 
         $validated = $request->validate([
-            'learner_id'   => 'required|exists:users,id',
-            'type'         => 'required|in:nudge,coaching,escalation,plan_adjustment,rest_day',
-            'reason'       => 'required|string|max:1000',
+            'learner_id' => 'required|exists:users,id',
+            'type' => 'required|in:nudge,coaching,escalation,plan_adjustment,rest_day',
+            'reason' => 'required|string|max:1000',
             'action_taken' => 'required|string|max:1000',
         ]);
 
         Intervention::create([
             'facilitator_id' => Auth::id(),
-            'learner_id'     => $validated['learner_id'],
-            'cohort_id'      => $cohort->id,
-            'type'           => $validated['type'],
-            'reason'         => $validated['reason'],
-            'action_taken'   => $validated['action_taken'],
-            'status'         => 'sent',
+            'learner_id' => $validated['learner_id'],
+            'cohort_id' => $cohort->id,
+            'type' => $validated['type'],
+            'reason' => $validated['reason'],
+            'action_taken' => $validated['action_taken'],
+            'status' => 'sent',
         ]);
 
         return back()->with('success', 'Intervention logged.');
@@ -84,8 +84,8 @@ class InterventionController extends Controller
 
         $request->validate([
             'learner_id' => 'required|exists:users,id',
-            'template'   => 'nullable|string',
-            'message'    => 'nullable|string|max:1000',
+            'template' => 'nullable|string',
+            'message' => 'nullable|string|max:1000',
         ]);
 
         $message = $request->message
@@ -94,12 +94,12 @@ class InterventionController extends Controller
 
         Intervention::create([
             'facilitator_id' => Auth::id(),
-            'learner_id'     => $request->learner_id,
-            'cohort_id'      => $cohort->id,
-            'type'           => 'nudge',
-            'reason'         => 'Facilitator-initiated nudge',
-            'action_taken'   => $message,
-            'status'         => 'sent',
+            'learner_id' => $request->learner_id,
+            'cohort_id' => $cohort->id,
+            'type' => 'nudge',
+            'reason' => 'Facilitator-initiated nudge',
+            'action_taken' => $message,
+            'status' => 'sent',
         ]);
 
         // TODO: Dispatch push notification + email to learner

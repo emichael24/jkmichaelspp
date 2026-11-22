@@ -2,14 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Traits\RecordsDomainAudit;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\CarbonInterface;
 use Illuminate\Support\Str;
 
 class Lesson extends Model
 {
     use HasFactory;
+    use RecordsDomainAudit;
 
     protected $fillable = [
         'module_id',
@@ -44,19 +46,39 @@ class Lesson extends Model
     protected function casts(): array
     {
         return [
-            'key_terms'              => 'array',
-            'video_chapters'         => 'array',
-            'sort_order'             => 'integer',
-            'duration_minutes'       => 'integer',
+            'key_terms' => 'array',
+            'video_chapters' => 'array',
+            'sort_order' => 'integer',
+            'duration_minutes' => 'integer',
             'video_duration_seconds' => 'integer',
             'audio_duration_seconds' => 'integer',
-            'is_free_preview'        => 'boolean',
-            'is_published'           => 'boolean',
-            'is_downloadable'        => 'boolean',
-            'unlock_at'              => 'datetime',
+            'is_free_preview' => 'boolean',
+            'is_published' => 'boolean',
+            'is_downloadable' => 'boolean',
+            'unlock_at' => 'datetime',
             'unlock_days_after_enrollment' => 'integer',
-            'version'                => 'integer',
+            'version' => 'integer',
         ];
+    }
+
+    /** Formats whose completion is earned through an assessment rather than "Mark complete". */
+    public const ACTIVITY_TYPES = ['quiz', 'assignment', 'case_study'];
+
+    public const CONTENT_TYPES = ['text', 'video', 'audio', 'pdf', 'slides', 'mixed', 'quiz', 'assignment', 'case_study'];
+
+    public function isActivity(): bool
+    {
+        return in_array($this->content_type, self::ACTIVITY_TYPES, true);
+    }
+
+    public function quiz()
+    {
+        return $this->hasOne(Quiz::class);
+    }
+
+    public function assignment()
+    {
+        return $this->hasOne(Assignment::class);
     }
 
     public function videoQuizzes()
@@ -147,7 +169,7 @@ class Lesson extends Model
                 : 'Availability to be announced';
         }
 
-        return 'Available ' . $availableFrom->diffForHumans(now(), [
+        return 'Available '.$availableFrom->diffForHumans(now(), [
             'syntax' => CarbonInterface::DIFF_RELATIVE_TO_NOW,
         ]);
     }

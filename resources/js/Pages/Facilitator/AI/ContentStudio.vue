@@ -9,7 +9,9 @@
         </div>
 
         <!-- Tabs -->
-        <div class="flex gap-1 bg-surface-100 p-1 rounded-xl w-fit">
+        <p v-if="error" role="alert" class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{{ error }}</p>
+        <p class="text-sm text-surface-500">Review generated content before publishing. Keep this page open during generation. If a request times out, check recent creations before retrying.</p>
+        <div class="flex flex-wrap gap-1 bg-surface-100 p-1 rounded-xl w-fit">
             <button
                 v-for="tab in tabs"
                 :key="tab.id"
@@ -30,9 +32,10 @@
                 <h2 class="font-semibold text-surface-800">Text-to-Speech</h2>
 
                 <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1.5">Text Content *</label>
+                    <label class="block text-sm font-medium text-surface-700 mb-1.5" for="tts-text">Text Content *</label>
                     <textarea
-                        v-model="ttsForm.text"
+                        id="tts-text" v-model="ttsForm.text"
+                        maxlength="10000"
                         rows="6"
                         placeholder="Enter the text you want to convert to speech…"
                         class="w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
@@ -42,15 +45,17 @@
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Voice</label>
-                        <select v-model="ttsForm.voice" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
-                            <option value="default">Default Voice</option>
-                            <option v-for="vc in voiceClones" :key="vc.id" :value="vc.voice_id">{{ vc.name }}</option>
+                        <label class="block text-sm font-medium text-surface-700 mb-1.5" for="tts-voice">Voice</label>
+                        <select id="tts-voice" v-model="ttsForm.voice_id" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            <option value="aaliyah">Aaliyah</option>
+                            <option value="angelo">Angelo</option>
+                            <option value="helena">Helena</option>
+                            <option value="orion">Orion</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Speed: {{ ttsForm.speed }}x</label>
-                        <input type="range" v-model="ttsForm.speed" min="0.5" max="2" step="0.25" class="w-full accent-primary-600 mt-2" />
+                        <label class="block text-sm font-medium text-surface-700 mb-1.5" for="tts-speed">Speed: {{ ttsForm.speed }}x</label>
+                        <input type="range" id="tts-speed" v-model="ttsForm.speed" min="0.5" max="2" step="0.25" class="w-full accent-primary-600 mt-2" />
                     </div>
                 </div>
 
@@ -84,54 +89,39 @@
                 <p class="text-sm text-surface-500">Animate a photo with your voice or audio to create a speaking avatar.</p>
 
                 <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1.5">Photo URL or Upload</label>
-                    <Input v-model="avatarForm.source_image_url" placeholder="https://… or upload below" />
-                    <input type="file" accept="image/*" @change="handleAvatarImageUpload" class="mt-2 block w-full text-sm text-surface-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-surface-100 file:text-surface-700 hover:file:bg-surface-200" />
+                    <label for="avatar-photo" class="block text-sm font-medium text-surface-700 mb-1.5">Portrait photo · JPG, PNG or WebP, up to 5 MB</label>
+                    <Input v-model="avatarForm.photo_url" aria-label="Generated portrait media URL" placeholder="Generated media URL, or upload below" />
+                    <input id="avatar-photo" type="file" accept="image/jpeg,image/png,image/webp" @change="handleAvatarImageUpload" class="mt-2 block w-full text-sm text-surface-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-surface-100 file:text-surface-700 hover:file:bg-surface-200" />
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1.5">Audio URL or Upload</label>
-                    <Input v-model="avatarForm.driven_audio_url" placeholder="https://… or upload below" />
-                    <input type="file" accept="audio/*" @change="handleAvatarAudioUpload" class="mt-2 block w-full text-sm text-surface-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-surface-100 file:text-surface-700 hover:file:bg-surface-200" />
+                    <label for="avatar-audio" class="block text-sm font-medium text-surface-700 mb-1.5">Audio · MP3, WAV, M4A, OGG, FLAC or WebM, up to 10 MB</label>
+                    <Input v-model="avatarForm.audio_url" aria-label="Generated avatar audio URL" placeholder="Generated audio URL, or upload below" />
+                    <input id="avatar-audio" type="file" accept="audio/*" @change="handleAvatarAudioUpload" class="mt-2 block w-full text-sm text-surface-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-surface-100 file:text-surface-700 hover:file:bg-surface-200" />
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1.5">Engine</label>
-                    <select v-model="avatarForm.engine" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
-                        <option value="sadtalker">SadTalker (realistic lip-sync)</option>
-                        <option value="liveportrait">LivePortrait (expressive)</option>
+                    <label class="block text-sm font-medium text-surface-700 mb-1.5" for="avatar-engine">Engine</label>
+                    <select id="avatar-engine" v-model="avatarForm.engine" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="live-avatar">Live Avatar · Standard</option>
+                        <option value="stable-avatar">Stable Avatar · Greater consistency</option>
+                        <option value="ai-avatar">AI Avatar · Higher fidelity</option>
                     </select>
                 </div>
 
-                <button @click="generateAvatar" :disabled="(!avatarForm.source_image_url && !avatarImageFile) || avatarLoading" class="px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-50 flex items-center gap-2">
+                <p class="text-xs text-surface-500">Upload files from other sources. URL fields accept media previously generated by this AI service.</p>
+                <div><label for="avatar-prompt" class="block text-sm font-medium text-surface-700 mb-1.5">Presenter direction</label><textarea id="avatar-prompt" v-model="avatarForm.prompt" maxlength="2000" rows="3" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm" placeholder="Describe the presenter's expression and movement."></textarea></div>
+                <button @click="generateAvatar" :disabled="(!avatarForm.photo_url && !avatarImageFile) || (!avatarForm.audio_url && !avatarAudioFile) || avatarLoading" class="px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-50 flex items-center gap-2">
                     <Loader2 v-if="avatarLoading" class="w-4 h-4 animate-spin" />
                     <Video v-else class="w-4 h-4" />
-                    {{ avatarLoading ? 'Submitting…' : 'Generate Avatar Video' }}
+                    {{ avatarLoading ? 'Generating video…' : 'Generate Avatar Video' }}
                 </button>
             </div>
 
-            <!-- Avatar Job Status -->
             <div class="bg-white rounded-2xl border border-surface-200/60 shadow-sm p-6">
-                <h3 class="font-semibold text-surface-800 mb-4">Job Queue</h3>
-                <div v-if="aiJobs.length" class="space-y-3">
-                    <div v-for="job in aiJobs" :key="job.id" :class="['p-3 rounded-xl border', jobBorderClass(job.status)]">
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm font-medium text-surface-800">{{ job.job_type }}</span>
-                            <span :class="['text-xs px-2 py-0.5 rounded-full font-medium', jobBadgeClass(job.status)]">{{ job.status }}</span>
-                        </div>
-                        <p class="text-xs text-surface-400 mt-1">{{ formatDate(job.created_at) }}</p>
-                        <div v-if="job.status === 'completed' && job.result_url" class="mt-2">
-                            <a :href="job.result_url" target="_blank" class="text-xs text-primary-600 hover:underline flex items-center gap-1">
-                                <ExternalLink class="w-3 h-3" /> View Result
-                            </a>
-                        </div>
-                        <div v-if="job.status === 'failed' && job.error_message" class="mt-1 text-xs text-danger-600">{{ job.error_message }}</div>
-                    </div>
-                </div>
-                <div v-else class="flex flex-col items-center justify-center h-32 text-surface-300 gap-2">
-                    <Film class="w-8 h-8" />
-                    <p class="text-sm text-surface-400">No jobs yet</p>
-                </div>
+                <h3 class="font-semibold text-surface-800 mb-4">Video preview</h3>
+                <video v-if="avatarResult" :src="avatarResult" controls class="w-full rounded-xl" />
+                <p v-else class="text-sm text-surface-500">Your finished video will appear here.</p>
             </div>
         </div>
 
@@ -142,9 +132,10 @@
                 <p class="text-sm text-surface-500">Convert your lesson into different content formats automatically.</p>
 
                 <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1.5">Original Content *</label>
+                    <label class="block text-sm font-medium text-surface-700 mb-1.5" for="repurpose-content">Original Content *</label>
                     <textarea
-                        v-model="repurposeForm.content"
+                        id="repurpose-content" v-model="repurposeForm.content"
+                        maxlength="7000"
                         rows="7"
                         placeholder="Paste your lesson text, transcript, or notes…"
                         class="w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
@@ -153,8 +144,8 @@
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Target Format</label>
-                        <select v-model="repurposeForm.target_format" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <label class="block text-sm font-medium text-surface-700 mb-1.5" for="repurpose-format">Target Format</label>
+                        <select id="repurpose-format" v-model="repurposeForm.target_format" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
                             <option value="video_script">Video Script</option>
                             <option value="blog_post">Blog Post</option>
                             <option value="social_linkedin">LinkedIn Post</option>
@@ -165,12 +156,12 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Tone</label>
-                        <select v-model="repurposeForm.tone" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <label class="block text-sm font-medium text-surface-700 mb-1.5" for="repurpose-tone">Tone</label>
+                        <select id="repurpose-tone" v-model="repurposeForm.tone" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
                             <option value="professional">Professional</option>
-                            <option value="conversational">Conversational</option>
+                            <option value="casual">Conversational</option>
                             <option value="academic">Academic</option>
-                            <option value="motivational">Motivational</option>
+                            <option value="encouraging">Encouraging</option>
                         </select>
                     </div>
                 </div>
@@ -202,16 +193,16 @@
         <div v-else-if="activeTab === 'transcribe'" class="max-w-2xl space-y-5">
             <div class="bg-white rounded-2xl border border-surface-200/60 shadow-sm p-6 space-y-5">
                 <h2 class="font-semibold text-surface-800">Transcribe Audio</h2>
-                <p class="text-sm text-surface-500">Upload or link an audio file to get an accurate transcript.</p>
+                <p class="text-sm text-surface-500">Upload audio up to 10 MB, or reuse an audio URL generated by this AI service.</p>
 
                 <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1.5">Audio URL</label>
-                    <Input v-model="transcribeForm.audio_url" placeholder="https://…" />
+                    <label for="transcribe-url" class="block text-sm font-medium text-surface-700 mb-1.5">Generated audio URL</label>
+                    <Input id="transcribe-url" v-model="transcribeForm.audio_url" placeholder="https://…" />
                 </div>
                 <p class="text-xs text-surface-400 text-center">— or —</p>
                 <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1.5">Upload Audio File</label>
-                    <input type="file" accept="audio/*" @change="handleTranscribeUpload" class="block w-full text-sm text-surface-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100" />
+                    <label for="transcribe-audio" class="block text-sm font-medium text-surface-700 mb-1.5">Upload Audio File</label>
+                    <input id="transcribe-audio" type="file" accept="audio/*" @change="handleTranscribeUpload" class="block w-full text-sm text-surface-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100" />
                 </div>
 
                 <button @click="transcribeAudio" :disabled="(!transcribeForm.audio_url && !transcribeFile) || transcribeLoading" class="px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 disabled:opacity-50 flex items-center gap-2">
@@ -231,15 +222,41 @@
                 <p class="text-sm text-surface-700 whitespace-pre-wrap leading-relaxed">{{ transcribeResult }}</p>
             </div>
         </div>
+        <!-- History is available from every tool. -->
+            <div class="bg-white rounded-2xl border border-surface-200/60 shadow-sm p-6">
+                <h3 class="font-semibold text-surface-800 mb-4">Recent creations</h3>
+                <div v-if="recentJobs.length" class="space-y-3">
+                    <div v-for="job in recentJobs" :key="job.id" :class="['p-3 rounded-xl border', jobBorderClass(job.status)]">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm font-medium text-surface-800">{{ { tts: 'Voiceover', avatar_video: 'Avatar video', content_repurpose: 'Repurposed content', transcription: 'Transcript' }[job.job_type] || job.job_type }}</span>
+                            <span :class="['text-xs px-2 py-0.5 rounded-full font-medium', jobBadgeClass(job.status)]">{{ job.status }}</span>
+                        </div>
+                        <p class="text-xs text-surface-400 mt-1">{{ formatDate(job.created_at) }}</p>
+                        <div v-if="job.status === 'completed' && job.output_file_path" class="mt-2">
+                            <a :href="job.output_file_path" target="_blank" rel="noopener noreferrer" class="text-xs text-primary-600 hover:underline flex items-center gap-1">
+                                <ExternalLink class="w-3 h-3" /> View Result
+                            </a>
+                        </div>
+                        <details v-if="job.status === 'completed' && job.output && !job.output_file_path" class="mt-2 text-sm"><summary class="cursor-pointer text-primary-700">Read result</summary><p class="mt-2 whitespace-pre-wrap">{{ job.output }}</p></details>
+                        <div v-if="job.status === 'failed' && job.error_message" class="mt-1 text-xs text-danger-600">{{ job.error_message }}</div>
+                    </div>
+                </div>
+                <div v-else class="flex flex-col items-center justify-center h-32 text-surface-300 gap-2">
+                    <Film class="w-8 h-8" />
+                    <p class="text-sm text-surface-400">No jobs yet</p>
+                </div>
+            </div>
+
     </div>
 </template>
 
 <script setup>
 import { ref } from 'vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import FacilitatorLayout from '@/Layouts/FacilitatorLayout.vue';
 import Input from '@/Components/UI/Input.vue';
 import axios from 'axios';
+import { integrationError } from '@/lib/integration';
 import {
     Mic, Video, Wand2, FileAudio, Loader2, Download, Volume2,
     Film, ExternalLink, Copy,
@@ -248,8 +265,7 @@ import {
 defineOptions({ layout: FacilitatorLayout });
 
 const props = defineProps({
-    voiceClones: { type: Array, default: () => [] },
-    aiJobs: { type: Array, default: () => [] },
+    recentJobs: { type: Array, default: () => [] },
 });
 
 const tabs = [
@@ -259,43 +275,52 @@ const tabs = [
     { id: 'transcribe', label: 'Transcribe', icon: FileAudio },
 ];
 const activeTab = ref('tts');
+const error = ref('');
+function refreshJobs() { router.reload({ only: ['recentJobs'] }); }
 
 // ─── TTS ───
-const ttsForm = ref({ text: '', voice: 'default', speed: 1 });
+const ttsForm = ref({ text: '', voice_id: 'aaliyah', speed: 1 });
 const ttsLoading = ref(false);
 const ttsResult = ref(null);
 
 async function generateTTS() {
+    if (ttsLoading.value) return;
+    error.value = '';
     ttsLoading.value = true;
     try {
         const { data } = await axios.post('/facilitator/ai-studio/tts', ttsForm.value);
         ttsResult.value = data;
-    } catch {} finally { ttsLoading.value = false; }
+    } catch (e) { error.value = integrationError(e); } finally { ttsLoading.value = false; refreshJobs(); }
 }
 
 // ─── Avatar ───
-const avatarForm = ref({ source_image_url: '', driven_audio_url: '', engine: 'sadtalker' });
+const avatarForm = ref({ photo_url: '', audio_url: '', engine: 'live-avatar', render_tier: 'standard', prompt: 'A professional instructor presenting naturally to camera, with subtle movement and a clear, welcoming expression.' });
 const avatarImageFile = ref(null);
+const avatarAudioFile = ref(null);
+const avatarResult = ref('');
 const avatarLoading = ref(false);
 
 function handleAvatarImageUpload(e) {
     avatarImageFile.value = e.target.files[0];
+    if (avatarImageFile.value) avatarForm.value.photo_url = '';
 }
 function handleAvatarAudioUpload(e) {
-    avatarForm.value.driven_audio_url = '';
-    avatarForm.value._audio_file = e.target.files[0];
+    avatarForm.value.audio_url = '';
+    avatarAudioFile.value = e.target.files[0];
 }
 
 async function generateAvatar() {
+    if (avatarLoading.value) return;
+    error.value = '';
     avatarLoading.value = true;
     const fd = new FormData();
     Object.entries(avatarForm.value).forEach(([k, v]) => { if (v) fd.append(k, v); });
-    if (avatarImageFile.value) fd.append('source_image', avatarImageFile.value);
+    if (avatarImageFile.value) { fd.delete('photo_url'); fd.append('photo', avatarImageFile.value); }
+    if (avatarAudioFile.value) { fd.delete('audio_url'); fd.append('audio', avatarAudioFile.value); }
     try {
-        await axios.post('/facilitator/ai-studio/avatar', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-        // Force reload to show new job in list
-        window.location.reload();
-    } catch {} finally { avatarLoading.value = false; }
+        const { data } = await axios.post('/facilitator/ai-studio/avatar', fd);
+        avatarResult.value = data.result.video_url;
+    } catch (e) { error.value = integrationError(e); } finally { avatarLoading.value = false; refreshJobs(); }
 }
 
 // ─── Repurpose ───
@@ -304,15 +329,17 @@ const repurposeLoading = ref(false);
 const repurposeResult = ref('');
 
 async function repurposeContent() {
+    if (repurposeLoading.value) return;
+    error.value = '';
     repurposeLoading.value = true;
     repurposeResult.value = '';
     try {
         const { data } = await axios.post('/facilitator/ai-studio/repurpose', repurposeForm.value);
-        repurposeResult.value = data.content;
-    } catch {} finally { repurposeLoading.value = false; }
+        repurposeResult.value = data.result;
+    } catch (e) { error.value = integrationError(e); } finally { repurposeLoading.value = false; refreshJobs(); }
 }
 
-function copyRepurpose() { navigator.clipboard.writeText(repurposeResult.value); }
+async function copyRepurpose() { await copyText(repurposeResult.value); }
 
 // ─── Transcribe ───
 const transcribeForm = ref({ audio_url: '' });
@@ -320,20 +347,23 @@ const transcribeFile = ref(null);
 const transcribeLoading = ref(false);
 const transcribeResult = ref('');
 
-function handleTranscribeUpload(e) { transcribeFile.value = e.target.files[0]; }
+function handleTranscribeUpload(e) { transcribeFile.value = e.target.files[0]; if (transcribeFile.value) transcribeForm.value.audio_url = ''; }
 
 async function transcribeAudio() {
+    if (transcribeLoading.value) return;
+    error.value = '';
     transcribeLoading.value = true;
     const fd = new FormData();
-    if (transcribeForm.value.audio_url) fd.append('audio_url', transcribeForm.value.audio_url);
-    if (transcribeFile.value) fd.append('audio_file', transcribeFile.value);
+    if (transcribeFile.value) fd.append('audio', transcribeFile.value);
+    else if (transcribeForm.value.audio_url) fd.append('audio_url', transcribeForm.value.audio_url);
     try {
-        const { data } = await axios.post('/facilitator/ai-studio/transcribe', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        const { data } = await axios.post('/facilitator/ai-studio/transcribe', fd);
         transcribeResult.value = data.text;
-    } catch {} finally { transcribeLoading.value = false; }
+    } catch (e) { error.value = integrationError(e); } finally { transcribeLoading.value = false; refreshJobs(); }
 }
 
-function copyTranscript() { navigator.clipboard.writeText(transcribeResult.value); }
+async function copyTranscript() { await copyText(transcribeResult.value); }
+async function copyText(text) { try { await navigator.clipboard.writeText(text); } catch { error.value = 'Copy is unavailable. Select and copy the result text.'; } }
 
 function jobBorderClass(status) {
     return { completed: 'border-success-200', failed: 'border-danger-200', processing: 'border-amber-200' }[status] || 'border-surface-200';

@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Course;
+use App\Models\Lesson;
+use App\Models\Module;
 use App\Models\Question;
 use App\Models\Quiz;
 use Illuminate\Http\Request;
@@ -46,7 +48,7 @@ class QuizController extends Controller
             ->get(['id', 'title']);
 
         return Inertia::render('Admin/Quizzes/Create', [
-            'courses'           => $courses,
+            'courses' => $courses,
             'preselectedCourse' => $request->query('course_id') ? (int) $request->query('course_id') : null,
         ]);
     }
@@ -54,19 +56,26 @@ class QuizController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'title'              => 'required|string|max:255',
-            'course_id'          => 'required|exists:courses,id',
-            'module_id'          => 'nullable|exists:modules,id',
-            'lesson_id'          => 'nullable|exists:lessons,id',
-            'type'               => 'required|in:topic_quiz,module_test,practice_exam,diagnostic,certification_prep',
-            'question_count'     => 'required|integer|min:1|max:200',
+            'title' => 'required|string|max:255',
+            'course_id' => 'required|exists:courses,id',
+            'module_id' => 'nullable|exists:modules,id',
+            'lesson_id' => 'nullable|exists:lessons,id',
+            'type' => 'required|in:lesson_check,module_quiz,domain_practice,adaptive,custom',
+            'question_count' => 'required|integer|min:1|max:200',
             'time_limit_minutes' => 'nullable|integer|min:1',
-            'passing_score_pct'  => 'required|integer|min:1|max:100',
-            'is_randomized'      => 'boolean',
-            'max_attempts'       => 'nullable|integer|min:1',
-            'is_published'       => 'boolean',
+            'passing_score_pct' => 'required|integer|min:1|max:100',
+            'is_randomized' => 'boolean',
+            'max_attempts' => 'nullable|integer|min:1',
+            'is_published' => 'boolean',
         ]);
 
+        if (! empty($validated['module_id'])) {
+            abort_unless(Module::whereKey($validated['module_id'])->where('course_id', $validated['course_id'])->exists(), 422, 'Choose a module from this course.');
+        }
+        if (! empty($validated['lesson_id'])) {
+            abort_unless(Lesson::whereKey($validated['lesson_id'])->whereHas('module', fn ($q) => $q->where('course_id', $validated['course_id']))->when(! empty($validated['module_id']), fn ($q) => $q->where('module_id', $validated['module_id']))->exists(), 422, 'Choose a lesson from this module and course.');
+        }
+        $validated['is_published'] = false;
         $quiz = Quiz::create($validated);
 
         return redirect()
@@ -98,8 +107,8 @@ class QuizController extends Controller
             ->get(['id', 'uuid', 'stem', 'type', 'domain', 'difficulty', 'bloom_level']);
 
         return Inertia::render('Admin/Quizzes/Edit', [
-            'quiz'               => $quiz,
-            'courses'            => $courses,
+            'quiz' => $quiz,
+            'courses' => $courses,
             'availableQuestions' => $availableQuestions,
         ]);
     }
@@ -107,19 +116,29 @@ class QuizController extends Controller
     public function update(Request $request, Quiz $quiz)
     {
         $validated = $request->validate([
-            'title'              => 'required|string|max:255',
-            'course_id'          => 'required|exists:courses,id',
-            'module_id'          => 'nullable|exists:modules,id',
-            'lesson_id'          => 'nullable|exists:lessons,id',
-            'type'               => 'required|in:topic_quiz,module_test,practice_exam,diagnostic,certification_prep',
-            'question_count'     => 'required|integer|min:1|max:200',
+            'title' => 'required|string|max:255',
+            'course_id' => 'required|exists:courses,id',
+            'module_id' => 'nullable|exists:modules,id',
+            'lesson_id' => 'nullable|exists:lessons,id',
+            'type' => 'required|in:lesson_check,module_quiz,domain_practice,adaptive,custom',
+            'question_count' => 'required|integer|min:1|max:200',
             'time_limit_minutes' => 'nullable|integer|min:1',
-            'passing_score_pct'  => 'required|integer|min:1|max:100',
-            'is_randomized'      => 'boolean',
-            'max_attempts'       => 'nullable|integer|min:1',
-            'is_published'       => 'boolean',
+            'passing_score_pct' => 'required|integer|min:1|max:100',
+            'is_randomized' => 'boolean',
+            'max_attempts' => 'nullable|integer|min:1',
+            'is_published' => 'boolean',
         ]);
 
+        if (! empty($validated['module_id'])) {
+            abort_unless(Module::whereKey($validated['module_id'])->where('course_id', $validated['course_id'])->exists(), 422, 'Choose a module from this course.');
+        }
+        if (! empty($validated['lesson_id'])) {
+            abort_unless(Lesson::whereKey($validated['lesson_id'])->whereHas('module', fn ($q) => $q->where('course_id', $validated['course_id']))->when(! empty($validated['module_id']), fn ($q) => $q->where('module_id', $validated['module_id']))->exists(), 422, 'Choose a lesson from this module and course.');
+        }
+        abort_unless((int) $validated['course_id'] === $quiz->course_id, 422, 'Create a new quiz to change its course.');
+        if ($validated['is_published'] ?? false) {
+            abort_if($quiz->questions()->published()->count() < $validated['question_count'], 422, 'Add enough published questions before publishing.');
+        }
         $quiz->update($validated);
 
         return redirect()
@@ -129,6 +148,7 @@ class QuizController extends Controller
 
     public function destroy(Quiz $quiz)
     {
+        abort_if($quiz->attempts()->exists(), 409, 'Quizzes with learner attempts must be retained. Unpublish the quiz instead.');
         $quiz->questions()->detach();
         $quiz->delete();
 
@@ -149,17 +169,18 @@ class QuizController extends Controller
     public function addQuestions(Request $request, Quiz $quiz)
     {
         $request->validate([
-            'question_ids'   => 'required|array|min:1',
+            'question_ids' => 'required|array|min:1',
             'question_ids.*' => 'exists:questions,id',
         ]);
 
+        abort_unless(Question::where('course_id', $quiz->course_id)->published()->whereIn('id', $request->question_ids)->count() === count(array_unique($request->question_ids)), 422, 'Select published questions from this course.');
         $currentMax = $quiz->questions()->max('quiz_questions.sort_order') ?? 0;
 
         foreach ($request->question_ids as $i => $qid) {
-            $quiz->questions()->attach($qid, ['sort_order' => $currentMax + $i + 1]);
+            $quiz->questions()->syncWithoutDetaching([$qid => ['sort_order' => $currentMax + $i + 1]]);
         }
 
-        return back()->with('success', count($request->question_ids) . ' question(s) added.');
+        return back()->with('success', count($request->question_ids).' question(s) added.');
     }
 
     /**
@@ -167,6 +188,7 @@ class QuizController extends Controller
      */
     public function removeQuestion(Quiz $quiz, Question $question)
     {
+        abort_if($quiz->is_published && $quiz->questions()->published()->count() <= $quiz->question_count, 422, 'Unpublish this quiz before reducing its question bank.');
         $quiz->questions()->detach($question->id);
 
         return back()->with('success', 'Question removed from quiz.');
@@ -178,7 +200,7 @@ class QuizController extends Controller
     public function reorderQuestions(Request $request, Quiz $quiz)
     {
         $request->validate([
-            'order'   => 'required|array',
+            'order' => 'required|array',
             'order.*' => 'integer|exists:questions,id',
         ]);
 
@@ -194,6 +216,7 @@ class QuizController extends Controller
      */
     public function publish(Quiz $quiz)
     {
+        abort_if($quiz->questions()->published()->count() < $quiz->question_count, 422, 'Add enough published questions before publishing.');
         $quiz->update(['is_published' => true]);
 
         return back()->with('success', 'Quiz published.');

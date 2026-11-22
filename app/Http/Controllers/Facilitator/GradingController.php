@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Facilitator;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\AssignmentSubmission;
-use Inertia\Inertia;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 
 class GradingController extends Controller
 {
@@ -23,7 +23,7 @@ class GradingController extends Controller
             ->paginate(15);
 
         return Inertia::render('Facilitator/GradingDashboard', [
-            'submissions' => $submissions
+            'submissions' => $submissions,
         ]);
     }
 
@@ -34,7 +34,7 @@ class GradingController extends Controller
     {
         $request->validate([
             'score' => 'required|numeric|min:0|max:100',
-            'feedback' => 'nullable|string|max:1000'
+            'feedback' => 'nullable|string|max:1000',
         ]);
 
         $submission = AssignmentSubmission::findOrFail($id);
@@ -53,4 +53,3 @@ class GradingController extends Controller
         return redirect()->back()->with('success', 'Assignment graded successfully.');
     }
 }
-

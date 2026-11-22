@@ -2,17 +2,20 @@
 
 namespace App\Models;
 
+use App\Models\Traits\RecordsDomainAudit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SponsorReview extends Model
 {
+    use RecordsDomainAudit;
+
     protected $guarded = [];
 
     protected $casts = [
         'rubric_scores' => 'array',
-        'risk_flags'    => 'array',
-        'reviewed_at'   => 'datetime',
+        'risk_flags' => 'array',
+        'reviewed_at' => 'datetime',
     ];
 
     /* ── Relationships ─────────────────────────────── */

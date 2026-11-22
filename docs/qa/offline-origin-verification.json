@@ -1,0 +1,28 @@
+{
+  "origin": "http://127.0.0.1:8902",
+  "fixture": "dedicated synthetic database copy",
+  "application_server_stopped_during_read": true,
+  "fallback_reader_rendered": true,
+  "encrypted_reading_readable": true,
+  "failed_sync_retained_progress": true,
+  "receipt_count_before": 0,
+  "receipt_count_after": 1,
+  "lesson_progress": [
+    [
+      "completed",
+      100
+    ]
+  ],
+  "enrollment": [
+    [
+      "completed",
+      100
+    ]
+  ],
+  "certificates": 1,
+  "browser_tab_closed_before_sync_screenshot": true,
+  "scope_limit": "Origin unreachable test, not operating-system airplane mode or native-device acceptance.",
+  "fresh_tab_private_reading_count": 0,
+  "recovered_course_browser_progress_pct": 100,
+  "temporary_server_stopped": true
+}

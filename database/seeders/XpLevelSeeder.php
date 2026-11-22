@@ -32,9 +32,9 @@ class XpLevelSeeder extends Seeder
         $cumulative = 0;
         for ($level = 1; $level <= 50; $level++) {
             $levels[] = [
-                'level'       => $level,
+                'level' => $level,
                 'xp_required' => $cumulative,
-                'title'       => $titles[$level] ?? 'Guru',
+                'title' => $titles[$level] ?? 'Guru',
             ];
 
             // XP per level increases: 100, 120, 145, 175, 210 ...

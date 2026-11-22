@@ -65,11 +65,13 @@ class CriticalPathTest extends TestCase
     {
         $user = User::factory()->create();
         $course = $this->makeCourse();
+        $course->enrollments()->create(['user_id' => $user->id, 'status' => 'active', 'enrolled_at' => now()]);
         $question = $this->makeQuestion($course);
+        $question->forceFill(['id' => 100001])->save();
         $quiz = $this->makeQuiz($course, $question);
 
         $this->actingAs($user)
-            ->post("/quizzes/{$quiz->id}/start")
+            ->followingRedirects()->post("/quizzes/{$quiz->id}/start")
             ->assertStatus(200);
 
         $attempt = QuizAttempt::first();
@@ -83,8 +85,9 @@ class CriticalPathTest extends TestCase
                 'time_spent_seconds' => 12,
                 'is_flagged' => false,
             ])
-            ->assertRedirect();
+            ->assertRedirect()->assertSessionHasNoErrors();
 
+        $this->assertNotEquals($question->id, $attempt->responses()->firstOrFail()->id);
         $this->actingAs($user)
             ->post("/quiz-attempts/{$attempt->id}/complete")
             ->assertRedirect();
@@ -92,12 +95,14 @@ class CriticalPathTest extends TestCase
         $attempt->refresh();
         $this->assertEquals('completed', $attempt->status);
         $this->assertEquals(100.00, (float) $attempt->score_pct);
+        $this->assertEquals(100.0, $attempt->domain_scores['General']['pct']);
     }
 
     public function test_user_can_complete_mock_exam_attempt(): void
     {
         $user = User::factory()->create();
         $course = $this->makeCourse();
+        $course->enrollments()->create(['user_id' => $user->id, 'status' => 'active', 'enrolled_at' => now()]);
         $question = $this->makeQuestion($course, 'General');
         $mock = $this->makeMockExam($course, ['General' => 1]);
 
@@ -129,13 +134,14 @@ class CriticalPathTest extends TestCase
 
     public function test_user_can_create_order_and_initiate_payment(): void
     {
+        config(['services.paystack.secret_key' => 'sk_test_fixture']);
         $user = User::factory()->create();
         $course = $this->makeCourse();
         $product = Product::create([
             'productable_type' => Course::class,
             'productable_id' => $course->id,
             'name' => $course->title,
-            'slug' => 'course-' . $course->id,
+            'slug' => 'course-'.$course->id,
             'price' => 1500,
             'currency' => 'NGN',
             'is_active' => true,
@@ -150,7 +156,7 @@ class CriticalPathTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->actingAs($user)->post('/orders', [
+        $response = $this->actingAs($user)->withHeaders(['X-Inertia' => 'true'])->post('/orders', [
             'items' => [
                 ['product_id' => $product->id, 'quantity' => 1],
             ],
@@ -174,6 +180,8 @@ class CriticalPathTest extends TestCase
             'certifiable_type' => Course::class,
             'certifiable_id' => $course->id,
             'title' => 'Course Completion',
+            'pdf_url' => 'certificates/test.html',
+            'qr_code_url' => 'certificates/test-qr.png',
             'issued_at' => now(),
             'is_revoked' => false,
         ]);
@@ -196,7 +204,7 @@ class CriticalPathTest extends TestCase
         $this->actingAs($admin)->get('/admin')->assertStatus(200);
 
         $user = User::factory()->create();
-        $this->actingAs($user)->get('/admin')->assertStatus(403);
+        $this->actingAs($user)->get('/admin')->assertRedirect('/dashboard')->assertSessionHas('error');
     }
 
     private function makeCourse(): Course
@@ -210,8 +218,8 @@ class CriticalPathTest extends TestCase
 
         return Course::create([
             'category_id' => $category->id,
-            'title' => 'Test Course ' . now()->timestamp,
-            'slug' => 'test-course-' . now()->timestamp,
+            'title' => 'Test Course '.now()->timestamp,
+            'slug' => 'test-course-'.now()->timestamp,
             'level' => 'beginner',
             'type' => 'self_paced',
             'price' => 0,

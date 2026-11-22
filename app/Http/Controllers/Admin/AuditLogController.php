@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -23,10 +24,10 @@ class AuditLogController extends Controller
         $stats = $this->auditService->getStats(30);
 
         // Get unique actions and entity types for filters
-        $actions = \App\Models\AuditLog::distinct()->pluck('action')->sort()->values();
-        $entityTypes = \App\Models\AuditLog::distinct()
+        $actions = AuditLog::distinct()->pluck('action')->sort()->values();
+        $entityTypes = AuditLog::distinct()
             ->pluck('auditable_type')
-            ->map(fn($type) => class_basename($type))
+            ->map(fn ($type) => class_basename($type))
             ->sort()
             ->values();
 
@@ -44,7 +45,7 @@ class AuditLogController extends Controller
      */
     public function show(int $id): Response
     {
-        $log = \App\Models\AuditLog::with('user:id,first_name,last_name,email')->findOrFail($id);
+        $log = AuditLog::with('user:id,first_name,last_name,email')->findOrFail($id);
 
         return Inertia::render('Admin/AuditLogs/Show', [
             'log' => $log,
@@ -63,13 +64,13 @@ class AuditLogController extends Controller
         $csv = "ID,User,Action,Entity Type,Entity ID,IP Address,Date\n";
         foreach ($logs as $log) {
             $userName = $log->user ? "{$log->user->first_name} {$log->user->last_name}" : 'System';
-            $csv .= "{$log->id},{$userName},{$log->action}," .
-                class_basename($log->auditable_type) . ",{$log->auditable_id}," .
+            $csv .= "{$log->id},{$userName},{$log->action},".
+                class_basename($log->auditable_type).",{$log->auditable_id},".
                 "{$log->ip_address},{$log->created_at}\n";
         }
 
         return response($csv)
             ->header('Content-Type', 'text/csv')
-            ->header('Content-Disposition', 'attachment; filename="audit-logs-' . now()->format('Y-m-d') . '.csv"');
+            ->header('Content-Disposition', 'attachment; filename="audit-logs-'.now()->format('Y-m-d').'.csv"');
     }
 }

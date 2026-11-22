@@ -2,8 +2,11 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\DB;
+use App\Models\Category;
+use App\Models\Course;
+use App\Models\User;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class PerformanceService
@@ -25,7 +28,7 @@ class PerformanceService
             $indexedColumns = collect($indexes)->pluck('Column_name')->toArray();
 
             foreach ($columns as $column) {
-                if (str_ends_with($column->Field, '_id') && !in_array($column->Field, $indexedColumns)) {
+                if (str_ends_with($column->Field, '_id') && ! in_array($column->Field, $indexedColumns)) {
                     $issues[] = [
                         'table' => $tableName,
                         'type' => 'missing_index',
@@ -48,19 +51,19 @@ class PerformanceService
 
         // Cache course categories
         Cache::remember('categories', 3600, function () {
-            return \App\Models\Category::withCount('courses')->get();
+            return Category::withCount('courses')->get();
         });
         $cached[] = 'categories';
 
         // Cache published course count
         Cache::remember('published_courses_count', 1800, function () {
-            return \App\Models\Course::where('is_published', true)->count();
+            return Course::where('is_published', true)->count();
         });
         $cached[] = 'published_courses_count';
 
         // Cache active user count
         Cache::remember('active_users_count', 1800, function () {
-            return \App\Models\User::where('is_active', true)->count();
+            return User::where('is_active', true)->count();
         });
         $cached[] = 'active_users_count';
 
@@ -103,6 +106,7 @@ class PerformanceService
         if (PHP_OS_FAMILY === 'Windows') {
             return 'N/A on Windows';
         }
+
         return trim(shell_exec('uptime -p') ?? 'unknown');
     }
 }

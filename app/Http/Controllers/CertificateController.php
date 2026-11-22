@@ -3,8 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Certificate;
+use BaconQrCode\Renderer\Image\SvgImageBackEnd;
+use BaconQrCode\Renderer\ImageRenderer;
+use BaconQrCode\Renderer\RendererStyle\RendererStyle;
+use BaconQrCode\Writer;
+use Dompdf\Dompdf;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class CertificateController extends Controller
@@ -31,6 +35,7 @@ class CertificateController extends Controller
     public function show(string $uuid)
     {
         $certificate = Certificate::where('uuid', $uuid)->firstOrFail();
+        abort_unless($certificate->user_id === auth()->id() || auth()->user()->hasRole('platform_admin'), 403);
         $certificate->load(['user', 'certifiable']);
 
         return Inertia::render('Certificates/Show', [
@@ -44,11 +49,11 @@ class CertificateController extends Controller
     public function verify(string $uuid)
     {
         $certificate = Certificate::where('uuid', $uuid)->firstOrFail();
-        $certificate->load('user');
+        $certificate->load('user:id,first_name,last_name');
 
         return Inertia::render('Certificates/Verify', [
-            'certificate' => $certificate,
-            'isValid'     => $certificate->isValid(),
+            'certificate' => [...$certificate->only(['uuid', 'certificate_number', 'title', 'issued_at', 'expires_at']), 'user' => $certificate->user->only(['first_name', 'last_name'])],
+            'isValid' => $certificate->isValid(),
         ]);
     }
 
@@ -58,19 +63,29 @@ class CertificateController extends Controller
             ->with(['user', 'certifiable'])
             ->firstOrFail();
 
-        if ($certificate->user_id !== auth()->id() && !auth()->user()->hasRole('platform_admin')) {
+        if ($certificate->user_id !== auth()->id() && ! auth()->user()->hasRole('platform_admin')) {
             abort(403);
         }
+        abort_unless($certificate->isValid(), 403, 'This certificate is no longer valid.');
 
-        $html = view('certificates.download', [
+        $qr = (new Writer(new ImageRenderer(
+            new RendererStyle(128),
+            new SvgImageBackEnd
+        )))->writeString(route('certificates.verify', $certificate->uuid));
+        $pdf = new Dompdf(['isRemoteEnabled' => false, 'isPhpEnabled' => false, 'isJavascriptEnabled' => false]);
+        $pdf->setPaper('A4', 'landscape');
+        $pdf->loadHtml(view('certificates.pdf', [
             'certificate' => $certificate,
-            'verifyUrl'   => route('certificates.verify', $certificate->uuid),
-        ])->render();
+            'verifyUrl' => route('certificates.verify', $certificate->uuid),
+            'qrData' => 'data:image/svg+xml;base64,'.base64_encode($qr),
+        ])->render());
+        $pdf->render();
 
-        return response()->streamDownload(function () use ($html) {
-            echo $html;
-        }, Str::slug($certificate->title) . '-certificate.html', [
-            'Content-Type' => 'text/html; charset=UTF-8',
+        return response($pdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$certificate->certificate_number.'.pdf"',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
         ]);
     }
 }

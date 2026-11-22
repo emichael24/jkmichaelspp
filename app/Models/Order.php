@@ -21,6 +21,7 @@ class Order extends Model
         'discount_code_id',
         'status',
         'paid_at',
+        'purchase_scope', 'billing_details',
     ];
 
     protected $casts = [
@@ -28,6 +29,7 @@ class Order extends Model
         'discount_amount' => 'decimal:2',
         'total' => 'decimal:2',
         'paid_at' => 'datetime',
+        'billing_details' => 'array',
     ];
 
     protected static function booted(): void
@@ -88,6 +90,13 @@ class Order extends Model
     public function isPaid(): bool
     {
         return $this->status === 'paid';
+    }
+
+    public function accessibleBy(User $user): bool
+    {
+        return $this->purchase_scope === 'organization'
+            ? $user->is_active && $user->hasRole('org_admin') && $user->organization_id === $this->organization_id && (bool) $user->organization?->is_active
+            : $this->user_id === $user->id;
     }
 
     public function isPending(): bool

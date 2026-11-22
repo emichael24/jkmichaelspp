@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Forum extends Model
 {
     protected $fillable = [
+        'organization_id',
         'course_id',
         'cohort_id',
         'title',

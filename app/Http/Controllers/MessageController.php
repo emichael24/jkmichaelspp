@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\DirectMessage;
 use App\Models\User;
+use App\Services\CommunityAccessService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -20,13 +21,14 @@ class MessageController extends Controller
 
         // Load user details for each conversation partner
         $partnerIds = $conversations->keys()->toArray();
-        $partners = User::whereIn('id', $partnerIds)
+        $partners = app(CommunityAccessService::class)->peers(auth()->user())->whereIn('id', $partnerIds)
             ->select('id', 'first_name', 'last_name', 'avatar')
             ->get()
             ->keyBy('id');
 
-        $conversationList = $conversations->map(function ($lastMessage, $partnerId) use ($partners, $userId) {
+        $conversationList = $conversations->filter(fn ($message, $partnerId) => $partners->has($partnerId))->map(function ($lastMessage, $partnerId) use ($partners, $userId) {
             $partner = $partners[$partnerId] ?? null;
+
             return [
                 'partner' => $partner,
                 'last_message' => $lastMessage,
@@ -49,7 +51,7 @@ class MessageController extends Controller
     public function show(int $partnerId): Response
     {
         $userId = auth()->id();
-        $partner = User::select('id', 'first_name', 'last_name', 'avatar')->findOrFail($partnerId);
+        $partner = app(CommunityAccessService::class)->peers(auth()->user())->select('id', 'first_name', 'last_name', 'avatar')->findOrFail($partnerId);
 
         $messages = DirectMessage::conversation($userId, $partnerId)->get();
 
@@ -73,9 +75,10 @@ class MessageController extends Controller
         $validated = $request->validate([
             'recipient_id' => 'required|exists:users,id',
             'body' => 'required|string|max:5000',
-            'attachment_url' => 'nullable|string|max:500',
+            'attachment_url' => 'nullable|url:http,https|max:500',
         ]);
 
+        app(CommunityAccessService::class)->peers($request->user())->findOrFail($validated['recipient_id']);
         DirectMessage::create([
             'sender_id' => auth()->id(),
             'recipient_id' => $validated['recipient_id'],
@@ -98,7 +101,7 @@ class MessageController extends Controller
             return response()->json([]);
         }
 
-        $users = User::where('id', '!=', auth()->id())
+        $users = app(CommunityAccessService::class)->peers($request->user())->where('id', '!=', auth()->id())
             ->where('is_active', true)
             ->where(function ($q) use ($query) {
                 $q->where('first_name', 'LIKE', "%{$query}%")

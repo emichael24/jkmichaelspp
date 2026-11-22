@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\InternshipEnrollment;
 use App\Models\InternshipSubmission;
-use App\Models\InternshipEvidence;
 use App\Models\InternshipTask;
+use App\Services\InternshipWorkflowService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -20,49 +20,19 @@ class InternshipSubmissionController extends Controller
         $this->authorizeEnrollment($enrollment);
 
         $validated = $request->validate([
-            'content'          => 'nullable|string|max:10000',
-            'file_urls'        => 'nullable|array',
-            'file_urls.*'      => 'string|max:500',
-            'time_log_minutes' => 'nullable|integer|min:0',
-            'evidence'         => 'nullable|array',
-            'evidence.*.type'  => 'required_with:evidence|in:screenshot,photo,screen_recording,document,other',
-            'evidence.*.file_url'       => 'required_with:evidence|string|max:500',
-            'evidence.*.caption'        => 'nullable|string|max:500',
-            'evidence.*.file_type'      => 'nullable|string|max:10',
+            'content' => 'nullable|string|max:10000',
+            'file_urls' => 'nullable|array|max:5',
+            'file_urls.*' => 'url:http,https|max:500',
+            'time_log_minutes' => 'nullable|integer|min:0|max:10080',
+            'evidence' => 'nullable|array|max:10',
+            'evidence.*.type' => 'required_with:evidence|in:screenshot,photo,screen_recording,document,other',
+            'evidence.*.file_url' => 'required_with:evidence|url:http,https|max:500',
+            'evidence.*.caption' => 'nullable|string|max:500',
+            'evidence.*.file_type' => 'nullable|string|max:10',
             'evidence.*.file_size_bytes' => 'nullable|integer|min:0',
         ]);
 
-        $submissionNumber = InternshipSubmission::where('task_id', $task->id)
-            ->where('user_id', $request->user()->id)
-            ->max('submission_number') + 1;
-
-        $submission = InternshipSubmission::create([
-            'task_id'           => $task->id,
-            'user_id'           => $request->user()->id,
-            'submission_number' => $submissionNumber,
-            'content'           => $validated['content'] ?? null,
-            'file_urls'         => $validated['file_urls'] ?? null,
-            'time_log_minutes'  => $validated['time_log_minutes'] ?? null,
-            'status'            => 'submitted',
-            'submitted_at'      => now(),
-        ]);
-
-        // Store evidence
-        if (!empty($validated['evidence'])) {
-            foreach ($validated['evidence'] as $ev) {
-                InternshipEvidence::create([
-                    'submission_id'  => $submission->id,
-                    'type'           => $ev['type'],
-                    'file_url'       => $ev['file_url'],
-                    'caption'        => $ev['caption'] ?? null,
-                    'file_type'      => $ev['file_type'] ?? null,
-                    'file_size_bytes' => $ev['file_size_bytes'] ?? null,
-                ]);
-            }
-        }
-
-        // Move task to in_review
-        $task->update(['status' => 'in_review']);
+        app(InternshipWorkflowService::class)->submit($task, $request->user(), $validated);
 
         return back()->with('success', 'Submission created successfully.');
     }
@@ -73,7 +43,7 @@ class InternshipSubmissionController extends Controller
     public function index(Request $request)
     {
         $enrollment = InternshipEnrollment::where('user_id', $request->user()->id)
-            ->whereIn('status', ['enrolled', 'active'])
+            ->whereIn('status', ['enrolled', 'active', 'completed'])
             ->latest()
             ->firstOrFail();
 
@@ -84,7 +54,7 @@ class InternshipSubmissionController extends Controller
             ->paginate(15);
 
         return Inertia::render('Internship/Submissions', [
-            'enrollment'  => $enrollment->load('track'),
+            'enrollment' => $enrollment->load('track'),
             'submissions' => $submissions,
         ]);
     }
@@ -115,25 +85,13 @@ class InternshipSubmissionController extends Controller
         }
 
         $validated = $request->validate([
-            'content'          => 'nullable|string|max:10000',
-            'file_urls'        => 'nullable|array',
-            'file_urls.*'      => 'string|max:500',
-            'time_log_minutes' => 'nullable|integer|min:0',
+            'content' => 'nullable|string|max:10000',
+            'file_urls' => 'nullable|array|max:5',
+            'file_urls.*' => 'url:http,https|max:500',
+            'time_log_minutes' => 'nullable|integer|min:0|max:10080',
         ]);
 
-        $newSubmission = InternshipSubmission::create([
-            'task_id'           => $submission->task_id,
-            'user_id'           => $request->user()->id,
-            'submission_number' => $submission->submission_number + 1,
-            'content'           => $validated['content'] ?? null,
-            'file_urls'         => $validated['file_urls'] ?? null,
-            'time_log_minutes'  => $validated['time_log_minutes'] ?? null,
-            'status'            => 'submitted',
-            'submitted_at'      => now(),
-        ]);
-
-        // Move task back to in_review
-        $submission->task->update(['status' => 'in_review']);
+        app(InternshipWorkflowService::class)->submit($submission->task, $request->user(), $validated, $submission->id);
 
         return back()->with('success', 'Resubmission successful.');
     }
@@ -143,7 +101,7 @@ class InternshipSubmissionController extends Controller
     private function authorizeEnrollment(InternshipEnrollment $enrollment): void
     {
         $user = auth()->user();
-        if ($enrollment->user_id !== $user->id && !$user->hasRole('platform_admin')) {
+        if ($enrollment->user_id !== $user->id && ! $user->hasRole('platform_admin')) {
             abort(403);
         }
     }
@@ -151,7 +109,7 @@ class InternshipSubmissionController extends Controller
     private function authorizeSubmission(InternshipSubmission $submission): void
     {
         $user = auth()->user();
-        if ($submission->user_id !== $user->id && !$user->hasRole('platform_admin')) {
+        if ($submission->user_id !== $user->id && ! $user->hasRole('platform_admin')) {
             abort(403);
         }
     }

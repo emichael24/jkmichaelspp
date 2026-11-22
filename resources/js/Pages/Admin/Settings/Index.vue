@@ -48,6 +48,10 @@ function sessionStatusClass(status) {
         </div>
 
         <div class="grid lg:grid-cols-2 gap-6">
+            <Link :href="route('admin.settings.payments')" class="lg:col-span-2 flex items-center justify-between gap-4 rounded-2xl border border-primary-200 bg-primary-50 p-5 hover:bg-primary-100 focus-visible:ring-2 focus-visible:ring-primary-500">
+                <div><h2 class="text-lg font-semibold text-surface-900">Payments</h2><p class="mt-1 text-sm text-surface-600">Manage Paystack keys and switch between test and live payments.</p></div>
+                <ChevronRight class="h-5 w-5 shrink-0 text-primary-700" />
+            </Link>
             <Card title="General" class="p-5">
                 <div class="space-y-4">
                     <div>
@@ -116,7 +120,7 @@ function sessionStatusClass(status) {
                                 </div>
                             </div>
                             <p v-else class="text-xs text-surface-400">No sessions yet</p>
-                            <Link href="/admin/erp/whatsapp/sessions" class="mt-3 text-xs text-primary-600 hover:underline flex items-center gap-1">
+                            <Link href="/admin/erp/whatsapp" class="mt-3 text-xs text-primary-600 hover:underline flex items-center gap-1">
                                 Manage Sessions <ChevronRight class="w-3 h-3" />
                             </Link>
                         </div>
@@ -142,7 +146,7 @@ function sessionStatusClass(status) {
                                     <span>Pair user numbers</span>
                                     <ChevronRight class="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </Link>
-                                <Link href="/admin/erp/whatsapp/sessions" class="flex items-center justify-between text-sm text-surface-600 hover:text-primary-600 group">
+                                <Link href="/admin/erp/whatsapp" class="flex items-center justify-between text-sm text-surface-600 hover:text-primary-600 group">
                                     <span>Add WA session</span>
                                     <ChevronRight class="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </Link>

@@ -13,23 +13,23 @@ return new class extends Migration
     {
         // Add foreign keys and pipeline relationships missing previously
         Schema::table('crm_deals', function (Blueprint $table) {
-            if (!Schema::hasColumn('crm_deals', 'pipeline_id')) {
+            if (! Schema::hasColumn('crm_deals', 'pipeline_id')) {
                 $table->foreignId('pipeline_id')->nullable()->constrained('crm_pipelines')->nullOnDelete();
             }
-            
+
             // Re-adding due to some previous incomplete migrations, if any.
-            if (!Schema::hasColumn('crm_deals', 'expected_close_date')) {
+            if (! Schema::hasColumn('crm_deals', 'expected_close_date')) {
                 $table->date('expected_close_date')->nullable();
             }
-            if (!Schema::hasColumn('crm_deals', 'probability')) {
+            if (! Schema::hasColumn('crm_deals', 'probability')) {
                 $table->integer('probability')->default(50);
             }
-            if (!Schema::hasColumn('crm_deals', 'lost_reason')) {
+            if (! Schema::hasColumn('crm_deals', 'lost_reason')) {
                 $table->string('lost_reason')->nullable();
             }
         });
 
-        if (!Schema::hasTable('crm_deal_stage_history')) {
+        if (! Schema::hasTable('crm_deal_stage_history')) {
             Schema::create('crm_deal_stage_history', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('deal_id')->constrained('crm_deals')->cascadeOnDelete();
@@ -41,9 +41,9 @@ return new class extends Migration
                 $table->integer('time_in_stage_seconds')->nullable();
             });
         }
-        
+
         // Optionally organization/company concept for B2B CRM
-        if (!Schema::hasTable('crm_organizations')) {
+        if (! Schema::hasTable('crm_organizations')) {
             Schema::create('crm_organizations', function (Blueprint $table) {
                 $table->id();
                 $table->string('name');
@@ -56,21 +56,21 @@ return new class extends Migration
                 $table->softDeletes();
             });
         }
-        
+
         Schema::table('crm_contacts', function (Blueprint $table) {
-            if (!Schema::hasColumn('crm_contacts', 'organization_id')) {
+            if (! Schema::hasColumn('crm_contacts', 'organization_id')) {
                 $table->foreignId('organization_id')->nullable()->constrained('crm_organizations')->nullOnDelete();
             }
-            if (!Schema::hasColumn('crm_contacts', 'job_title')) {
+            if (! Schema::hasColumn('crm_contacts', 'job_title')) {
                 $table->string('job_title')->nullable();
             }
-            if (!Schema::hasColumn('crm_contacts', 'is_primary_decision_maker')) {
+            if (! Schema::hasColumn('crm_contacts', 'is_primary_decision_maker')) {
                 $table->boolean('is_primary_decision_maker')->default(false);
             }
         });
-        
+
         Schema::table('crm_deals', function (Blueprint $table) {
-            if (!Schema::hasColumn('crm_deals', 'organization_id')) {
+            if (! Schema::hasColumn('crm_deals', 'organization_id')) {
                 $table->foreignId('organization_id')->nullable()->constrained('crm_organizations')->nullOnDelete();
             }
         });
@@ -88,7 +88,7 @@ return new class extends Migration
             $table->dropColumn('pipeline_id');
             $table->dropColumn(['expected_close_date', 'probability', 'lost_reason']);
         });
-        
+
         Schema::table('crm_contacts', function (Blueprint $table) {
             $table->dropForeign(['organization_id']);
             $table->dropColumn(['organization_id', 'job_title', 'is_primary_decision_maker']);

@@ -1,6 +1,6 @@
 <template>
-    <div :class="wrapperClasses">
-        <label v-if="label" :for="id" class="block text-sm font-medium text-surface-700 mb-1.5">
+    <div :class="[wrapperClasses, $attrs.class]">
+        <label v-if="label" :for="inputId" class="block text-sm font-medium text-surface-700 mb-1.5">
             {{ label }}
             <span v-if="required" class="text-danger-500 ml-0.5">*</span>
         </label>
@@ -12,7 +12,11 @@
             </div>
 
             <input
-                :id="id"
+                v-bind="{ ...$attrs, class: undefined }"
+                :id="inputId"
+                :required="required"
+                :aria-invalid="error ? 'true' : undefined"
+                :aria-describedby="error || hint ? `${inputId}-description` : $attrs['aria-describedby']"
                 ref="inputRef"
                 :type="type"
                 :value="modelValue"
@@ -32,6 +36,7 @@
                 <button
                     v-if="clearable && modelValue"
                     type="button"
+                    :aria-label="`Clear ${label || 'field'}`"
                     class="text-surface-400 hover:text-surface-600 transition-colors"
                     @click="$emit('update:modelValue', '')"
                 >
@@ -43,18 +48,19 @@
         </div>
 
         <!-- Hint / Error -->
-        <p v-if="error" class="mt-1.5 text-sm text-danger-500 flex items-center gap-1">
+        <p v-if="error" :id="`${inputId}-description`" class="mt-1.5 text-sm text-danger-600 flex items-center gap-1">
             <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
             </svg>
             {{ error }}
         </p>
-        <p v-else-if="hint" class="mt-1.5 text-sm text-surface-500">{{ hint }}</p>
+        <p v-else-if="hint" :id="`${inputId}-description`" class="mt-1.5 text-sm text-surface-500">{{ hint }}</p>
     </div>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, useId } from 'vue';
+defineOptions({ inheritAttrs: false });
 
 const props = defineProps({
     modelValue: { type: [String, Number], default: '' },
@@ -64,7 +70,7 @@ const props = defineProps({
     hint: { type: String, default: null },
     error: { type: String, default: null },
     icon: { type: [Object, Function], default: null },
-    id: { type: String, default: () => `input-${Math.random().toString(36).slice(2, 9)}` },
+    id: { type: String, default: null },
     disabled: { type: Boolean, default: false },
     readonly: { type: Boolean, default: false },
     required: { type: Boolean, default: false },
@@ -76,6 +82,8 @@ const props = defineProps({
 defineEmits(['update:modelValue', 'blur']);
 
 const inputRef = ref(null);
+const generatedId = useId();
+const inputId = computed(() => props.id || generatedId);
 const focused = ref(false);
 
 const sizeMap = {

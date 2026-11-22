@@ -31,7 +31,7 @@ return new class extends Migration
             $table->decimal('ease_factor', 4, 2)->default(2.50);
             $table->unsignedInteger('interval_days')->default(1);
             $table->unsignedInteger('repetitions')->default(0);
-            $table->timestamp('next_review_at');
+            $table->dateTime('next_review_at');
             $table->timestamp('last_reviewed_at')->nullable();
             $table->enum('status', ['new', 'learning', 'review', 'graduated'])->default('new');
             $table->timestamps();

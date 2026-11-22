@@ -7,12 +7,10 @@ use Illuminate\Support\Str;
 
 class PaystackService
 {
-    protected string $secretKey;
     protected string $baseUrl;
 
     public function __construct()
     {
-        $this->secretKey = config('services.paystack.secret_key');
         $this->baseUrl = config('services.paystack.payment_url', 'https://api.paystack.co');
     }
 
@@ -21,34 +19,34 @@ class PaystackService
      */
     public function initializeTransaction(array $params): array
     {
-        $reference = $params['reference'] ?? 'JKM-' . strtoupper(Str::random(12));
+        $reference = $params['reference'] ?? 'JKM-'.strtoupper(Str::random(12));
 
         $payload = [
-            'email'     => $params['email'],
-            'amount'    => (int) round($params['amount'] * 100), // kobo
+            'email' => $params['email'],
+            'amount' => (int) round($params['amount'] * 100), // kobo
             'reference' => $reference,
             'callback_url' => $params['callback_url'] ?? config('services.paystack.callback_url'),
-            'metadata'  => $params['metadata'] ?? [],
-            'currency'  => $params['currency'] ?? 'NGN',
-            'channels'  => $params['channels'] ?? ['card', 'bank', 'ussd', 'qr', 'bank_transfer'],
+            'metadata' => $params['metadata'] ?? [],
+            'currency' => $params['currency'] ?? 'NGN',
+            'channels' => $params['channels'] ?? ['card', 'bank', 'ussd', 'qr', 'bank_transfer'],
         ];
 
         if (! empty($params['plan'])) {
             $payload['plan'] = $params['plan'];
         }
 
-        $response = Http::withToken($this->secretKey)
+        $response = Http::withToken(app(PaystackSettings::class)->secret($params['payment_mode'] ?? null))->timeout(20)
             ->post("{$this->baseUrl}/transaction/initialize", $payload);
 
         $data = $response->json();
 
         if (! $response->successful() || ! ($data['status'] ?? false)) {
-            throw new \RuntimeException('Paystack initialization failed: ' . ($data['message'] ?? 'Unknown error'));
+            throw new \RuntimeException('Paystack initialization failed: '.($data['message'] ?? 'Unknown error'));
         }
 
         return [
-            'reference'       => $reference,
-            'access_code'     => $data['data']['access_code'],
+            'reference' => $reference,
+            'access_code' => $data['data']['access_code'],
             'authorization_url' => $data['data']['authorization_url'],
         ];
     }
@@ -56,15 +54,19 @@ class PaystackService
     /**
      * Verify a transaction by reference.
      */
-    public function verifyTransaction(string $reference): array
+    public function verifyTransaction(string $reference, ?string $mode = null): array
     {
-        $response = Http::withToken($this->secretKey)
+        $response = Http::withToken(app(PaystackSettings::class)->secret($mode))->timeout(20)
             ->get("{$this->baseUrl}/transaction/verify/{$reference}");
 
         $data = $response->json();
 
         if (! $response->successful() || ! ($data['status'] ?? false)) {
-            throw new \RuntimeException('Paystack verification failed: ' . ($data['message'] ?? 'Unknown error'));
+            throw new \RuntimeException('Paystack verification failed: '.($data['message'] ?? 'Unknown error'));
+        }
+
+        if (data_get($data, 'data.domain') && data_get($data, 'data.domain') !== ($mode ?: app(PaystackSettings::class)->mode())) {
+            throw new \RuntimeException('Paystack returned a transaction from a different payment environment.');
         }
 
         return $data['data'];
@@ -75,16 +77,34 @@ class PaystackService
      */
     public function createCustomer(array $params): array
     {
-        $response = Http::withToken($this->secretKey)
+        $response = Http::withToken(app(PaystackSettings::class)->secret())->timeout(20)
             ->post("{$this->baseUrl}/customer", $params);
 
         $data = $response->json();
 
         if (! $response->successful() || ! ($data['status'] ?? false)) {
-            throw new \RuntimeException('Paystack customer creation failed: ' . ($data['message'] ?? 'Unknown error'));
+            throw new \RuntimeException('Paystack customer creation failed: '.($data['message'] ?? 'Unknown error'));
         }
 
         return $data['data'];
+    }
+
+    public function fetchSubscription(string $code, ?string $mode = null): array
+    {
+        $response = Http::withToken(app(PaystackSettings::class)->secret($mode))->timeout(20)->get($this->baseUrl.'/subscription/'.rawurlencode($code));
+        if (! $response->successful() || ! $response->json('status')) {
+            throw new \RuntimeException('Unable to reconcile subscription with Paystack.');
+        }
+
+        return $response->json('data');
+    }
+
+    public function disableSubscription(string $code, string $token, ?string $mode = null): void
+    {
+        $response = Http::withToken(app(PaystackSettings::class)->secret($mode))->timeout(20)->post($this->baseUrl.'/subscription/disable', ['code' => $code, 'token' => $token]);
+        if (! $response->successful() || ! $response->json('status')) {
+            throw new \RuntimeException('Paystack could not confirm cancellation.');
+        }
     }
 
     /**
@@ -92,7 +112,7 @@ class PaystackService
      */
     public function createSubscription(string $customerCode, string $planCode): array
     {
-        $response = Http::withToken($this->secretKey)
+        $response = Http::withToken(app(PaystackSettings::class)->secret())->timeout(20)
             ->post("{$this->baseUrl}/subscription", [
                 'customer' => $customerCode,
                 'plan' => $planCode,
@@ -101,7 +121,7 @@ class PaystackService
         $data = $response->json();
 
         if (! $response->successful() || ! ($data['status'] ?? false)) {
-            throw new \RuntimeException('Paystack subscription creation failed: ' . ($data['message'] ?? 'Unknown error'));
+            throw new \RuntimeException('Paystack subscription creation failed: '.($data['message'] ?? 'Unknown error'));
         }
 
         return $data['data'];
@@ -112,9 +132,7 @@ class PaystackService
      */
     public function validateWebhook(string $payload, string $signature): bool
     {
-        $secret = config('services.paystack.webhook_secret') ?: $this->secretKey;
-        $expected = hash_hmac('sha512', $payload, $secret);
-        return hash_equals($expected, $signature);
+        return app(PaystackSettings::class)->signedMode($payload, $signature) !== null;
     }
 
     /**
@@ -122,7 +140,7 @@ class PaystackService
      */
     public function listBanks(string $country = 'nigeria'): array
     {
-        $response = Http::withToken($this->secretKey)
+        $response = Http::withToken(app(PaystackSettings::class)->secret())->timeout(20)
             ->get("{$this->baseUrl}/bank", ['country' => $country, 'perPage' => 100]);
 
         return $response->json('data', []);
@@ -133,12 +151,12 @@ class PaystackService
      */
     public function createTransferRecipient(array $params): array
     {
-        $response = Http::withToken($this->secretKey)
+        $response = Http::withToken(app(PaystackSettings::class)->secret())->timeout(20)
             ->post("{$this->baseUrl}/transferrecipient", $params);
 
         $data = $response->json();
         if (! $response->successful() || ! ($data['status'] ?? false)) {
-            throw new \RuntimeException('Failed to create transfer recipient: ' . ($data['message'] ?? ''));
+            throw new \RuntimeException('Failed to create transfer recipient: '.($data['message'] ?? ''));
         }
 
         return $data['data'];
@@ -149,15 +167,15 @@ class PaystackService
      */
     public function initiateTransfer(array $params): array
     {
-        $response = Http::withToken($this->secretKey)
+        $response = Http::withToken(app(PaystackSettings::class)->secret())->timeout(20)
             ->post("{$this->baseUrl}/transfer", array_merge([
-                'source'   => 'balance',
+                'source' => 'balance',
                 'currency' => 'NGN',
             ], $params));
 
         $data = $response->json();
         if (! $response->successful() || ! ($data['status'] ?? false)) {
-            throw new \RuntimeException('Transfer failed: ' . ($data['message'] ?? ''));
+            throw new \RuntimeException('Transfer failed: '.($data['message'] ?? ''));
         }
 
         return $data['data'];

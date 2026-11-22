@@ -1,0 +1,20 @@
+[Unit]
+Description=JK Michaels production readiness monitor (test payments)
+After=network-online.target mariadb.service jkm-queue.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=jkmichaelspm.com_8glivfes07m
+Group=psacln
+WorkingDirectory=/var/www/vhosts/jkmichaelspm.com/app.jkmichaelspm.com
+# Remove --allow-test-payments only as part of an approved live billing cutover.
+ExecStart=/opt/plesk/php/8.2/bin/php artisan enterprise:check --json --allow-test-payments
+TimeoutStartSec=60
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+MemoryMax=256M
+StandardOutput=journal
+StandardError=journal

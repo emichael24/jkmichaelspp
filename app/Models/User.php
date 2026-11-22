@@ -2,22 +2,26 @@
 
 namespace App\Models;
 
+use App\Models\Traits\RecordsDomainAudit;
+use App\Services\OrganizationSeatService;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
-use App\Models\CourseEnrollment;
-use App\Models\Course;
-use App\Models\Bookmark;
-use App\Models\UserNote;
-use App\Models\LessonProgress;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
     use HasApiTokens, HasFactory, HasRoles, Notifiable, SoftDeletes, Traits\HasSubscriptions;
+    use RecordsDomainAudit { save as private saveWithAudit; }
+
+    public function save(array $options = [])
+    {
+        return app(OrganizationSeatService::class)->saveUser($this, fn () => $this->saveWithAudit($options));
+    }
 
     protected $fillable = [
         'uuid',
@@ -55,14 +59,14 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return [
             'email_verified_at' => 'datetime',
-            'exam_date'         => 'date',
-            'last_login_at'     => 'datetime',
-            'password'          => 'hashed',
+            'exam_date' => 'date',
+            'last_login_at' => 'datetime',
+            'password' => 'hashed',
             'accessibility_prefs' => 'array',
-            'notification_prefs'  => 'array',
+            'notification_prefs' => 'array',
             'onboarding_completed' => 'boolean',
-            'is_active'           => 'boolean',
-            'daily_minutes'       => 'integer',
+            'is_active' => 'boolean',
+            'daily_minutes' => 'integer',
         ];
     }
 
@@ -82,7 +86,7 @@ class User extends Authenticatable implements MustVerifyEmail
     public function getInitialsAttribute(): string
     {
         return strtoupper(
-            mb_substr($this->first_name, 0, 1) . mb_substr($this->last_name, 0, 1)
+            mb_substr($this->first_name, 0, 1).mb_substr($this->last_name, 0, 1)
         );
     }
 
@@ -105,6 +109,11 @@ class User extends Authenticatable implements MustVerifyEmail
     public function departments()
     {
         return $this->belongsToMany(Department::class, 'department_user');
+    }
+
+    public function notificationPreferences()
+    {
+        return $this->hasOne(NotificationPreference::class);
     }
 
     public function enrollments()
@@ -160,7 +169,7 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         static::creating(function (User $user) {
             if (empty($user->uuid)) {
-                $user->uuid = (string) \Illuminate\Support\Str::uuid();
+                $user->uuid = (string) Str::uuid();
             }
         });
     }

@@ -49,20 +49,33 @@
             </p>
         </div>
 
-        <!-- Options -->
         <div class="px-6 pb-6 space-y-3">
-            <OptionCard
-                v-for="(option, idx) in question.options"
-                :key="option.id"
-                :option="option"
-                :index="idx"
-                :is-selected="selectedIds.includes(option.id)"
-                :is-review="isReview"
-                :correct-answer-ids="correctAnswerIds"
-                :selected-answer-ids="selectedIds"
-                :disabled="isReview"
-                @select="handleSelect"
-            />
+            <label v-if="question.type === 'fill_blank' || (question.type === 'formula' && !question.options?.length)" class="block space-y-2 text-sm font-medium">
+                Your answer
+                <input :value="selectedIds[0] || ''" :disabled="isReview" :inputmode="question.type === 'formula' ? 'decimal' : 'text'" class="block w-full rounded-xl border-surface-300" @input="$emit('select', [$event.target.value])" />
+            </label>
+            <template v-else-if="question.type === 'ordering'">
+                <p class="text-sm text-surface-500">Arrange the steps in the correct order.</p>
+                <div v-for="(option, index) in orderedOptions" :key="option.id" class="flex items-center gap-3 rounded-xl border border-surface-200 p-3">
+                    <span class="font-semibold text-surface-400">{{ index + 1 }}</span><span class="flex-1">{{ option.text }}</span>
+                    <button v-if="!isReview" type="button" :disabled="index === 0" :aria-label="`Move ${option.text} up`" class="rounded border px-3 py-2 disabled:opacity-30" @click="moveOption(index,-1)">↑</button>
+                    <button v-if="!isReview" type="button" :disabled="index === orderedOptions.length - 1" :aria-label="`Move ${option.text} down`" class="rounded border px-3 py-2 disabled:opacity-30" @click="moveOption(index,1)">↓</button>
+                </div>
+                <button v-if="!isReview && !selectedIds.length" type="button" class="text-sm font-semibold text-primary-700 underline" @click="$emit('select',orderedOptions.map(o=>o.id))">Use this order</button>
+            </template>
+            <template v-else-if="question.type === 'matching'">
+                <label v-for="option in question.options" :key="option.id" class="grid items-center gap-2 rounded-xl border border-surface-200 p-3 sm:grid-cols-2">
+                    <span>{{ option.text }}</span>
+                    <select :value="selectedIds.find(p=>p.startsWith(option.id+':'))?.split(':')[1] || ''" :disabled="isReview" class="rounded-lg border-surface-300" @change="matchOption(option.id,$event.target.value)">
+                        <option value="">Choose a match</option><option v-for="right in matchingOptions" :key="right.id" :value="right.id">{{ right.match_text || right.text }}</option>
+                    </select>
+                </label>
+            </template>
+            <template v-else>
+                <OptionCard v-for="(option, idx) in question.options" :key="option.id" :option="option" :index="idx"
+                    :is-selected="selectedIds.includes(option.id)" :is-review="isReview" :correct-answer-ids="correctAnswerIds" :selected-answer-ids="selectedIds" :disabled="isReview" @select="handleSelect" />
+            </template>
+            <p v-if="isReview && ['fill_blank','ordering','matching'].includes(question.type)" class="text-sm text-surface-600">Correct answer: {{ correctAnswerIds.map(answerLabel).join(' → ') }}</p>
         </div>
 
         <!-- Review explanations -->
@@ -121,6 +134,12 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['select', 'flag', 'confidence']);
+
+const orderedOptions = computed(() => (props.selectedIds.length ? props.selectedIds : props.question.options.map(o=>o.id)).map(id=>props.question.options.find(o=>o.id===id)).filter(Boolean));
+const matchingOptions = computed(() => [...props.question.options].sort((a,b)=>(a.match_text || a.text).localeCompare(b.match_text || b.text)));
+function moveOption(index,direction) { const ids=orderedOptions.value.map(o=>o.id); [ids[index],ids[index+direction]]=[ids[index+direction],ids[index]]; emit('select',ids); }
+function matchOption(left,right) { emit('select',[...props.selectedIds.filter(p=>!p.startsWith(left+':')),...(right ? [left+':'+right] : [])]); }
+function answerLabel(id) { if (props.question.type==='matching') { const [a,b]=id.split(':');return (props.question.options.find(o=>o.id===a)?.text || a)+' = '+(props.question.options.find(o=>o.id===b)?.match_text || b); } return props.question.options?.find(o=>o.id===id)?.text || id; }
 
 const typeLabel = computed(() => {
     const map = {

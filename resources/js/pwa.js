@@ -1,3 +1,4 @@
+import axios from 'axios';
 /**
  * PWA Service Worker Registration & Utilities
  */
@@ -10,7 +11,7 @@ export function registerServiceWorker() {
 
     window.addEventListener('load', async () => {
         try {
-            const registration = await navigator.serviceWorker.register('/sw.js', {
+            const registration = await navigator.serviceWorker.register(`/sw.js?build=${__JK_BUILD_ID__}`, {
                 scope: '/',
             });
 
@@ -49,22 +50,24 @@ export async function requestNotificationPermission() {
  * Subscribe to push notifications
  */
 export async function subscribeToPush() {
+    const { data } = await axios.get('/api/push/key');
+    const permission = await requestNotificationPermission();
+    if (permission !== 'granted') throw new Error('Allow notifications in your browser settings to enable this device.');
     const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(
-            import.meta.env.VITE_VAPID_PUBLIC_KEY || ''
-        ),
+    const subscription = await registration.pushManager.getSubscription() || await registration.pushManager.subscribe({
+        userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(data.public_key),
     });
-
-    // Send subscription to server
-    await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(subscription),
-    });
-
+    await axios.post('/api/push/subscribe', subscription.toJSON());
     return subscription;
+}
+
+export async function unsubscribeFromPush() {
+    if (!('serviceWorker' in navigator)) return;
+    const registration = await navigator.serviceWorker.getRegistration();
+    const subscription = await registration?.pushManager?.getSubscription();
+    if (!subscription) return;
+    await axios.delete('/api/push/subscribe', { data: { endpoint: subscription.endpoint } });
+    await subscription.unsubscribe();
 }
 
 /**
@@ -113,107 +116,7 @@ export function setupNetworkStatus(onOnline, onOffline) {
     return navigator.onLine;
 }
 
-/**
- * IndexedDB helpers for offline data
- */
-export function openOfflineDB() {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open('jkm-offline', 1);
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result);
-        request.onupgradeneeded = (event) => {
-            const db = event.target.result;
-            if (!db.objectStoreNames.contains('pendingProgress')) {
-                db.createObjectStore('pendingProgress', { keyPath: 'id', autoIncrement: true });
-            }
-            if (!db.objectStoreNames.contains('pendingQuizAttempts')) {
-                db.createObjectStore('pendingQuizAttempts', { keyPath: 'id', autoIncrement: true });
-            }
-            if (!db.objectStoreNames.contains('downloadedLessons')) {
-                db.createObjectStore('downloadedLessons', { keyPath: 'lessonId' });
-            }
-        };
-    });
-}
-
-export async function saveProgressOffline(progressData) {
-    const db = await openOfflineDB();
-    const tx = db.transaction('pendingProgress', 'readwrite');
-    tx.objectStore('pendingProgress').add({
-        ...progressData,
-        timestamp: Date.now(),
-    });
-}
-
-export async function saveLessonOffline(lessonId, lessonData) {
-    const db = await openOfflineDB();
-    const tx = db.transaction('downloadedLessons', 'readwrite');
-    tx.objectStore('downloadedLessons').put({
-        lessonId,
-        ...lessonData,
-        downloadedAt: Date.now(),
-    });
-}
-
-export async function getOfflineLesson(lessonId) {
-    const db = await openOfflineDB();
-    return new Promise((resolve) => {
-        const tx = db.transaction('downloadedLessons', 'readonly');
-        const request = tx.objectStore('downloadedLessons').get(lessonId);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => resolve(null);
-    });
-}
-
-export async function getDownloadedLessons() {
-    const db = await openOfflineDB();
-    return new Promise((resolve) => {
-        const tx = db.transaction('downloadedLessons', 'readonly');
-        const request = tx.objectStore('downloadedLessons').getAll();
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => resolve([]);
-    });
-}
-
-export async function removeOfflineLesson(lessonId) {
-    const db = await openOfflineDB();
-    const tx = db.transaction('downloadedLessons', 'readwrite');
-    tx.objectStore('downloadedLessons').delete(lessonId);
-}
-
-export async function cacheLessonAssets(lesson) {
-    if (!('caches' in window)) return;
-
-    const urls = [
-        lesson?.video_url,
-        lesson?.audio_url,
-        lesson?.pdf_url,
-        lesson?.slides_url,
-    ].filter(Boolean);
-
-    if (!urls.length) return;
-
-    const cache = await caches.open('jkm-offline-assets');
-    const origin = window.location.origin;
-
-    for (const url of urls) {
-        try {
-            const resolved = new URL(url, origin);
-            if (resolved.origin !== origin) continue;
-            await cache.add(resolved.toString());
-        } catch (err) {
-            console.warn('[PWA] Failed to cache asset', url, err);
-        }
-    }
-}
-
-// Trigger background sync
-export async function requestBackgroundSync(tag = 'sync-progress') {
-    const registration = await navigator.serviceWorker.ready;
-    if ('sync' in registration) {
-        await registration.sync.register(tag);
-    }
-}
+export { saveLessonOffline, getOfflineLesson, getDownloadedLessons, removeOfflineLesson, saveProgressOffline } from './lib/offlineStore';
 
 // Utility
 function urlBase64ToUint8Array(base64String) {

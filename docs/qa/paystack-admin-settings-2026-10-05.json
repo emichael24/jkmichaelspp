@@ -1,0 +1,132 @@
+{
+  "deployment": {
+    "release": "20261005-payments",
+    "verified_at": "2026-10-05T15:38:49.398768+00:00",
+    "url": "https://app.jkmichaelspm.com/admin/settings/payments",
+    "runtime_archive_sha256": "a0a5150a103197060bdfde87da35848feea1ac4f39950b07fdb6e3e2a00db8f0",
+    "verified_runtime_files": 963,
+    "schema_changed": true,
+    "migration": {
+      "pending": 0,
+      "mode": "test",
+      "version": 0,
+      "configured": true
+    },
+    "rollback_release": "/var/www/vhosts/jkmichaelspm.com/.jkm-releases/20261005-licenses",
+    "database_preserved": true,
+    "counts": {
+      "organizations": 3,
+      "users": 29,
+      "course_enrollments": 130,
+      "crm_contacts": 0,
+      "crm_contact_imports": 0,
+      "orders": 0,
+      "payments": 0,
+      "certificates": 0
+    },
+    "guest_checks": {
+      "/login": {
+        "status": 200,
+        "login_required": true
+      },
+      "/admin/settings": {
+        "status": 200,
+        "login_required": true
+      },
+      "/admin/settings/payments": {
+        "status": 200,
+        "login_required": true
+      },
+      "/organization/courses": {
+        "status": 200,
+        "login_required": true
+      }
+    },
+    "verified_assets": 3,
+    "operational_checks": 28,
+    "units": {
+      "jkm-queue.service": "active",
+      "jkm-contact-imports.service": "active",
+      "jkm-scheduler.timer": "active",
+      "jkm-health.timer": "active"
+    },
+    "payment_mode": "test",
+    "backup_path": "/root/jkm-payments-20261005/backup-153838",
+    "backup_hashes": {
+      "production.sql": "dd26d7569900454869d09c7449d7375c9ec6bfc76365b865a4f657e7be22472a",
+      "runtime.tar.gz": "512253c6b352057c36a5be8c7ba0d5d9bc05d1daf313d338b706f32453bd5bc1"
+    },
+    "previous_release": "/var/www/vhosts/jkmichaelspm.com/.jkm-releases/20261005-licenses"
+  },
+  "live_probe": {
+    "render_status": 200,
+    "secret_absent_from_page": true,
+    "mode": "test",
+    "configured": true,
+    "version": 0,
+    "webhook_url": "https://app.jkmichaelspm.com/webhooks/paystack",
+    "routes": [
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "middleware": [
+          "web",
+          "auth",
+          "role:platform_admin"
+        ]
+      },
+      {
+        "methods": [
+          "PUT"
+        ],
+        "middleware": [
+          "web",
+          "auth",
+          "role:platform_admin",
+          "throttle:5,1"
+        ]
+      }
+    ],
+    "provider_read_only_check": {
+      "operation": "GET /balance",
+      "http_status": 200,
+      "accepted": true
+    },
+    "no_settings_or_payment_mutation": true
+  },
+  "sql_preparation": {
+    "result": "passed",
+    "test_exit": 0,
+    "staging": "/var/www/vhosts/jkmichaelspm.com/.jkm-releases/20261005-payments",
+    "runtime_sha256": "a0a5150a103197060bdfde87da35848feea1ac4f39950b07fdb6e3e2a00db8f0"
+  },
+  "local_tests": {
+    "tests": 202,
+    "assertions": 1749,
+    "passed": true,
+    "final_focused_tests": 35,
+    "final_focused_assertions": 359
+  },
+  "isolated_mariadb_tests": {
+    "tests": 202,
+    "assertions": 1749,
+    "passed": true,
+    "database": "jk_payments_test"
+  },
+  "build": {
+    "passed": true,
+    "seconds": 34.81
+  },
+  "browser": {
+    "synthetic_preview": true,
+    "navigation_verified": true,
+    "live_confirmation_conditional": true,
+    "desktop_screenshot": "paystack-settings-desktop-2026-10-05.png",
+    "mobile_screenshot": "paystack-settings-mobile-2026-10-05.png",
+    "mobile_viewport_width": 390,
+    "document_width": 385,
+    "credentials_submitted": false
+  }
+}

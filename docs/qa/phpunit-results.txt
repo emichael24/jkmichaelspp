@@ -1,0 +1,59 @@
+
+   PASS  Tests\Unit\ExampleTest
+  ✓ that true is true                                                                                            0.01s  
+
+   PASS  Tests\Feature\AiStudioTest
+  ✓ facilitator can generate quiz via ai                                                                         1.16s  
+
+   PASS  Tests\Feature\CourseAuthoringTest
+  ✓ facilitator course counts and filters only include owned courses                                             0.22s  
+  ✓ admin and facilitator can create free courses and save paid course details                                   0.12s  
+  ✓ facilitator can author review and edit all lesson fields with scoped routes                                  0.16s  
+  ✓ release dates are required and facilitator thumbnail upload is scoped                                        0.12s  
+
+   PASS  Tests\Feature\CriticalPathTest
+  ✓ user can login and access dashboard                                                                          0.12s  
+  ✓ user can enroll in free course                                                                               0.05s  
+  ✓ user can complete quiz attempt                                                                               0.09s  
+  ✓ user can complete mock exam attempt                                                                          0.08s  
+  ✓ user can create order and initiate payment                                                                   0.07s  
+  ✓ user can view and download certificate                                                                       0.07s  
+  ✓ admin routes require role                                                                                    0.07s  
+
+   PASS  Tests\Feature\EnterpriseReadinessTest
+  ✓ course review metadata is persisted and review screen loads                                                  0.11s  
+  ✓ empty course cannot be published                                                                             0.05s  
+  ✓ ready facilitator course still requires approval                                                             0.06s  
+  ✓ unenrolled user cannot complete download or commit lesson                                                    0.06s  
+  ✓ hidden and drip lessons are not accessible to enrolled users                                                 0.08s  
+  ✓ suspended enrollment cannot write progress                                                                   0.08s  
+  ✓ unanswered questions count against the score                                                                 0.14s  
+  ✓ attempt rejects foreign questions and uses saved answer key                                                  0.13s  
+  ✓ expired attempt rejects new answers                                                                          0.09s  
+  ✓ exam api does not disclose answers and resumes the same questions                                            0.08s  
+  ✓ sponsor cannot change another organizers meeting                                                             0.06s  
+  ✓ organization admin cannot access global crm                                                                  0.05s  
+  ✓ legacy payment initialization rejects someone elses order                                                    0.05s  
+  ✓ unsigned or unconfigured payment callbacks fail closed                                                       0.05s  
+  ✓ stripe signature rejects stale replays                                                                       0.04s  
+  ✓ organization overview never returns other organizations people                                               0.08s  
+  ✓ deactivated accounts cannot login or continue an existing session                                            0.26s  
+  ✓ paid plan cannot be activated without payment                                                                0.04s  
+  ✓ answers cannot be reviewed while attempt is active                                                           0.06s  
+  ✓ legacy attempt is preserved as abandoned and can restart                                                     0.07s  
+  ✓ exam pool never uses unpublished questions to fill shortfall                                                 0.06s  
+  ✓ facilitator cannot reach another cohorts assignment                                                          0.06s  
+  ✓ stripe valid callback checks amount and is idempotent                                                        0.06s  
+
+   PASS  Tests\Feature\ExamEngineTest
+  ✓ user can generate a mock exam attempt                                                                        0.08s  
+
+   PASS  Tests\Feature\ExampleTest
+  ✓ the application returns a successful response                                                                0.05s  
+
+   PASS  Tests\Feature\WorkspaceNavigationTest
+  ✓ primary workspace pages render with empty data                                                               0.93s  
+
+  Tests:    39 passed (203 assertions)
+  Duration: 5.59s
+

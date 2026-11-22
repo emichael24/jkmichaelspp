@@ -16,14 +16,16 @@
                 <div class="p-4 bg-surface-50 rounded-xl">
                     <p class="text-sm text-surface-700 font-medium mb-1">CSV Format</p>
                     <p class="text-xs text-surface-500">
-                        Your CSV must have these columns: <code class="bg-surface-200 px-1 rounded">first_name, last_name, email, phone, password</code>
+                        Required columns: <code class="bg-surface-200 px-1 rounded">first_name, last_name, email</code>. You may include <code>phone</code>. Maximum 100 people and 512 KB.
                     </p>
+                    <p class="mt-2 text-xs leading-relaxed text-surface-500">Each person chooses their password through Forgot password. Leave passwords out of the CSV. This import creates accounts without sending email; organization administrators can use People &amp; invitations to send joining links instead.</p>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1.5">CSV File</label>
+                    <label for="users-csv" class="block text-sm font-medium text-surface-700 mb-1.5">CSV File</label>
                     <input
                         type="file"
+                        id="users-csv"
                         accept=".csv,.txt"
                         @change="form.csv_file = $event.target.files[0]"
                         class="w-full text-sm text-surface-600 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
@@ -32,18 +34,19 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1.5">Assign Role</label>
-                    <select v-model="form.role" class="w-full rounded-xl border-surface-300 text-sm focus:border-primary-500 focus:ring-primary-500/20">
+                    <label for="users-role" class="block text-sm font-medium text-surface-700 mb-1.5">Assign Role</label>
+                    <select id="users-role" v-model="form.role" class="w-full rounded-xl border-surface-300 text-sm focus:border-primary-500 focus:ring-primary-500/20">
                         <option v-for="role in roles" :key="role" :value="role">{{ role.replace('_', ' ') }}</option>
                     </select>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1.5">Organization</label>
-                    <select v-model="form.organization_id" class="w-full rounded-xl border-surface-300 text-sm focus:border-primary-500 focus:ring-primary-500/20">
+                    <label for="users-organization" class="block text-sm font-medium text-surface-700 mb-1.5">Organization</label>
+                    <select id="users-organization" v-model="form.organization_id" class="w-full rounded-xl border-surface-300 text-sm focus:border-primary-500 focus:ring-primary-500/20">
                         <option :value="null">None</option>
                         <option v-for="org in organizations" :key="org.id" :value="org.id">{{ org.name }}</option>
                     </select>
+                    <p v-if="form.errors.organization_id" role="alert" class="mt-2 text-sm text-danger-600">{{ form.errors.organization_id }}</p>
                 </div>
 
                 <div class="flex justify-end gap-3 pt-4 border-t border-surface-100">

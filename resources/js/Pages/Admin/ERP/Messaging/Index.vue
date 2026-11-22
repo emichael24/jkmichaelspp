@@ -1,295 +1,88 @@
+<script setup>
+import { ref, watch } from 'vue';
+import axios from 'axios';
+import EmailEditor from '@/Components/Messaging/EmailEditor.vue';
+import AudiencePicker from '@/Components/Messaging/AudiencePicker.vue';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Plus, Mail, Search, ArrowRight, Users } from 'lucide-vue-next';
+import AdminLayout from '@/Layouts/AdminLayout.vue';
+import Modal from '@/Components/UI/Modal.vue';
+import Input from '@/Components/UI/Input.vue';
+import Button from '@/Components/UI/Button.vue';
+defineOptions({ layout: AdminLayout });
+const props = defineProps({ campaigns: Object, stats: Object, filters: Object, audienceOptions: Object, initialAudience: Object, compose: Boolean });
+const open = ref(props.compose);
+const search = ref(props.filters?.search || '');
+const channel = ref(props.filters?.channel || '');
+const form = useForm({ name: '', channel: 'email', type: 'broadcast', subject: '', body: '', body_format: 'html', audience_filter: { source: 'users', role: '', organization_id: '', organization_members: false, contact_types: [], crm_organization_id: '', ...props.initialAudience }, scheduled_at: '', send_immediately: false });
+function filter() { router.get('/admin/erp/messaging', { search: search.value, channel: channel.value }, { preserveState: true, replace: true }); }
+function save() {
+    form.transform(data => ({ ...data, body_format: data.channel === 'email' ? 'html' : 'text', scheduled_at: data.scheduled_at ? new Date(data.scheduled_at).toISOString() : null }));
+    form.post('/admin/erp/messaging', { onSuccess: () => { open.value = false; form.reset(); } });
+}
+const preview = ref(null), previewError = ref(''), previewBusy = ref(false);
+let previewVersion = 0;
+watch(() => [form.channel, JSON.stringify(form.audience_filter)], () => { previewVersion++; preview.value = null; previewError.value = ''; previewBusy.value = false; });
+watch(() => form.channel, (channel, previous) => {
+    if (previous === 'email' && channel !== 'email') {
+        const document = new DOMParser().parseFromString(form.body, 'text/html');
+        document.querySelectorAll('p,li,h2,h3,h4,br').forEach(node => node.append(document.createTextNode('\n')));
+        form.body = document.body.textContent?.trim() || '';
+    } else if (channel === 'email') {
+        form.body = form.body ? '<p>' + form.body.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('\n', '</p><p>') + '</p>' : '';
+    }
+});
+async function previewAudience() {
+    const version = ++previewVersion; previewBusy.value = true; previewError.value = '';
+    try { const response = await axios.post('/admin/erp/messaging/audience-preview', { channel: form.channel, audience_filter: form.audience_filter }); if (version === previewVersion) preview.value = response.data; }
+    catch (error) { if (version === previewVersion) previewError.value = Object.values(error.response?.data?.errors || {}).flat().join(' ') || 'Could not load recipients. Try again.'; }
+    finally { if (version === previewVersion) previewBusy.value = false; }
+}
+const date = value => value ? new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+const statuses = { draft: 'Draft', scheduled: 'Scheduled', sending: 'Queued / sending', sent: 'Completed', paused: 'Needs attention', cancelled: 'Canceled' };
+</script>
 <template>
-    <Head title="Messaging Campaigns" />
-
-    <div class="space-y-6">
-        <!-- Header -->
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-                <h1 class="text-2xl font-display font-bold text-surface-900">Messaging</h1>
-                <p class="text-surface-500 mt-1 text-sm">Email and WhatsApp campaigns, broadcasts, and follow-ups.</p>
-            </div>
-            <div class="flex items-center gap-2">
-                <Link href="/admin/erp/whatsapp/sessions">
-                    <Button variant="secondary" size="sm">
-                        <Wifi class="w-4 h-4 mr-1.5" /> WA Sessions
-                    </Button>
-                </Link>
-                <button @click="showNewCampaign = true" class="px-4 py-2 bg-primary-600 text-white rounded-xl text-sm font-semibold hover:bg-primary-700 flex items-center gap-2">
-                    <Plus class="w-4 h-4" /> New Campaign
-                </button>
-            </div>
+    <Head title="Messaging" />
+    <div class="mx-auto max-w-6xl space-y-7">
+        <header class="flex flex-wrap items-center justify-between gap-4">
+            <div><p class="text-xs font-semibold uppercase tracking-widest text-primary-700">Communications</p><h1 class="mt-2 text-3xl font-display font-bold text-surface-950">Reach the right audience</h1><p class="mt-2 text-sm text-surface-600">Send email, WhatsApp and private inbox campaigns to users and CRM contacts.</p></div>
+            <Button @click="open = true"><Plus class="mr-2 h-4 w-4" />New campaign</Button>
+        </header>
+        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <section v-for="metric in [{ label: 'Campaigns', value: campaigns.total }, { label: 'Sent / inbox delivered', value: stats.total_sent }, { label: 'Confirmed delivered', value: stats.total_delivered }, { label: 'Needs review', value: stats.total_failed }]" :key="metric.label" class="rounded-2xl border border-surface-200 bg-white p-5"><p class="text-xs font-medium text-surface-500">{{ metric.label }}</p><p class="mt-3 text-3xl font-semibold tracking-tight">{{ Number(metric.value || 0).toLocaleString() }}</p></section>
         </div>
-
-        <!-- Stats Row -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div v-for="stat in statsCards" :key="stat.label" class="bg-white rounded-2xl border border-surface-200/60 shadow-sm p-4">
-                <p class="text-xs text-surface-500 font-medium">{{ stat.label }}</p>
-                <p class="text-xl font-bold text-surface-900 mt-1">{{ stat.value }}</p>
-                <p v-if="stat.sub" class="text-xs mt-0.5" :class="stat.subColor || 'text-surface-400'">{{ stat.sub }}</p>
-            </div>
-        </div>
-
-        <!-- Campaign Tabs -->
-        <div class="flex gap-1 bg-surface-100 p-1 rounded-xl w-fit">
-            <button v-for="tab in ['All', 'Email', 'WhatsApp', 'Scheduled']" :key="tab"
-                @click="activeTab = tab"
-                :class="['px-4 py-1.5 rounded-lg text-sm font-medium transition-colors', activeTab === tab ? 'bg-white shadow-sm text-surface-900' : 'text-surface-500 hover:text-surface-700']">
-                {{ tab }}
-            </button>
-        </div>
-
-        <!-- Campaign List -->
-        <div class="bg-white rounded-2xl border border-surface-200/60 shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-surface-100 bg-surface-50/50">
-                            <th class="text-left px-5 py-3 font-semibold text-surface-600">Campaign</th>
-                            <th class="text-left px-5 py-3 font-semibold text-surface-600">Channel</th>
-                            <th class="text-center px-5 py-3 font-semibold text-surface-600">Sent</th>
-                            <th class="text-center px-5 py-3 font-semibold text-surface-600">Delivered</th>
-                            <th class="text-center px-5 py-3 font-semibold text-surface-600">Failed</th>
-                            <th class="text-center px-5 py-3 font-semibold text-surface-600">Status</th>
-                            <th class="text-left px-5 py-3 font-semibold text-surface-600">Date</th>
-                            <th class="text-right px-5 py-3 font-semibold text-surface-600">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-surface-100">
-                        <tr v-for="campaign in filteredCampaigns" :key="campaign.id" class="hover:bg-surface-50 transition-colors">
-                            <td class="px-5 py-4">
-                                <p class="font-semibold text-surface-900">{{ campaign.name }}</p>
-                                <p class="text-xs text-surface-400 truncate max-w-xs">{{ campaign.subject || campaign.body?.substring(0, 60) }}</p>
-                            </td>
-                            <td class="px-5 py-4">
-                                <span :class="['inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium', campaign.channel === 'whatsapp' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700']">
-                                    <component :is="campaign.channel === 'whatsapp' ? MessageCircle : Mail" class="w-3 h-3" />
-                                    {{ campaign.channel === 'whatsapp' ? 'WhatsApp' : 'Email' }}
-                                </span>
-                            </td>
-                            <td class="px-5 py-4 text-center text-surface-600">{{ campaign.total_sent || 0 }}</td>
-                            <td class="px-5 py-4 text-center text-success-600 font-medium">{{ campaign.total_delivered || 0 }}</td>
-                            <td class="px-5 py-4 text-center text-danger-600">{{ campaign.total_failed || 0 }}</td>
-                            <td class="px-5 py-4 text-center">
-                                <Badge :variant="campaignStatusVariant(campaign.status)" size="sm">{{ campaign.status }}</Badge>
-                            </td>
-                            <td class="px-5 py-4 text-surface-500 text-xs">
-                                {{ campaign.sent_at ? formatDate(campaign.sent_at) : (campaign.scheduled_at ? 'Sched: ' + formatDate(campaign.scheduled_at) : '—') }}
-                            </td>
-                            <td class="px-5 py-4 text-right">
-                                <div class="flex items-center justify-end gap-1">
-                                    <button @click="viewCampaign(campaign)" class="p-1.5 rounded-lg hover:bg-surface-100 text-surface-400 hover:text-primary-600">
-                                        <Eye class="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        v-if="campaign.status === 'draft'"
-                                        @click="sendCampaign(campaign)"
-                                        class="p-1.5 rounded-lg hover:bg-surface-100 text-surface-400 hover:text-success-600"
-                                        title="Send now"
-                                    >
-                                        <Send class="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
+        <section class="overflow-hidden rounded-2xl border border-surface-200 bg-white">
+            <form @submit.prevent="filter" class="flex flex-wrap items-end gap-3 border-b border-surface-200 p-5">
+                <Input v-model="search" label="Find a campaign" placeholder="Search by name" :icon="Search" class="min-w-48 flex-1" />
+                <div><label for="campaign-channel" class="mb-1.5 block text-sm font-medium">Channel</label><select id="campaign-channel" v-model="channel" @change="filter" class="min-h-11 rounded-xl border-surface-300 text-sm"><option value="">All channels</option><option value="email">Email</option><option value="whatsapp">WhatsApp</option><option value="inbox">Platform inbox</option></select></div>
+                <Button type="submit" variant="secondary">Apply filters</Button>
+            </form>
+            <div v-if="campaigns.data?.length" class="overflow-x-auto">
+                <table class="w-full text-left text-sm"><thead class="bg-surface-50 text-xs text-surface-500"><tr><th scope="col" class="px-5 py-3">Campaign</th><th scope="col" class="px-5 py-3">Status</th><th scope="col" class="px-5 py-3">Recipients</th><th scope="col" class="px-5 py-3">Accepted</th><th scope="col" class="px-5 py-3">Created</th><th scope="col" class="px-5 py-3"><span class="sr-only">Open</span></th></tr></thead>
+                    <tbody><tr v-for="campaign in campaigns.data" :key="campaign.id" class="border-t border-surface-100 hover:bg-surface-50"><td class="px-5 py-4"><Link :href="`/admin/erp/messaging/${campaign.id}`" class="font-semibold text-surface-900 hover:text-primary-700">{{ campaign.name }}</Link><p class="mt-1 text-xs capitalize text-surface-500">{{ campaign.channel }}</p></td><td class="px-5 py-4"><span class="whitespace-nowrap rounded-full bg-surface-100 px-3 py-1 text-xs font-medium">{{ statuses[campaign.status] || campaign.status }}</span></td><td class="px-5 py-4">{{ campaign.recipient_count || 0 }}</td><td class="px-5 py-4">{{ campaign.sent_count || 0 }}</td><td class="whitespace-nowrap px-5 py-4 text-surface-500">{{ date(campaign.created_at) }}</td><td class="px-5 py-4"><Link :href="`/admin/erp/messaging/${campaign.id}`" :aria-label="`Open ${campaign.name}`" class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl hover:bg-primary-50"><ArrowRight class="h-4 w-4" /></Link></td></tr></tbody>
                 </table>
             </div>
-            <div v-if="!filteredCampaigns.length" class="p-16 text-center">
-                <MessageSquare class="w-12 h-12 text-surface-300 mx-auto mb-3" />
-                <p class="font-semibold text-surface-700">No campaigns yet</p>
-                <p class="text-sm text-surface-400 mt-1">Create your first email or WhatsApp campaign.</p>
-            </div>
-        </div>
+            <div v-else class="px-6 py-16 text-center"><Mail class="mx-auto h-10 w-10 text-surface-400" /><h2 class="mt-4 font-semibold">{{ search || channel ? 'No matching campaigns' : 'Your first campaign starts here' }}</h2><p class="mt-2 text-sm text-surface-500">{{ search || channel ? 'Adjust your filters to find another campaign.' : 'Create a draft, review its message and choose your audience.' }}</p><Button v-if="!search && !channel" class="mt-5" variant="secondary" @click="open = true">Create a draft</Button></div>
+            <nav v-if="campaigns.last_page > 1" aria-label="Campaign pages" class="flex flex-wrap gap-2 border-t border-surface-200 p-4"><template v-for="(page, index) in campaigns.links" :key="index"><Link v-if="page.url" :href="page.url" :aria-current="page.active ? 'page' : undefined" class="rounded-lg border px-3 py-2 text-sm" :class="page.active ? 'border-primary-700 bg-primary-700 text-white' : 'border-surface-200'">{{ index === 0 ? 'Previous' : index === campaigns.links.length - 1 ? 'Next' : page.label }}</Link></template></nav>
+        </section>
+        <p class="flex items-start gap-2 text-xs leading-5 text-surface-500"><Users class="mt-0.5 h-4 w-4 shrink-0" />Email and WhatsApp campaigns respect channel opt-ins. Platform inbox campaigns respect announcement preferences. Quiet hours and delivery limits apply. Provider acceptance does not confirm inbox delivery.</p>
     </div>
-
-    <!-- New Campaign Modal -->
-    <Modal :show="showNewCampaign" @close="showNewCampaign = false" maxWidth="lg">
-        <div class="p-6 space-y-4">
-            <h3 class="text-lg font-semibold text-surface-900">New Campaign</h3>
-
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="text-xs font-medium text-surface-700 mb-1 block">Campaign Name *</label>
-                    <Input v-model="newCampaignForm.name" :error="newCampaignForm.errors.name" />
-                </div>
-                <div>
-                    <label class="text-xs font-medium text-surface-700 mb-1 block">Channel</label>
-                    <select v-model="newCampaignForm.channel" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm">
-                        <option value="email">Email</option>
-                        <option value="whatsapp">WhatsApp</option>
-                        <option value="both">Both</option>
-                    </select>
-                </div>
+    <Modal :open="open" title="Create a bulk campaign" subtitle="Choose an audience, compose your message and review before sending." size="xl" @close="open = false">
+        <form @submit.prevent="save" class="space-y-5">
+            <div v-if="Object.keys(form.errors).length" role="alert" class="rounded-xl bg-danger-50 p-4 text-sm text-danger-800"><p v-for="(error, field) in form.errors" :key="field">{{ error }}</p></div>
+            <Input v-model="form.name" label="Campaign name" required :error="form.errors.name" />
+            <div><label for="new-channel" class="mb-1.5 block text-sm font-medium">Delivery channel</label><select id="new-channel" v-model="form.channel" class="w-full rounded-xl border-surface-300 text-sm"><option value="email">Email</option><option value="whatsapp">WhatsApp</option><option value="inbox">Platform inbox</option></select></div>
+            <AudiencePicker v-model="form.audience_filter" :options="audienceOptions" />
+            <div class="rounded-xl border border-primary-100 bg-primary-50/40 p-4">
+                <div class="flex flex-wrap items-center justify-between gap-3"><div><h3 class="text-sm font-semibold">Review recipients</h3><p class="mt-1 text-xs leading-5 text-surface-600">{{ form.channel === 'inbox' ? 'Active, verified users with announcements enabled. CRM contacts need a linked account.' : 'Active recipients with valid contact details and channel opt-in. CRM consent is managed on each contact.' }}</p></div><Button type="button" variant="secondary" :disabled="previewBusy" @click="previewAudience">{{ previewBusy ? 'Checking…' : 'Preview recipients' }}</Button></div>
+                <p v-if="previewError" role="alert" class="mt-3 text-sm text-danger-700">{{ previewError }}</p>
+                <div v-if="preview" class="mt-4 space-y-3" aria-live="polite"><div class="flex flex-wrap gap-4 text-xs"><span class="font-semibold text-primary-800">{{ preview.eligible.toLocaleString() }} recipients</span><span>{{ preview.excluded }} excluded by preferences or contact details</span><span>{{ preview.duplicates }} duplicates removed</span></div><p v-if="!preview.eligible" class="text-sm text-surface-600">No eligible recipients. Check the audience filters, contact details and channel preferences.</p><ul v-else class="space-y-1 text-xs text-surface-600"><li v-for="(person, index) in preview.sample" :key="index">{{ person.name }} · {{ form.channel === 'inbox' ? person.source : person.recipient }}</li></ul><p class="text-xs text-surface-500">Preview shows up to five recipients. Eligibility is checked again when the campaign starts and before delivery.</p></div>
             </div>
-
-            <div v-if="newCampaignForm.channel !== 'whatsapp'">
-                <label class="text-xs font-medium text-surface-700 mb-1 block">Email Subject</label>
-                <Input v-model="newCampaignForm.subject" placeholder="Enter subject line…" />
-            </div>
-
-            <div>
-                <label class="text-xs font-medium text-surface-700 mb-1 block">Message Body *</label>
-                <textarea
-                    v-model="newCampaignForm.body"
-                    rows="5"
-                    placeholder="Your message content…"
-                    class="w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
-                ></textarea>
-            </div>
-
-            <!-- Audience -->
-            <div class="border-t border-surface-100 pt-3">
-                <p class="text-sm font-semibold text-surface-800 mb-3">Audience</p>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="text-xs font-medium text-surface-700 mb-1 block">By Role</label>
-                        <select v-model="newCampaignForm.audience_filter.role" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm">
-                            <option value="">All Users</option>
-                            <option value="learner">Learners</option>
-                            <option value="facilitator">Facilitators</option>
-                            <option value="platform_admin">Admins</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-xs font-medium text-surface-700 mb-1 block">CRM Contact Type</label>
-                        <select v-model="newCampaignForm.audience_filter.contact_type" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm">
-                            <option value="">All Contacts</option>
-                            <option value="lead">Leads</option>
-                            <option value="prospect">Prospects</option>
-                            <option value="customer">Customers</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Schedule -->
-            <div>
-                <label class="text-xs font-medium text-surface-700 mb-1 block">Schedule (optional — leave blank to send immediately)</label>
-                <Input v-model="newCampaignForm.scheduled_at" type="datetime-local" />
-            </div>
-
-            <div class="flex justify-end gap-3 pt-2 border-t border-surface-100">
-                <Button variant="ghost" @click="showNewCampaign = false">Cancel</Button>
-                <Button variant="secondary" @click="saveCampaignDraft" :disabled="newCampaignForm.processing">Save Draft</Button>
-                <Button variant="primary" @click="saveCampaignAndSend" :disabled="newCampaignForm.processing">
-                    <Send class="w-4 h-4 mr-1.5" /> Save & Send
-                </Button>
-            </div>
-        </div>
-    </Modal>
-
-    <!-- Campaign Detail Modal -->
-    <Modal :show="!!activeCampaign" @close="activeCampaign = null" maxWidth="lg">
-        <div v-if="activeCampaign" class="p-6 space-y-4">
-            <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-surface-900">{{ activeCampaign.name }}</h3>
-                <Badge :variant="campaignStatusVariant(activeCampaign.status)" size="sm">{{ activeCampaign.status }}</Badge>
-            </div>
-            <div class="grid grid-cols-3 gap-4 text-center border border-surface-100 rounded-xl p-3">
-                <div>
-                    <p class="text-xl font-bold text-surface-900">{{ activeCampaign.total_sent || 0 }}</p>
-                    <p class="text-xs text-surface-400">Sent</p>
-                </div>
-                <div>
-                    <p class="text-xl font-bold text-success-700">{{ activeCampaign.total_delivered || 0 }}</p>
-                    <p class="text-xs text-surface-400">Delivered</p>
-                </div>
-                <div>
-                    <p class="text-xl font-bold text-danger-600">{{ activeCampaign.total_failed || 0 }}</p>
-                    <p class="text-xs text-surface-400">Failed</p>
-                </div>
-            </div>
-            <div v-if="activeCampaign.subject" class="bg-surface-50 rounded-xl p-3">
-                <p class="text-xs text-surface-500 mb-1">Subject</p>
-                <p class="text-sm font-medium text-surface-800">{{ activeCampaign.subject }}</p>
-            </div>
-            <div class="bg-surface-50 rounded-xl p-3">
-                <p class="text-xs text-surface-500 mb-1">Message</p>
-                <p class="text-sm text-surface-700 whitespace-pre-wrap">{{ activeCampaign.body }}</p>
-            </div>
-            <div v-if="activeCampaign.status === 'draft'" class="flex justify-end">
-                <Button variant="primary" @click="sendCampaign(activeCampaign)">
-                    <Send class="w-4 h-4 mr-1.5" /> Send Now
-                </Button>
-            </div>
-        </div>
+            <Input v-if="form.channel !== 'whatsapp'" v-model="form.subject" :label="form.channel === 'email' ? 'Email subject' : 'Message title'" required :error="form.errors.subject" />
+            <EmailEditor v-if="form.channel === 'email'" v-model="form.body" :error="form.errors.body" :disabled="form.processing" />
+            <div v-else><label for="campaign-body" class="mb-1.5 block text-sm font-medium">Message</label><textarea id="campaign-body" v-model="form.body" required rows="7" maxlength="3500" class="w-full rounded-xl border-surface-300 text-sm" placeholder="Write a clear, helpful message…" /><p class="mt-1.5 text-xs text-surface-500">{{ form.body.length }}/3,500 characters · {{ form.channel === 'inbox' ? 'Each person receives a private message in their platform inbox.' : 'Sent through your configured WhatsApp connection.' }}</p></div>
+            <Input v-model="form.scheduled_at" type="datetime-local" label="Schedule (optional)" hint="Uses your device’s time zone. Leave empty to save a draft." />
+            <div class="flex justify-end gap-3 border-t border-surface-200 pt-4"><Button type="button" variant="secondary" @click="open = false">Cancel</Button><Button type="submit" :disabled="form.processing">{{ form.processing ? 'Saving…' : form.scheduled_at ? 'Schedule campaign' : 'Save draft' }}</Button></div>
+        </form>
     </Modal>
 </template>
-
-<script setup>
-import { ref, computed } from 'vue';
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import AdminLayout from '@/Layouts/AdminLayout.vue';
-import Button from '@/Components/UI/Button.vue';
-import Input from '@/Components/UI/Input.vue';
-import Badge from '@/Components/UI/Badge.vue';
-import Modal from '@/Components/UI/Modal.vue';
-import { Plus, Eye, Send, Mail, MessageCircle, MessageSquare, Wifi } from 'lucide-vue-next';
-
-defineOptions({ layout: AdminLayout });
-
-const props = defineProps({
-    campaigns: { type: Array, default: () => [] },
-    stats: { type: Object, default: () => ({}) },
-});
-
-const activeTab = ref('All');
-const showNewCampaign = ref(false);
-const activeCampaign = ref(null);
-
-const filteredCampaigns = computed(() => {
-    if (activeTab.value === 'All') return props.campaigns;
-    if (activeTab.value === 'Scheduled') return props.campaigns.filter(c => c.scheduled_at && c.status === 'draft');
-    return props.campaigns.filter(c => c.channel === activeTab.value.toLowerCase());
-});
-
-const statsCards = computed(() => [
-    { label: 'Total Sent', value: Number(props.stats.total_sent || 0).toLocaleString() },
-    { label: 'Delivered', value: Number(props.stats.total_delivered || 0).toLocaleString(), sub: deliveryRate.value + '% delivery rate', subColor: 'text-success-600' },
-    { label: 'Failed', value: Number(props.stats.total_failed || 0).toLocaleString(), sub: 'check WhatsApp session', subColor: 'text-danger-500' },
-    { label: 'Campaigns', value: props.campaigns.length },
-]);
-
-const deliveryRate = computed(() => {
-    const sent = props.stats.total_sent || 0;
-    const delivered = props.stats.total_delivered || 0;
-    if (!sent) return 0;
-    return Math.round((delivered / sent) * 100);
-});
-
-function campaignStatusVariant(status) {
-    return { draft: 'secondary', sending: 'warning', sent: 'success', failed: 'danger', scheduled: 'info' }[status] || 'secondary';
-}
-
-function viewCampaign(campaign) { activeCampaign.value = campaign; }
-
-function sendCampaign(campaign) {
-    if (!confirm(`Send campaign "${campaign.name}" now?`)) return;
-    router.post(`/admin/erp/messaging/${campaign.id}/send`, {}, {
-        preserveScroll: true,
-        onSuccess: () => { activeCampaign.value = null; },
-    });
-}
-
-const newCampaignForm = useForm({
-    name: '', channel: 'email', subject: '', body: '',
-    audience_filter: { role: '', contact_type: '' },
-    scheduled_at: '',
-    send_immediately: false,
-});
-
-function saveCampaignDraft() {
-    newCampaignForm.send_immediately = false;
-    newCampaignForm.post('/admin/erp/messaging', { onSuccess: () => { showNewCampaign.value = false; newCampaignForm.reset(); newCampaignForm.audience_filter = { role: '', contact_type: '' }; } });
-}
-
-function saveCampaignAndSend() {
-    newCampaignForm.send_immediately = true;
-    newCampaignForm.post('/admin/erp/messaging', { onSuccess: () => { showNewCampaign.value = false; newCampaignForm.reset(); newCampaignForm.audience_filter = { role: '', contact_type: '' }; } });
-}
-
-function formatDate(dt) {
-    if (!dt) return '';
-    return new Date(dt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-</script>

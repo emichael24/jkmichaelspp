@@ -1,0 +1,11 @@
+{
+    "result": "passed",
+    "environment": "local synthetic preview; no outgoing mail",
+    "verified_at": "2026-10-05T09:55:07+00:00",
+    "enrollment_status": "completed",
+    "score": "4.50",
+    "certificate_count": 1,
+    "completion_policy": "reviewed_internship_milestones_v1",
+    "task_count": 1,
+    "review_count": 1
+}

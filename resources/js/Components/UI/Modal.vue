@@ -1,5 +1,5 @@
 <template>
-    <TransitionRoot appear :show="open" as="template">
+    <TransitionRoot appear :show="open || show" as="template">
         <Dialog as="div" class="relative z-50" @close="closeable && $emit('close')">
             <!-- Overlay -->
             <TransitionChild
@@ -26,6 +26,7 @@
                         leave-to="opacity-0 scale-95 translate-y-4"
                     >
                         <DialogPanel :class="panelClasses">
+                            <DialogTitle v-if="!title" class="sr-only">Dialog</DialogTitle>
                             <!-- Header -->
                             <div v-if="title || $slots.header" class="flex items-start justify-between gap-4 p-5 sm:p-6 pb-0">
                                 <div>
@@ -37,6 +38,8 @@
                                 <slot name="header" />
                                 <button
                                     v-if="closeable"
+                                    aria-label="Close dialog"
+                                    type="button"
                                     @click="$emit('close')"
                                     class="rounded-lg p-1.5 text-surface-400 hover:text-surface-600 hover:bg-surface-100 transition-colors"
                                 >
@@ -75,6 +78,8 @@ import {
 
 const props = defineProps({
     open: { type: Boolean, default: false },
+    show: { type: Boolean, default: false },
+    maxWidth: { type: String, default: null },
     title: { type: String, default: null },
     subtitle: { type: String, default: null },
     size: { type: String, default: 'md' },
@@ -93,6 +98,6 @@ const sizes = {
 
 const panelClasses = computed(() => [
     'w-full transform overflow-hidden rounded-2xl bg-white shadow-2xl shadow-surface-900/10 transition-all',
-    sizes[props.size] || sizes.md,
+    sizes[props.maxWidth || props.size] || sizes.md,
 ]);
 </script>

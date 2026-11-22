@@ -36,16 +36,16 @@ class ContentReviewController extends Controller
         $approvals = $query->paginate(20)->withQueryString();
 
         $stats = [
-            'pending'           => ContentApproval::pending()->count(),
-            'approved'          => ContentApproval::approved()->count(),
-            'rejected'          => ContentApproval::rejected()->count(),
+            'pending' => ContentApproval::pending()->count(),
+            'approved' => ContentApproval::approved()->count(),
+            'rejected' => ContentApproval::rejected()->count(),
             'changes_requested' => ContentApproval::where('status', 'changes_requested')->count(),
         ];
 
         return Inertia::render('Sme/ContentLibrary', [
             'approvals' => $approvals,
-            'stats'     => $stats,
-            'filters'   => $request->only(['type', 'status']),
+            'stats' => $stats,
+            'filters' => $request->only(['type', 'status']),
         ]);
     }
 
@@ -63,7 +63,7 @@ class ContentReviewController extends Controller
 
         return Inertia::render('Sme/PendingQueue', [
             'approvals' => $approvals,
-            'filters'   => $request->only(['type']),
+            'filters' => $request->only(['type']),
         ]);
     }
 
@@ -87,10 +87,10 @@ class ContentReviewController extends Controller
         $history = $this->workflowService->getApprovalHistory($approval->approvable);
 
         return Inertia::render('Sme/ContentReview', [
-            'approval'        => $approval,
-            'content'         => $approval->approvable,
+            'approval' => $approval,
+            'content' => $approval->approvable,
             'previousVersion' => $previousVersion,
-            'history'         => $history,
+            'history' => $history,
         ]);
     }
 
@@ -103,7 +103,7 @@ class ContentReviewController extends Controller
     public function approve(Request $request, ContentApproval $approval)
     {
         $request->validate([
-            'notes'   => 'nullable|string|max:2000',
+            'notes' => 'nullable|string|max:2000',
             'publish' => 'boolean',
         ]);
 
@@ -178,8 +178,8 @@ class ContentReviewController extends Controller
         $versions = $this->workflowService->getVersionHistory($content);
 
         return Inertia::render('Sme/Versions', [
-            'content'     => $content,
-            'versions'    => $versions,
+            'content' => $content,
+            'versions' => $versions,
             'contentType' => $type,
         ]);
     }
@@ -208,20 +208,20 @@ class ContentReviewController extends Controller
     private function resolveType(string $type): string
     {
         return match ($type) {
-            'lesson'   => Lesson::class,
+            'lesson' => Lesson::class,
             'question' => Question::class,
-            'course'   => Course::class,
-            default    => $type,
+            'course' => Course::class,
+            default => $type,
         };
     }
 
     private function resolveContent(string $type, int $id)
     {
         return match ($type) {
-            'lesson'   => Lesson::findOrFail($id),
+            'lesson' => Lesson::findOrFail($id),
             'question' => Question::findOrFail($id),
-            'course'   => Course::findOrFail($id),
-            default    => throw new \InvalidArgumentException("Unknown content type: {$type}"),
+            'course' => Course::findOrFail($id),
+            default => throw new \InvalidArgumentException("Unknown content type: {$type}"),
         };
     }
 }

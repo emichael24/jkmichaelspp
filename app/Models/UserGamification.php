@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class UserGamification extends Model
 {
@@ -22,20 +21,20 @@ class UserGamification extends Model
     ];
 
     protected $casts = [
-        'total_xp'                 => 'integer',
-        'level'                    => 'integer',
-        'current_streak_days'      => 'integer',
-        'longest_streak_days'      => 'integer',
+        'total_xp' => 'integer',
+        'level' => 'integer',
+        'current_streak_days' => 'integer',
+        'longest_streak_days' => 'integer',
         'streak_protection_tokens' => 'integer',
-        'last_activity_date'       => 'date',
-        'rest_day_used_this_week'  => 'boolean',
+        'last_activity_date' => 'date',
+        'rest_day_used_this_week' => 'boolean',
     ];
 
     // ── Level titles ─────────────────────────────
 
     public const LEVEL_TITLES = [
-        1  => 'Novice',
-        5  => 'Apprentice',
+        1 => 'Novice',
+        5 => 'Apprentice',
         10 => 'Practitioner',
         20 => 'Professional',
         30 => 'Expert',
@@ -71,6 +70,7 @@ class UserGamification extends Model
                 $title = $t;
             }
         }
+
         return $title;
     }
 
@@ -94,7 +94,9 @@ class UserGamification extends Model
         $nextLevelXp = $this->xpForNextLevel();
         $range = $nextLevelXp - $currentLevelXp;
 
-        if ($range <= 0) return 100;
+        if ($range <= 0) {
+            return 100;
+        }
 
         return min(100, (int) round(($this->total_xp - $currentLevelXp) / $range * 100));
     }

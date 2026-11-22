@@ -1,0 +1,38 @@
+{
+  "result": "passed",
+  "verified_at": "2026-10-05T04:49:30.180972+00:00",
+  "checks": {
+    "pdf_metadata": {
+      "passed": true,
+      "exit": 0,
+      "one_page": true
+    },
+    "pdf_raster": {
+      "passed": true,
+      "exit": 0,
+      "png_created": true
+    },
+    "pptx_conversion": {
+      "passed": true,
+      "exit": 0,
+      "pdf_created": true
+    },
+    "reject_configuration_path": {
+      "passed": true,
+      "exit": 126
+    },
+    "reject_program_arguments": {
+      "passed": true,
+      "exit": 126
+    },
+    "reject_symlink_input": {
+      "passed": true,
+      "exit": 126
+    },
+    "filesystem_network_environment_isolation": {
+      "passed": true,
+      "exit": 0
+    }
+  },
+  "application_configuration_changed": false
+}

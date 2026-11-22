@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\CommunityAccessService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -10,7 +11,7 @@ class DirectMessage extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'sender_id',
+        'sender_id', 'campaign_id', 'delivery_id',
         'recipient_id',
         'body',
         'attachment_url',
@@ -35,7 +36,7 @@ class DirectMessage extends Model
 
     public function markAsRead(): void
     {
-        if (!$this->read_at) {
+        if (! $this->read_at) {
             $this->update(['read_at' => now()]);
         }
     }
@@ -50,11 +51,10 @@ class DirectMessage extends Model
      */
     public function scopeConversation($query, int $userId1, int $userId2)
     {
-        return $query->where(function ($q) use ($userId1, $userId2) {
-            $q->where('sender_id', $userId1)->where('recipient_id', $userId2);
-        })->orWhere(function ($q) use ($userId1, $userId2) {
-            $q->where('sender_id', $userId2)->where('recipient_id', $userId1);
-        })->orderBy('created_at');
+        return $query->where(fn ($conversation) => $conversation
+            ->where(fn ($q) => $q->where('sender_id', $userId1)->where('recipient_id', $userId2))
+            ->orWhere(fn ($q) => $q->where('sender_id', $userId2)->where('recipient_id', $userId1)))
+            ->orderBy('created_at');
     }
 
     /**
@@ -62,7 +62,9 @@ class DirectMessage extends Model
      */
     public static function unreadCountFor(int $userId): int
     {
-        return self::where('recipient_id', $userId)->whereNull('read_at')->count();
+        $peers = app(CommunityAccessService::class)->peers(User::findOrFail($userId))->select('id');
+
+        return self::where('recipient_id', $userId)->whereIn('sender_id', $peers)->whereNull('read_at')->count();
     }
 
     /**
@@ -70,13 +72,15 @@ class DirectMessage extends Model
      */
     public static function conversationsFor(int $userId)
     {
-        return self::where('sender_id', $userId)
-            ->orWhere('recipient_id', $userId)
+        $peers = app(CommunityAccessService::class)->peers(User::findOrFail($userId))->select('id');
+
+        return self::where(fn ($q) => $q->where('sender_id', $userId)->whereIn('recipient_id', clone $peers))
+            ->orWhere(fn ($q) => $q->where('recipient_id', $userId)->whereIn('sender_id', clone $peers))
             ->orderByDesc('created_at')
             ->get()
             ->groupBy(function ($msg) use ($userId) {
                 return $msg->sender_id === $userId ? $msg->recipient_id : $msg->sender_id;
             })
-            ->map(fn($messages) => $messages->first());
+            ->map(fn ($messages) => $messages->first());
     }
 }

@@ -24,8 +24,8 @@ class EnrollmentController extends Controller
                     'id', 'title', 'slug', 'subtitle', 'thumbnail',
                     'level', 'type', 'duration_hours', 'category_id',
                 ])
-                ->with('category:id,name,slug')
-                ->withCount(['modules', 'lessons']),
+                    ->with('category:id,name,slug')
+                    ->withCount(['modules', 'lessons']),
             ])
             ->latest('enrolled_at')
             ->paginate(12)
@@ -33,15 +33,15 @@ class EnrollmentController extends Controller
 
         // Get counts per status
         $statusCounts = [
-            'all'       => CourseEnrollment::where('user_id', $user->id)->count(),
-            'active'    => CourseEnrollment::where('user_id', $user->id)->where('status', 'active')->count(),
+            'all' => CourseEnrollment::where('user_id', $user->id)->count(),
+            'active' => CourseEnrollment::where('user_id', $user->id)->where('status', 'active')->count(),
             'completed' => CourseEnrollment::where('user_id', $user->id)->where('status', 'completed')->count(),
-            'expired'   => CourseEnrollment::where('user_id', $user->id)->where('status', 'expired')->count(),
+            'expired' => CourseEnrollment::where('user_id', $user->id)->where('status', 'expired')->count(),
             'suspended' => CourseEnrollment::where('user_id', $user->id)->where('status', 'suspended')->count(),
         ];
 
         return Inertia::render('Courses/MyCourses', [
-            'enrollments'  => $enrollments,
+            'enrollments' => $enrollments,
             'statusCounts' => $statusCounts,
             'currentStatus' => $status,
         ]);

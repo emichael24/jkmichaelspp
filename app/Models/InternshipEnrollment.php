@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Traits\RecordsDomainAudit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class InternshipEnrollment extends Model
 {
+    use RecordsDomainAudit;
+
     protected $fillable = [
         'user_id',
         'track_id',
@@ -23,10 +25,10 @@ class InternshipEnrollment extends Model
     ];
 
     protected $casts = [
-        'start_date'    => 'date',
-        'end_date'      => 'date',
+        'start_date' => 'date',
+        'end_date' => 'date',
         'overall_score' => 'decimal:2',
-        'completed_at'  => 'datetime',
+        'completed_at' => 'datetime',
     ];
 
     /* ── Relationships ─────────────────────────────── */
@@ -73,7 +75,9 @@ class InternshipEnrollment extends Model
     public function progressPct(): float
     {
         $total = $this->tasks()->count();
-        if ($total === 0) return 0;
+        if ($total === 0) {
+            return 0;
+        }
 
         $done = $this->tasks()->whereIn('status', ['approved', 'done'])->count();
 

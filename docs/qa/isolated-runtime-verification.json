@@ -1,0 +1,114 @@
+{
+  "initialize": {
+    "exit": 0
+  },
+  "schedule": {
+    "exit": 0
+  },
+  "queue": {
+    "exit": 0
+  },
+  "verify": {
+    "exit": 0
+  },
+  "heartbeats": {
+    "scheduler": true,
+    "queue": true,
+    "probe_queue_empty": true
+  },
+  "media": {
+    "exit": 0,
+    "evidence": {
+      "migration_exit": 0,
+      "remaining_public_files": 0,
+      "document_assets": 1,
+      "scanned_and_hash_verified": true
+    }
+  },
+  "reconcile": {
+    "exit": 1,
+    "evidence": {
+      "checked_at": "2026-10-05T11:22:59+00:00",
+      "applied": false,
+      "checked": 130,
+      "evidence_supported": 0,
+      "reconciled": 0,
+      "unavailable_accounts": 0,
+      "course_certificates": 0,
+      "historical_review_required": 32,
+      "private_report": "operations/learning-reconciliation-20261005-112300.json"
+    },
+    "diagnostic": ""
+  },
+  "http": [
+    {
+      "path": "/up",
+      "probe_authorized": true,
+      "synthetic_learner": false,
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "path": "/login",
+      "probe_authorized": true,
+      "synthetic_learner": false,
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "path": "/courses",
+      "probe_authorized": true,
+      "synthetic_learner": false,
+      "status": 302,
+      "expected": 302,
+      "passed": true
+    },
+    {
+      "path": "/downloads",
+      "probe_authorized": true,
+      "synthetic_learner": false,
+      "status": 302,
+      "expected": 302,
+      "passed": true
+    },
+    {
+      "path": "/courses",
+      "probe_authorized": false,
+      "synthetic_learner": false,
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "path": "/dashboard",
+      "probe_authorized": true,
+      "synthetic_learner": true,
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "path": "/courses",
+      "probe_authorized": true,
+      "synthetic_learner": true,
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "path": "/downloads",
+      "probe_authorized": true,
+      "synthetic_learner": true,
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    }
+  ],
+  "result": "passed",
+  "live_resource_hashes_unchanged": true,
+  "verified_at": "2026-10-05T11:23:02.898466+00:00",
+  "live_application_changed": false,
+  "scope": "Application-owner processes; isolated migrated copy; loopback HTTP with secret probe header; heartbeat queue only; external HTTP blocked; mail array; server stopped"
+}

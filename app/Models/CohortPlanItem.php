@@ -19,7 +19,7 @@ class CohortPlanItem extends Model
 
     protected $casts = [
         'is_mandatory' => 'boolean',
-        'due_date'     => 'date',
+        'due_date' => 'date',
     ];
 
     /* ── relationships ── */

@@ -2,8 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Course;
 use App\Models\StudyGroup;
+use App\Services\CommunityAccessService;
+use App\Services\LearningAccessService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -14,12 +18,12 @@ class StudyGroupController extends Controller
      */
     public function index(Request $request): Response
     {
-        $query = StudyGroup::with(['course:id,title', 'creator:id,first_name,last_name'])
+        $query = app(CommunityAccessService::class)->groups($request->user())->with(['course:id,title', 'creator:id,first_name,last_name'])
             ->withCount('members');
 
         if ($filter = $request->input('filter')) {
             if ($filter === 'mine') {
-                $query->whereHas('members', fn($q) => $q->where('user_id', auth()->id()));
+                $query->whereHas('members', fn ($q) => $q->where('user_id', auth()->id()));
             } elseif ($filter === 'available') {
                 $query->where('is_public', true);
             }
@@ -42,10 +46,11 @@ class StudyGroupController extends Controller
      */
     public function show(int $id): Response
     {
-        $group = StudyGroup::with([
+        $group = app(CommunityAccessService::class)->groups(auth()->user())->with([
             'course:id,title',
             'creator:id,first_name,last_name,avatar',
-            'members:id,first_name,last_name,avatar',
+            'members' => fn ($q) => $q->where('users.organization_id', auth()->user()->organization_id)
+                ->where('users.is_active', true)->select('users.id', 'first_name', 'last_name', 'avatar'),
         ])->withCount('members')->findOrFail($id);
 
         $isMember = $group->hasMember(auth()->id());
@@ -68,9 +73,13 @@ class StudyGroupController extends Controller
             'is_public' => 'boolean',
         ]);
 
+        if (! empty($validated['course_id'])) {
+            app(LearningAccessService::class)->assertCourse(Course::findOrFail($validated['course_id']), $request->user());
+        }
         $group = StudyGroup::create([
             ...$validated,
             'created_by' => auth()->id(),
+            'organization_id' => $request->user()->organization_id,
         ]);
 
         // Auto-join creator
@@ -84,9 +93,13 @@ class StudyGroupController extends Controller
      */
     public function join(int $id)
     {
-        $group = StudyGroup::findOrFail($id);
+        $group = app(CommunityAccessService::class)->groups(auth()->user())->findOrFail($id);
 
-        if (!$group->addMember(auth()->id())) {
+        abort_unless($group->is_public || $group->hasMember(auth()->id()), 403, 'An invitation is required.');
+        $joined = DB::transaction(function () use ($group) {
+            return StudyGroup::whereKey($group->id)->lockForUpdate()->firstOrFail()->addMember(auth()->id());
+        });
+        if (! $joined) {
             return back()->with('error', 'Unable to join. Group may be full or you are already a member.');
         }
 
@@ -98,7 +111,7 @@ class StudyGroupController extends Controller
      */
     public function leave(int $id)
     {
-        $group = StudyGroup::findOrFail($id);
+        $group = app(CommunityAccessService::class)->groups(auth()->user())->findOrFail($id);
         $group->removeMember(auth()->id());
 
         return redirect()->route('study-groups.index')->with('success', 'You have left the study group.');
@@ -109,7 +122,7 @@ class StudyGroupController extends Controller
      */
     public function destroy(int $id)
     {
-        $group = StudyGroup::where('created_by', auth()->id())->findOrFail($id);
+        $group = app(CommunityAccessService::class)->groups(auth()->user())->where('created_by', auth()->id())->findOrFail($id);
         $group->delete();
 
         return redirect()->route('study-groups.index')->with('success', 'Study group deleted.');

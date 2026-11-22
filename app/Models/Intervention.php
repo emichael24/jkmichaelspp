@@ -7,16 +7,23 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Intervention extends Model
 {
-    public const TYPE_NUDGE            = 'nudge';
-    public const TYPE_COACHING         = 'coaching';
-    public const TYPE_ESCALATION       = 'escalation';
-    public const TYPE_PLAN_ADJUSTMENT  = 'plan_adjustment';
-    public const TYPE_REST_DAY         = 'rest_day';
+    public const TYPE_NUDGE = 'nudge';
 
-    public const STATUS_PENDING      = 'pending';
-    public const STATUS_SENT         = 'sent';
+    public const TYPE_COACHING = 'coaching';
+
+    public const TYPE_ESCALATION = 'escalation';
+
+    public const TYPE_PLAN_ADJUSTMENT = 'plan_adjustment';
+
+    public const TYPE_REST_DAY = 'rest_day';
+
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_SENT = 'sent';
+
     public const STATUS_ACKNOWLEDGED = 'acknowledged';
-    public const STATUS_RESOLVED     = 'resolved';
+
+    public const STATUS_RESOLVED = 'resolved';
 
     protected $fillable = [
         'facilitator_id',

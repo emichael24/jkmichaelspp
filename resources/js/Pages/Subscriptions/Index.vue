@@ -18,11 +18,16 @@
                 </div>
                 <div class="text-right text-xs text-surface-400">
                     <p v-if="subscription.trial_ends_at">Trial ends {{ formatDate(subscription.trial_ends_at) }}</p>
-                    <p v-else-if="subscription.ends_at">Renews {{ formatDate(subscription.ends_at) }}</p>
+                    <p v-else-if="subscription.ends_at">{{ subscription.cancels_at ? 'Access ends' : 'Paid through' }} {{ formatDate(subscription.ends_at) }}</p>
                 </div>
             </div>
         </div>
 
+        <div v-if="subscription?.payment_provider === 'paystack' && !subscription.cancels_at" class="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-surface-50 p-4">
+            <p class="text-sm text-surface-600">Your plan renews automatically. You can cancel renewal and keep access through your paid period.</p>
+            <Button variant="secondary" :disabled="canceling" @click="cancelRenewal">{{ canceling ? 'Canceling…' : 'Cancel renewal' }}</Button>
+        </div>
+        <p v-if="billingError" role="alert" class="rounded-xl bg-red-50 p-4 text-sm text-red-800">{{ billingError }}</p>
         <div class="grid gap-6 lg:grid-cols-3">
             <div
                 v-for="plan in plans"
@@ -39,7 +44,7 @@
                         <p class="text-lg font-semibold text-surface-900">{{ plan.name }}</p>
                         <p class="mt-1 text-sm text-surface-500">{{ plan.description || 'Flexible access to premium content.' }}</p>
                     </div>
-                    <Badge v-if="plan.trial_period_days > 0" variant="info" size="sm">
+                    <Badge v-if="Number(plan.price) === 0 && plan.trial_period_days > 0" variant="info" size="sm">
                         {{ plan.trial_period_days }}-day trial
                     </Badge>
                 </div>
@@ -67,6 +72,7 @@
 
                 <div class="mt-6 space-y-2">
                     <Button
+                        v-if="Number(plan.price) === 0"
                         :disabled="isCurrent(plan.id)"
                         variant="primary"
                         size="md"
@@ -83,7 +89,7 @@
                         class="w-full"
                         @click="payWithPaystack(plan.id)"
                     >
-                        {{ processingPlan === plan.id ? 'Redirecting…' : 'Pay with Paystack' }}
+                        {{ processingPlan === plan.id ? 'Redirectingâ€¦' : 'Pay with Paystack' }}
                     </Button>
                 </div>
             </div>
@@ -108,14 +114,16 @@ const props = defineProps({
 });
 
 const processingPlan = ref(null);
+const billingError = ref('');
+const canceling = ref(false);
+function cancelRenewal() {
+    canceling.value = true;
+    router.post(`/subscriptions/${props.subscription.id}/cancel`, {}, { onFinish: () => canceling.value = false });
+}
 
-const currencyFormatter = computed(() => {
-    const currency = props.plans[0]?.currency || 'USD';
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency });
-});
 
 function formatPrice(plan) {
-    return currencyFormatter.value.format(Number(plan.price || 0));
+    return new Intl.NumberFormat('en-NG', { style: 'currency', currency: plan.currency || 'NGN' }).format(Number(plan.price || 0));
 }
 
 function billingLabel(plan) {
@@ -149,7 +157,8 @@ async function payWithPaystack(planId) {
         if (url) {
             window.location.href = url;
         }
-    } catch {
+    } catch (error) {
+        billingError.value = error.response?.data?.message || 'Checkout is temporarily unavailable. Please try again.';
         processingPlan.value = null;
     }
 }

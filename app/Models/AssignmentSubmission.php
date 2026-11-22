@@ -2,16 +2,20 @@
 
 namespace App\Models;
 
+use App\Models\Traits\RecordsDomainAudit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AssignmentSubmission extends Model
 {
+    use RecordsDomainAudit;
+
     protected $fillable = [
         'assignment_id',
         'user_id',
         'submission_number',
         'content',
+        'answers',
         'file_urls',
         'status',
         'score',
@@ -24,10 +28,11 @@ class AssignmentSubmission extends Model
     ];
 
     protected $casts = [
-        'file_urls'     => 'array',
+        'file_urls' => 'array',
+        'answers' => 'array',
         'rubric_scores' => 'array',
-        'graded_at'     => 'datetime',
-        'submitted_at'  => 'datetime',
+        'graded_at' => 'datetime',
+        'submitted_at' => 'datetime',
     ];
 
     /* ── Relationships ─────────────────────────────── */

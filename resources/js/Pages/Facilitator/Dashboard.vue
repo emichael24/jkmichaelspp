@@ -183,7 +183,7 @@
                 <div v-if="pendingSubmissions.length > 0" class="bg-white rounded-xl border border-surface-200/60 p-6">
                     <div class="flex items-center justify-between mb-4">
                         <h2 class="text-lg font-display font-semibold text-surface-900">Grading Queue</h2>
-                        <a href="/facilitator/assignments" class="text-sm font-medium text-primary-600 hover:text-primary-700">View all</a>
+                        <a href="/facilitator/grading" class="text-sm font-medium text-primary-600 hover:text-primary-700">View all</a>
                     </div>
                     <div class="space-y-3">
                         <div v-for="sub in pendingSubmissions" :key="sub.id" class="flex items-center gap-3 p-3 rounded-xl bg-surface-50 hover:bg-surface-100 transition-colors">
@@ -212,17 +212,17 @@
                             <Users class="w-4 h-4 text-primary-600" />
                             <span class="text-sm font-medium text-surface-700 group-hover:text-primary-700">Create Cohort</span>
                         </a>
-                        <a href="/facilitator/assignments" class="flex items-center gap-3 p-3 rounded-xl bg-surface-50 hover:bg-accent-50 transition-colors group">
+                        <a href="/facilitator/grading" class="flex items-center gap-3 p-3 rounded-xl bg-surface-50 hover:bg-accent-50 transition-colors group">
                             <FileText class="w-4 h-4 text-accent-600" />
                             <span class="text-sm font-medium text-surface-700 group-hover:text-accent-700">Grade Assignments</span>
                         </a>
-                        <a href="/facilitator/sessions" class="flex items-center gap-3 p-3 rounded-xl bg-surface-50 hover:bg-success-50 transition-colors group">
+                        <a href="/facilitator/cohorts" class="flex items-center gap-3 p-3 rounded-xl bg-surface-50 hover:bg-success-50 transition-colors group">
                             <Video class="w-4 h-4 text-success-600" />
-                            <span class="text-sm font-medium text-surface-700 group-hover:text-success-700">Schedule Session</span>
+                            <span class="text-sm font-medium text-surface-700 group-hover:text-success-700">Choose cohort for session</span>
                         </a>
-                        <a href="/facilitator/interventions" class="flex items-center gap-3 p-3 rounded-xl bg-surface-50 hover:bg-warning-50 transition-colors group">
+                        <a href="/facilitator/cohorts" class="flex items-center gap-3 p-3 rounded-xl bg-surface-50 hover:bg-warning-50 transition-colors group">
                             <Zap class="w-4 h-4 text-warning-600" />
-                            <span class="text-sm font-medium text-surface-700 group-hover:text-warning-700">Interventions</span>
+                            <span class="text-sm font-medium text-surface-700 group-hover:text-warning-700">Cohort interventions</span>
                         </a>
                     </div>
                 </div>

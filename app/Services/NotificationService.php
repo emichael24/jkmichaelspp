@@ -5,8 +5,7 @@ namespace App\Services;
 use App\Models\NotificationPreference;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 
 class NotificationService
 {
@@ -19,27 +18,19 @@ class NotificationService
      */
     public function send(User $user, string $category, array $data): void
     {
-        $prefs = $this->getPreferences($user);
-
-        // Check quiet hours for push
-        $channels = ['database'];
-
-        if ($prefs->shouldSendPush($category)) {
-            $channels[] = 'push';
-        }
-
-        if ($prefs->shouldSendEmail($category)) {
-            // For digest frequency, queue for later
-            if ($prefs->frequency !== 'realtime') {
-                $this->queueForDigest($user, $data, $prefs->frequency);
-                // Still save to database
-                $this->storeNotification($user, $category, $data);
+        DB::transaction(function () use ($user, $category, $data) {
+            User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $eventKey = hash('sha256', $user->id.':'.($data['event_key'] ?? (string) Str::uuid()));
+            if (DB::table('notifications')->where('event_key', $eventKey)->exists()) {
                 return;
             }
-            $channels[] = 'mail';
-        }
-
-        $this->storeNotification($user, $category, $data, $channels);
+            unset($data['event_key']);
+            DB::table('notifications')->insert(['id' => (string) Str::uuid(), 'event_key' => $eventKey,
+                'type' => $data['type'] ?? 'generic', 'notifiable_type' => User::class, 'notifiable_id' => $user->id,
+                'data' => json_encode([...$data, 'category' => $category, 'channels' => ['database']]),
+                'read_at' => null, 'created_at' => now(), 'updated_at' => now()]);
+            app(NotificationDeliveryService::class)->enqueue($user, $category, $data, $eventKey);
+        });
     }
 
     /**
@@ -48,7 +39,7 @@ class NotificationService
     public function storeNotification(User $user, string $category, array $data, array $channels = ['database']): void
     {
         DB::table('notifications')->insert([
-            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'id' => (string) Str::uuid(),
             'type' => $data['type'] ?? 'App\\Notifications\\GenericNotification',
             'notifiable_type' => 'App\\Models\\User',
             'notifiable_id' => $user->id,
@@ -89,7 +80,7 @@ class NotificationService
     public function sendEnrollmentConfirmation(User $user, string $courseName, string $orderUuid): void
     {
         $this->send($user, 'system', [
-            'type' => 'enrollment_confirmation',
+            'type' => 'enrollment_confirmation', 'event_key' => 'enrollment:'.$orderUuid.':'.$courseName,
             'title' => 'Enrollment Confirmed',
             'body' => "You've been enrolled in {$courseName}. Start learning now!",
             'action_url' => '/courses',
@@ -99,9 +90,9 @@ class NotificationService
     public function sendPaymentReceipt(User $user, string $orderUuid, float $amount, string $currency): void
     {
         $this->send($user, 'system', [
-            'type' => 'payment_receipt',
+            'type' => 'payment_receipt', 'event_key' => 'receipt:'.$orderUuid,
             'title' => 'Payment Received',
-            'body' => "Your payment of {$currency} " . number_format($amount, 2) . " has been confirmed.",
+            'body' => "Your payment of {$currency} ".number_format($amount, 2).' has been confirmed.',
             'action_url' => "/orders/{$orderUuid}",
         ]);
     }
@@ -109,7 +100,7 @@ class NotificationService
     public function sendCertificateIssued(User $user, string $certificateTitle, string $uuid): void
     {
         $this->send($user, 'system', [
-            'type' => 'certificate_issued',
+            'type' => 'certificate_issued', 'event_key' => 'certificate:'.$uuid,
             'title' => 'Certificate Earned! 🎉',
             'body' => "Your certificate for {$certificateTitle} is ready.",
             'action_url' => "/certificates/{$uuid}",
@@ -228,6 +219,7 @@ class NotificationService
     {
         $prefs = $this->getPreferences($user);
         $prefs->update($data);
+
         return $prefs->fresh();
     }
 
@@ -235,10 +227,4 @@ class NotificationService
     // Digest (queue for later)
     // ─────────────────────────────────────────────
 
-    private function queueForDigest(User $user, array $data, string $frequency): void
-    {
-        // In a full implementation, this would write to a digest queue table
-        // and a scheduled job would batch-send digests daily/weekly.
-        Log::info("Queued {$frequency} digest notification for user {$user->id}", $data);
-    }
 }

@@ -1,0 +1,24 @@
+
+> test
+> node --test tests/js/*.test.js
+
+✔ QR accepts provider data URI without double prefix and supports raw base64 (2.3171ms)
+✔ validation and session failures provide actionable feedback (1.2667ms)
+✔ stored readings contain ciphertext and can be read only with the tab key (71.8902ms)
+✔ switching accounts purges old readings and queued progress (15.2379ms)
+✔ signout removes records and the decryption key (9.4869ms)
+✔ failed sends preserve events and successful retries remove only acknowledged events (32.202ms)
+✔ revoked progress keeps an explicit pending event and removes reading content (34.5809ms)
+✔ expired reading permissions remove data and prevent offline completion (13.0318ms)
+✔ a changed server session cannot replay the previous account queue (9.1745ms)
+✔ installation caches only the anonymous shell and public bundles; activation purges legacy private caches (192.4958ms)
+✔ authenticated pages and private media are never cached; failed navigation returns the anonymous reader (25.9894ms)
+✔ background synchronization delegates to authenticated clients without sending queued private data (22.1174ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1506.364

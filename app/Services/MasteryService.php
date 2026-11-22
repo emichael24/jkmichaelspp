@@ -2,8 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\ErrorPattern;
-use App\Models\QuestionResponse;
+use App\Models\DailyActivityLog;
 use App\Models\QuizAttempt;
 use App\Models\ReadinessScore;
 use App\Models\UserMastery;
@@ -55,19 +54,19 @@ class MasteryService
     ): void {
         $mastery = UserMastery::firstOrCreate(
             [
-                'user_id'   => $userId,
+                'user_id' => $userId,
                 'course_id' => $courseId,
-                'domain'    => $domain,
-                'subtopic'  => $subtopic ?? '',
+                'domain' => $domain,
+                'subtopic' => $subtopic ?? '',
             ],
             [
-                'accuracy_pct'      => 0,
-                'confidence_score'  => 0,
-                'speed_score'       => 0,
+                'accuracy_pct' => 0,
+                'confidence_score' => 0,
+                'speed_score' => 0,
                 'consistency_score' => 0,
-                'improvement_rate'  => 0,
-                'mastery_level'     => 'novice',
-                'total_attempts'    => 0,
+                'improvement_rate' => 0,
+                'mastery_level' => 'novice',
+                'total_attempts' => 0,
             ]
         );
 
@@ -96,13 +95,13 @@ class MasteryService
             : 0;
 
         $mastery->update([
-            'accuracy_pct'      => $blendedAccuracy,
-            'confidence_score'  => round(($confidenceScore * 0.7) + ($mastery->confidence_score * 0.3), 2),
-            'speed_score'       => round(($speedScore * 0.7) + ($mastery->speed_score * 0.3), 2),
+            'accuracy_pct' => $blendedAccuracy,
+            'confidence_score' => round(($confidenceScore * 0.7) + ($mastery->confidence_score * 0.3), 2),
+            'speed_score' => round(($speedScore * 0.7) + ($mastery->speed_score * 0.3), 2),
             'consistency_score' => $consistencyScore,
-            'improvement_rate'  => $improvementRate,
-            'total_attempts'    => $mastery->total_attempts + 1,
-            'last_attempt_at'   => now(),
+            'improvement_rate' => $improvementRate,
+            'total_attempts' => $mastery->total_attempts + 1,
+            'last_attempt_at' => now(),
         ]);
 
         $mastery->recalculateLevel();
@@ -123,6 +122,7 @@ class MasteryService
         $ratios = $scored->map(function ($r) {
             $expected = $r->question->time_estimate_seconds;
             $actual = $r->time_spent_seconds;
+
             // If they answered in half the expected time → ratio 2.0 → score 100
             // If they used exactly expected → ratio 1.0 → score 70
             // If they used double expected → ratio 0.5 → score 35
@@ -178,16 +178,16 @@ class MasteryService
             ->get();
 
         if ($masteries->isEmpty()) {
-            return ReadinessScore::latestFor($userId, $courseId) ?? new ReadinessScore();
+            return ReadinessScore::latestFor($userId, $courseId) ?? new ReadinessScore;
         }
 
         // Build domain breakdown
         $domainBreakdown = [];
         foreach ($masteries as $m) {
             $domainBreakdown[$m->domain] = [
-                'accuracy'       => $m->accuracy_pct,
-                'composite'      => $m->compositeScore(),
-                'mastery_level'  => $m->mastery_level,
+                'accuracy' => $m->accuracy_pct,
+                'composite' => $m->compositeScore(),
+                'mastery_level' => $m->mastery_level,
                 'total_attempts' => $m->total_attempts,
             ];
         }
@@ -206,7 +206,7 @@ class MasteryService
         $confidenceBand = match (true) {
             $overallScore >= 80 => 'high',
             $overallScore >= 55 => 'medium',
-            default             => 'low',
+            default => 'low',
         };
 
         // Pass likelihood
@@ -214,19 +214,19 @@ class MasteryService
             $overallScore >= 85 => 'very_likely',
             $overallScore >= 70 => 'likely',
             $overallScore >= 50 => 'possible',
-            default             => 'unlikely',
+            default => 'unlikely',
         };
 
         return ReadinessScore::create([
-            'user_id'          => $userId,
-            'course_id'        => $courseId,
-            'score_pct'        => $overallScore,
-            'confidence_band'  => $confidenceBand,
-            'pass_likelihood'  => $passLikelihood,
+            'user_id' => $userId,
+            'course_id' => $courseId,
+            'score_pct' => $overallScore,
+            'confidence_band' => $confidenceBand,
+            'pass_likelihood' => $passLikelihood,
             'domain_breakdown' => $domainBreakdown,
-            'weak_areas'       => $weakAreas,
-            'calculated_at'    => now(),
-            'created_at'       => now(),
+            'weak_areas' => $weakAreas,
+            'calculated_at' => now(),
+            'created_at' => now(),
         ]);
     }
 
@@ -245,13 +245,13 @@ class MasteryService
 
         return $masteries->groupBy('course_id')->map(function ($courseMasteries) {
             return $courseMasteries->map(fn ($m) => [
-                'domain'          => $m->domain,
-                'accuracy_pct'    => $m->accuracy_pct,
+                'domain' => $m->domain,
+                'accuracy_pct' => $m->accuracy_pct,
                 'composite_score' => $m->compositeScore(),
-                'mastery_level'   => $m->mastery_level,
-                'total_attempts'  => $m->total_attempts,
-                'improvement'     => $m->improvement_rate,
-                'trend'           => $m->improvement_rate > 2 ? 'improving'
+                'mastery_level' => $m->mastery_level,
+                'total_attempts' => $m->total_attempts,
+                'improvement' => $m->improvement_rate,
+                'trend' => $m->improvement_rate > 2 ? 'improving'
                     : ($m->improvement_rate < -2 ? 'declining' : 'stable'),
             ])->values();
         })->toArray();
@@ -265,7 +265,7 @@ class MasteryService
         $weekStart = now()->startOfWeek();
         $weekEnd = now()->endOfWeek();
 
-        $logs = \App\Models\DailyActivityLog::forUser($userId)
+        $logs = DailyActivityLog::forUser($userId)
             ->inRange($weekStart, $weekEnd)
             ->get();
 
@@ -283,18 +283,18 @@ class MasteryService
             ->get(['domain', 'accuracy_pct', 'improvement_rate']);
 
         return [
-            'period'       => $weekStart->format('M d') . ' – ' . $weekEnd->format('M d, Y'),
+            'period' => $weekStart->format('M d').' – '.$weekEnd->format('M d, Y'),
             'hours_studied' => $totalHours,
             'questions_answered' => $totalQuestions,
-            'accuracy_pct'  => $accuracy,
+            'accuracy_pct' => $accuracy,
             'lessons_completed' => $logs->sum('lessons_completed'),
             'quizzes_completed' => $logs->sum('quizzes_completed'),
-            'xp_earned'     => $logs->sum('xp_earned'),
-            'days_active'   => $logs->count(),
+            'xp_earned' => $logs->sum('xp_earned'),
+            'days_active' => $logs->count(),
             'improvement_areas' => $weakMasteries->map(fn ($m) => [
-                'domain'       => $m->domain,
-                'accuracy'     => $m->accuracy_pct,
-                'trend'        => $m->improvement_rate > 0 ? 'improving' : 'declining',
+                'domain' => $m->domain,
+                'accuracy' => $m->accuracy_pct,
+                'trend' => $m->improvement_rate > 0 ? 'improving' : 'declining',
             ])->toArray(),
             'focus_recommendation' => $weakMasteries->first()?->domain
                 ? "Focus on strengthening: {$weakMasteries->first()->domain}"

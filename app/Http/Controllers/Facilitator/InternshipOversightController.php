@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Facilitator;
 
 use App\Http\Controllers\Controller;
 use App\Models\InternshipEnrollment;
-use App\Models\InternshipSubmission;
 use App\Models\PortfolioItem;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -20,6 +19,7 @@ class InternshipOversightController extends Controller
 
         // Get enrollments where the facilitator oversees (via cohort or team lead)
         $enrollments = InternshipEnrollment::whereIn('status', ['enrolled', 'active'])
+            ->when(! $request->user()->hasRole('platform_admin'), fn ($q) => $q->where('team_lead_id', $request->user()->id)->whereHas('user', fn ($u) => $u->where('organization_id', $request->user()->organization_id)))
             ->with(['user', 'track', 'sponsor', 'tasks'])
             ->latest()
             ->paginate(20);
@@ -27,25 +27,25 @@ class InternshipOversightController extends Controller
         // Compute health metrics
         $metrics = $enrollments->getCollection()->map(function ($enr) {
             $total = $enr->tasks->count();
-            $done  = $enr->tasks->whereIn('status', ['done', 'approved'])->count();
-            $overdue = $enr->tasks->filter(fn ($t) => $t->due_date && $t->due_date < now() && !in_array($t->status, ['done', 'approved']))->count();
+            $done = $enr->tasks->whereIn('status', ['done', 'approved'])->count();
+            $overdue = $enr->tasks->filter(fn ($t) => $t->due_date && $t->due_date < now() && ! in_array($t->status, ['done', 'approved']))->count();
 
             return [
                 'enrollment_id' => $enr->id,
-                'learner'       => $enr->user->first_name . ' ' . $enr->user->last_name,
-                'track'         => $enr->track->title,
-                'sponsor'       => $enr->sponsor ? $enr->sponsor->first_name . ' ' . $enr->sponsor->last_name : null,
-                'progress_pct'  => $total > 0 ? round(($done / $total) * 100) : 0,
+                'learner' => $enr->user->first_name.' '.$enr->user->last_name,
+                'track' => $enr->track->title,
+                'sponsor' => $enr->sponsor ? $enr->sponsor->first_name.' '.$enr->sponsor->last_name : null,
+                'progress_pct' => $total > 0 ? round(($done / $total) * 100) : 0,
                 'overdue_tasks' => $overdue,
                 'overall_score' => $enr->overall_score,
-                'status'        => $enr->status,
-                'current_week'  => $enr->currentWeek(),
+                'status' => $enr->status,
+                'current_week' => $enr->currentWeek(),
             ];
         });
 
         return Inertia::render('Facilitator/InternshipOversight/Health', [
             'enrollments' => $enrollments,
-            'metrics'     => $metrics,
+            'metrics' => $metrics,
         ]);
     }
 
@@ -55,6 +55,7 @@ class InternshipOversightController extends Controller
     public function portfolios(Request $request)
     {
         $enrollments = InternshipEnrollment::whereIn('status', ['enrolled', 'active', 'completed'])
+            ->when(! $request->user()->hasRole('platform_admin'), fn ($q) => $q->where('team_lead_id', $request->user()->id)->whereHas('user', fn ($u) => $u->where('organization_id', $request->user()->organization_id)))
             ->with(['user', 'track'])
             ->get();
 
@@ -65,10 +66,10 @@ class InternshipOversightController extends Controller
 
             return [
                 'enrollment_id' => $enr->id,
-                'learner'       => $enr->user->first_name . ' ' . $enr->user->last_name,
-                'track'         => $enr->track->title,
+                'learner' => $enr->user->first_name.' '.$enr->user->last_name,
+                'track' => $enr->track->title,
                 'portfolio_items_count' => $count,
-                'status'        => $enr->status,
+                'status' => $enr->status,
             ];
         });
 

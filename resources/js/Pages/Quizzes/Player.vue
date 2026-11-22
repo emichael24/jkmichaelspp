@@ -247,6 +247,7 @@ const progressPct = computed(() =>
 
 // Timer calculation
 const remainingSeconds = computed(() => {
+    if (props.attempt.expires_at) return Math.max(0, Math.ceil((new Date(props.attempt.expires_at).getTime() - Date.now()) / 1000));
     if (!props.quiz.time_limit_minutes) return 0;
     const elapsed = Math.floor((Date.now() - new Date(props.attempt.started_at).getTime()) / 1000);
     const total = props.quiz.time_limit_minutes * 60;

@@ -21,10 +21,10 @@ class SpacedRepetitionItem extends Model
     protected function casts(): array
     {
         return [
-            'ease_factor'      => 'decimal:2',
-            'interval_days'    => 'integer',
-            'repetitions'      => 'integer',
-            'next_review_at'   => 'datetime',
+            'ease_factor' => 'decimal:2',
+            'interval_days' => 'integer',
+            'repetitions' => 'integer',
+            'next_review_at' => 'datetime',
             'last_reviewed_at' => 'datetime',
         ];
     }
@@ -148,16 +148,16 @@ class SpacedRepetitionItem extends Model
     {
         return static::firstOrCreate(
             [
-                'user_id'         => $userId,
+                'user_id' => $userId,
                 'reviewable_type' => $type,
-                'reviewable_id'   => $id,
+                'reviewable_id' => $id,
             ],
             [
-                'ease_factor'    => 2.50,
-                'interval_days'  => 1,
-                'repetitions'    => 0,
+                'ease_factor' => 2.50,
+                'interval_days' => 1,
+                'repetitions' => 0,
                 'next_review_at' => now(),
-                'status'         => 'new',
+                'status' => 'new',
             ]
         );
     }

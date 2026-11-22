@@ -1,0 +1,23 @@
+[Unit]
+Description=JK Michaels background contact import worker
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jkmichaelspm.com_8glivfes07m
+Group=psacln
+WorkingDirectory=/var/www/vhosts/jkmichaelspm.com/app.jkmichaelspm.com
+ExecStart=/opt/plesk/php/8.2/bin/php artisan queue:work crm_imports --queue=contact-imports --sleep=2 --tries=3 --timeout=90 --memory=256 --max-time=3600
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=120
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

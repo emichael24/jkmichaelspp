@@ -42,11 +42,11 @@ class QuestionManagementController extends Controller
         $courses = Course::orderBy('title')->get(['id', 'title']);
 
         $stats = [
-            'total'           => Question::count(),
-            'published'       => Question::published()->count(),
-            'draft'           => Question::where('status', 'draft')->count(),
-            'flagged'         => QuestionFlag::unresolved()->count(),
-            'high_exposure'   => Question::where('exposure_count', '>', 100)->count(),
+            'total' => Question::count(),
+            'published' => Question::published()->count(),
+            'draft' => Question::where('status', 'draft')->count(),
+            'flagged' => QuestionFlag::unresolved()->count(),
+            'high_exposure' => Question::where('exposure_count', '>', 100)->count(),
             'low_discrimination' => Question::where('discrimination_index', '<', 0.2)
                 ->where('discrimination_index', '>', 0)
                 ->count(),
@@ -60,10 +60,10 @@ class QuestionManagementController extends Controller
 
         return Inertia::render('Sme/QuestionBank', [
             'questions' => $questions,
-            'courses'   => $courses,
-            'domains'   => $domains,
-            'stats'     => $stats,
-            'filters'   => $request->only(['search', 'course_id', 'domain', 'difficulty', 'type', 'status', 'sort']),
+            'courses' => $courses,
+            'domains' => $domains,
+            'stats' => $stats,
+            'filters' => $request->only(['search', 'course_id', 'domain', 'difficulty', 'type', 'status', 'sort']),
         ]);
     }
 
@@ -80,7 +80,7 @@ class QuestionManagementController extends Controller
         $analytics = $this->workflowService->getQuestionAnalytics($question->id);
 
         return Inertia::render('Sme/ItemAnalytics', [
-            'question'  => $question,
+            'question' => $question,
             'analytics' => $analytics,
         ]);
     }
@@ -101,9 +101,9 @@ class QuestionManagementController extends Controller
         $coverage = $courseId ? $this->workflowService->getBlueprintCoverage($courseId) : [];
 
         return Inertia::render('Sme/BlueprintCoverage', [
-            'courses'  => $courses,
+            'courses' => $courses,
             'coverage' => $coverage,
-            'filters'  => ['course_id' => $courseId],
+            'filters' => ['course_id' => $courseId],
         ]);
     }
 
@@ -123,15 +123,15 @@ class QuestionManagementController extends Controller
             ->withQueryString();
 
         $stats = [
-            'open'      => QuestionFlag::open()->count(),
+            'open' => QuestionFlag::open()->count(),
             'in_review' => QuestionFlag::inReview()->count(),
-            'resolved'  => QuestionFlag::resolved()->count(),
+            'resolved' => QuestionFlag::resolved()->count(),
             'dismissed' => QuestionFlag::where('status', 'dismissed')->count(),
         ];
 
         return Inertia::render('Sme/FlagQueue', [
-            'flags'   => $flags,
-            'stats'   => $stats,
+            'flags' => $flags,
+            'stats' => $stats,
             'filters' => $request->only(['status', 'reason']),
         ]);
     }
@@ -145,7 +145,7 @@ class QuestionManagementController extends Controller
     public function resolveFlag(Request $request, QuestionFlag $flag)
     {
         $request->validate([
-            'status'           => 'required|in:resolved,dismissed',
+            'status' => 'required|in:resolved,dismissed',
             'resolution_notes' => 'required|string|max:2000',
         ]);
 
@@ -175,9 +175,9 @@ class QuestionManagementController extends Controller
 
         // Difficulty distribution
         $difficultyDist = [
-            'easy'   => (clone $query)->where('correct_rate', '>=', 0.8)->count(),
+            'easy' => (clone $query)->where('correct_rate', '>=', 0.8)->count(),
             'medium' => (clone $query)->where('correct_rate', '>=', 0.4)->where('correct_rate', '<', 0.8)->count(),
-            'hard'   => (clone $query)->where('correct_rate', '<', 0.4)->where('correct_rate', '>', 0)->count(),
+            'hard' => (clone $query)->where('correct_rate', '<', 0.4)->where('correct_rate', '>', 0)->count(),
             'no_data' => (clone $query)->where(function ($q) {
                 $q->whereNull('correct_rate')->orWhere('correct_rate', 0);
             })->count(),
@@ -186,10 +186,10 @@ class QuestionManagementController extends Controller
         // Discrimination distribution
         $discriminationDist = [
             'excellent' => (clone $query)->where('discrimination_index', '>=', 0.4)->count(),
-            'good'      => (clone $query)->where('discrimination_index', '>=', 0.3)->where('discrimination_index', '<', 0.4)->count(),
-            'fair'      => (clone $query)->where('discrimination_index', '>=', 0.2)->where('discrimination_index', '<', 0.3)->count(),
-            'poor'      => (clone $query)->where('discrimination_index', '<', 0.2)->where('discrimination_index', '>', 0)->count(),
-            'no_data'   => (clone $query)->where(function ($q) {
+            'good' => (clone $query)->where('discrimination_index', '>=', 0.3)->where('discrimination_index', '<', 0.4)->count(),
+            'fair' => (clone $query)->where('discrimination_index', '>=', 0.2)->where('discrimination_index', '<', 0.3)->count(),
+            'poor' => (clone $query)->where('discrimination_index', '<', 0.2)->where('discrimination_index', '>', 0)->count(),
+            'no_data' => (clone $query)->where(function ($q) {
                 $q->whereNull('discrimination_index')->orWhere('discrimination_index', 0);
             })->count(),
         ];
@@ -204,11 +204,11 @@ class QuestionManagementController extends Controller
         $courses = Course::orderBy('title')->get(['id', 'title']);
 
         return Inertia::render('Sme/AnalyticsDashboard', [
-            'difficultyDist'      => $difficultyDist,
-            'discriminationDist'  => $discriminationDist,
+            'difficultyDist' => $difficultyDist,
+            'discriminationDist' => $discriminationDist,
             'avgTimeByDifficulty' => $avgTimeByDifficulty,
-            'courses'             => $courses,
-            'filters'             => ['course_id' => $courseId],
+            'courses' => $courses,
+            'filters' => ['course_id' => $courseId],
         ]);
     }
 }

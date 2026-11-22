@@ -17,9 +17,9 @@ class MeetingAttendee extends Model
     ];
 
     protected $casts = [
-        'attended'  => 'boolean',
+        'attended' => 'boolean',
         'joined_at' => 'datetime',
-        'left_at'   => 'datetime',
+        'left_at' => 'datetime',
     ];
 
     /* ── Relationships ─────────────────────────────── */

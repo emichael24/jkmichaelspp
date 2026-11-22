@@ -21,11 +21,11 @@ class Mission extends Model
     ];
 
     protected $casts = [
-        'criteria'        => 'array',
-        'xp_reward'       => 'integer',
-        'starts_at'       => 'datetime',
-        'ends_at'         => 'datetime',
-        'is_active'       => 'boolean',
+        'criteria' => 'array',
+        'xp_reward' => 'integer',
+        'starts_at' => 'datetime',
+        'ends_at' => 'datetime',
+        'is_active' => 'boolean',
     ];
 
     // ── Relationships ────────────────────────────

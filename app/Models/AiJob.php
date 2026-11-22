@@ -14,7 +14,7 @@ class AiJob extends Model
 
     protected $casts = [
         'input_payload' => 'array',
-        'completed_at'  => 'datetime',
+        'completed_at' => 'datetime',
     ];
 
     public function user()

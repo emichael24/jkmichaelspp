@@ -5,25 +5,38 @@ namespace App\Http\Controllers\Facilitator;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Course;
-use App\Models\Module;
 use App\Models\Lesson;
+use App\Models\Module;
+use App\Models\User;
+use App\Notifications\CourseSubmittedForReview;
+use App\Services\ContentWorkflowService;
+use App\Services\CourseReadinessService;
+use App\Services\CurriculumRevisionService;
+use App\Services\LessonActivityService;
+use App\Services\LessonAuthoringService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class CourseController extends Controller
 {
     // ─── List facilitator's own courses ────────────────────────────────────────
-    public function index()
+    public function index(Request $request)
     {
-        $courses = Course::where('author_id', auth()->id())
+        $status = $request->validate(['status' => 'nullable|in:all,draft,pending_review,approved,rejected'])['status'] ?? 'all';
+        $owned = Course::where('author_id', $request->user()->id);
+        $counts = (clone $owned)->selectRaw('approval_status, count(*) as total')->groupBy('approval_status')->pluck('total', 'approval_status');
+        $courses = $owned
             ->with('category')
+            ->withCount(['modules', 'lessons'])
+            ->when($status !== 'all', fn ($query) => $query->where('approval_status', $status))
             ->latest()
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         return Inertia::render('Facilitator/Courses/Index', [
             'courses' => $courses,
+            'counts' => $counts,
+            'currentStatus' => $status,
         ]);
     }
 
@@ -39,33 +52,34 @@ class CourseController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'title'             => 'required|string|max:255',
-            'subtitle'          => 'nullable|string|max:500',
-            'description'       => 'nullable|string',
-            'category_id'       => 'required|exists:categories,id',
-            'level'             => 'required|in:beginner,intermediate,advanced',
-            'type'              => 'required|in:self_paced,live,certified,bootcamp',
-            'price'             => 'required|numeric|min:0',
-            'currency'          => 'nullable|string|size:3',
-            'discount_price'    => 'nullable|numeric|min:0',
+            'title' => 'required|string|max:255',
+            'subtitle' => 'nullable|string|max:500',
+            'description' => 'nullable|string',
+            'category_id' => 'required|exists:categories,id',
+            'level' => 'required|in:beginner,intermediate,advanced',
+            'type' => 'required|in:self_paced,live,certified,bootcamp',
+            'price' => 'required|numeric|min:0|max:99999999.99',
+            'duration_hours' => 'nullable|numeric|min:0|max:9999.9',
+            'currency' => 'nullable|string|size:3',
+            'discount_price' => 'nullable|numeric|min:0|lte:price',
             'learning_outcomes' => 'nullable|array',
-            'prerequisites'     => 'nullable|array',
-            'tags'              => 'nullable|array',
-            'thumbnail'         => 'nullable|string|max:500',
+            'prerequisites' => 'nullable|array',
+            'tags' => 'nullable|array',
+            'thumbnail' => 'nullable|string|max:500',
         ]);
 
         $course = Course::create([
             ...$validated,
-            'uuid'             => (string) Str::uuid(),
-            'slug'             => $this->uniqueSlug($validated['title']),
-            'author_id'        => auth()->id(),
-            'created_by_role'  => 'facilitator',
-            'approval_status'  => 'draft',
-            'is_published'     => false,
-            'version'          => 1,
+            'uuid' => (string) Str::uuid(),
+            'slug' => $this->uniqueSlug($validated['title']),
+            'author_id' => auth()->id(),
+            'created_by_role' => 'facilitator',
+            'approval_status' => 'draft',
+            'is_published' => false,
+            'version' => 1,
         ]);
 
-        return redirect()->route('facilitator.courses.edit', $course)
+        return redirect()->route('facilitator.courses.edit', ['course' => $course, 'tab' => 'curriculum'])
             ->with('success', 'Course created as draft. Add modules and lessons, then submit for admin approval.');
     }
 
@@ -74,10 +88,11 @@ class CourseController extends Controller
     {
         $this->authorizeOwnership($course);
 
-        $course->load(['modules.lessons', 'category']);
+        $course->load(['modules' => fn ($q) => $q->orderBy('sort_order'), 'modules.lessons' => fn ($q) => $q->orderBy('sort_order'), 'category']);
 
         return Inertia::render('Facilitator/Courses/Edit', [
-            'course'     => $course,
+            'course' => $course,
+            'readinessIssues' => app(CourseReadinessService::class)->issues($course),
             'categories' => Category::where('is_active', true)->orderBy('name')->get(['id', 'name']),
         ]);
     }
@@ -89,20 +104,21 @@ class CourseController extends Controller
         $this->ensureEditable($course);
 
         $validated = $request->validate([
-            'title'             => 'required|string|max:255',
-            'subtitle'          => 'nullable|string|max:500',
-            'description'       => 'nullable|string',
-            'category_id'       => 'required|exists:categories,id',
-            'level'             => 'required|in:beginner,intermediate,advanced',
-            'type'              => 'required|in:self_paced,live,certified,bootcamp',
-            'price'             => 'required|numeric|min:0',
-            'currency'          => 'nullable|string|size:3',
-            'discount_price'    => 'nullable|numeric|min:0',
+            'title' => 'required|string|max:255',
+            'subtitle' => 'nullable|string|max:500',
+            'description' => 'nullable|string',
+            'category_id' => 'required|exists:categories,id',
+            'level' => 'required|in:beginner,intermediate,advanced',
+            'type' => 'required|in:self_paced,live,certified,bootcamp',
+            'price' => 'required|numeric|min:0|max:99999999.99',
+            'duration_hours' => 'nullable|numeric|min:0|max:9999.9',
+            'currency' => 'nullable|string|size:3',
+            'discount_price' => 'nullable|numeric|min:0|lte:price',
             'learning_outcomes' => 'nullable|array',
-            'prerequisites'     => 'nullable|array',
-            'tags'              => 'nullable|array',
-            'thumbnail'         => 'nullable|string|max:500',
-            'preview_video'     => 'nullable|string|max:500',
+            'prerequisites' => 'nullable|array',
+            'tags' => 'nullable|array',
+            'thumbnail' => 'nullable|string|max:500',
+            'preview_video' => 'nullable|string|max:500',
         ]);
 
         $course->update($validated);
@@ -119,19 +135,13 @@ class CourseController extends Controller
             return back()->with('error', 'This course cannot be submitted for review at this stage.');
         }
 
-        if ($course->modules()->count() === 0) {
-            return back()->with('error', 'Add at least one module before submitting.');
-        }
+        app(CourseReadinessService::class)->assertReady($course);
 
-        $course->update([
-            'approval_status'        => 'pending_review',
-            'submitted_for_review_at' => now(),
-            'rejection_reason'       => null,
-        ]);
+        app(ContentWorkflowService::class)->submitForReview($course, auth()->user());
 
         // Notify all platform admins
-        \App\Models\User::role('platform_admin')->each(function ($admin) use ($course) {
-            $admin->notify(new \App\Notifications\CourseSubmittedForReview($course));
+        User::role('platform_admin')->each(function ($admin) use ($course) {
+            $admin->notify(new CourseSubmittedForReview($course));
         });
 
         return back()->with('success', 'Course submitted for admin review. You will be notified once reviewed.');
@@ -142,7 +152,7 @@ class CourseController extends Controller
     {
         $this->authorizeOwnership($course);
 
-        if ($course->approval_status !== 'draft') {
+        if ($course->published_at || $course->is_published || $course->enrollments()->exists() || $course->approval_status !== 'draft') {
             return back()->with('error', 'Only draft courses can be deleted.');
         }
 
@@ -159,13 +169,13 @@ class CourseController extends Controller
         $this->ensureEditable($course);
 
         $validated = $request->validate([
-            'title'       => 'required|string|max:255',
+            'title' => 'required|string|max:255',
             'description' => 'nullable|string',
         ]);
 
         $module = $course->modules()->create([
             ...$validated,
-            'sort_order'   => $course->modules()->count(),
+            'sort_order' => $course->modules()->count(),
             'is_published' => true,
         ]);
 
@@ -179,9 +189,9 @@ class CourseController extends Controller
         abort_unless($module->course_id === $course->id, 403);
 
         $module->update($request->validate([
-            'title'       => 'required|string|max:255',
+            'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'sort_order'  => 'nullable|integer',
+            'sort_order' => 'nullable|integer',
         ]));
 
         return back()->with('success', 'Module updated.');
@@ -194,34 +204,69 @@ class CourseController extends Controller
         abort_unless($module->course_id === $course->id, 403);
 
         $module->delete();
+
         return back()->with('success', 'Module deleted.');
     }
 
     // ─── Lesson management ────────────────────────────────────────────────────────
+    public function createLesson(Request $request, Course $course, Module $module)
+    {
+        $this->authorizeOwnership($course);
+        $this->ensureEditable($course);
+        abort_unless($module->course_id === $course->id, 404);
+
+        $course->load(['modules' => fn ($q) => $q->orderBy('sort_order'), 'modules.lessons' => fn ($q) => $q->orderBy('sort_order')]);
+
+        return Inertia::render('Facilitator/Courses/Lessons/Create', [
+            'course' => $course,
+            'module' => $module,
+            'initialType' => in_array($request->query('type'), Lesson::CONTENT_TYPES, true) ? $request->query('type') : 'text',
+            'questionBank' => app(LessonActivityService::class)->questionBank($course),
+        ]);
+    }
+
+    public function editLesson(Course $course, Module $module, Lesson $lesson)
+    {
+        $this->authorizeOwnership($course);
+        $this->ensureEditable($course);
+        abort_unless($module->course_id === $course->id && $lesson->module_id === $module->id, 404);
+
+        $course->load(['modules' => fn ($q) => $q->orderBy('sort_order'), 'modules.lessons' => fn ($q) => $q->orderBy('sort_order')]);
+        $activities = app(LessonActivityService::class);
+
+        return Inertia::render('Facilitator/Courses/Lessons/Edit', [
+            'course' => $course,
+            'module' => $module,
+            'lesson' => $lesson,
+            'activity' => $activities->editorPayload($lesson),
+            'questionBank' => $activities->questionBank($course),
+        ]);
+    }
+
+    public function updateThumbnail(Request $request, Course $course)
+    {
+        $this->authorizeOwnership($course);
+        $this->ensureEditable($course);
+        $request->validate(['thumbnail' => 'required|image|mimes:jpg,jpeg,png,webp|max:2048']);
+        $course->update(['thumbnail' => $request->file('thumbnail')->store('courses/thumbnails', 'public')]);
+
+        return back()->with('success', 'Thumbnail updated.');
+    }
+
     public function storeLesson(Request $request, Course $course, Module $module)
     {
         $this->authorizeOwnership($course);
         $this->ensureEditable($course);
         abort_unless($module->course_id === $course->id, 403);
 
-        $validated = $request->validate([
-            'title'            => 'required|string|max:255',
-            'content_type'     => 'required|in:text,video,audio,pdf,slides,mixed',
-            'text_content'     => 'nullable|string',
-            'video_url'        => 'nullable|url|max:500',
-            'audio_url'        => 'nullable|url|max:500',
-            'pdf_url'          => 'nullable|url|max:500',
-            'duration_minutes' => 'nullable|integer|min:1',
-            'is_free_preview'  => 'boolean',
-        ]);
+        $authoring = app(LessonAuthoringService::class);
+        $lesson = $authoring->persist($module, null, $authoring->validate($request), $request->user());
 
-        $lesson = $module->lessons()->create([
-            ...$validated,
-            'sort_order'   => $module->lessons()->count(),
-            'is_published' => true,
-        ]);
+        if ($request->boolean('stay_in_editor')) {
+            return redirect()->route('facilitator.courses.lessons.edit', [$course, $module, $lesson])->with('success', 'Lesson saved.');
+        }
 
-        return back()->with(['success' => 'Lesson added.', 'lesson' => $lesson]);
+        return redirect()->route('facilitator.courses.edit', $course)->with('success', 'Lesson added.');
     }
 
     public function updateLesson(Request $request, Course $course, Module $module, Lesson $lesson)
@@ -230,19 +275,14 @@ class CourseController extends Controller
         $this->ensureEditable($course);
         abort_unless($module->course_id === $course->id && $lesson->module_id === $module->id, 403);
 
-        $lesson->update($request->validate([
-            'title'            => 'required|string|max:255',
-            'content_type'     => 'required|in:text,video,audio,pdf,slides,mixed',
-            'text_content'     => 'nullable|string',
-            'video_url'        => 'nullable|url|max:500',
-            'audio_url'        => 'nullable|url|max:500',
-            'pdf_url'          => 'nullable|url|max:500',
-            'duration_minutes' => 'nullable|integer|min:1',
-            'is_free_preview'  => 'boolean',
-            'sort_order'       => 'nullable|integer',
-        ]));
+        $authoring = app(LessonAuthoringService::class);
+        $authoring->persist($module, $lesson, $authoring->validate($request, true), $request->user());
 
-        return back()->with('success', 'Lesson updated.');
+        if ($request->boolean('stay_in_editor')) {
+            return redirect()->route('facilitator.courses.lessons.edit', [$course, $module, $lesson])->with('success', 'Lesson saved.');
+        }
+
+        return redirect()->route('facilitator.courses.edit', $course)->with('success', 'Lesson updated.');
     }
 
     public function destroyLesson(Course $course, Module $module, Lesson $lesson)
@@ -252,6 +292,7 @@ class CourseController extends Controller
         abort_unless($module->course_id === $course->id && $lesson->module_id === $module->id, 403);
 
         $lesson->delete();
+
         return back()->with('success', 'Lesson deleted.');
     }
 
@@ -266,18 +307,14 @@ class CourseController extends Controller
 
     protected function ensureEditable(Course $course): void
     {
-        if ($course->approval_status === 'pending_review') {
-            abort(403, 'Course is under review and cannot be edited. Recall it first.');
-        }
-        if ($course->approval_status === 'approved' && $course->is_published) {
-            abort(403, 'Published courses cannot be edited directly. Create a new version.');
-        }
+        app(CurriculumRevisionService::class)->assertEditable($course);
     }
 
     protected function uniqueSlug(string $title): string
     {
         $slug = Str::slug($title);
-        $count = Course::where('slug', 'like', $slug . '%')->count();
-        return $count > 0 ? $slug . '-' . ($count + 1) : $slug;
+        $count = Course::where('slug', 'like', $slug.'%')->count();
+
+        return $count > 0 ? $slug.'-'.($count + 1) : $slug;
     }
 }

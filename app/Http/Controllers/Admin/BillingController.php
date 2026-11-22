@@ -3,9 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\User;
+use App\Services\PaymentRefundService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -18,38 +19,46 @@ class BillingController extends Controller
     public function index(Request $request): Response
     {
         $thirtyDaysAgo = now()->subDays(30);
+        $request->validate(['currency' => ['nullable', 'regex:/^[A-Z]{3}$/']]);
+        $currency = $request->input('currency', 'NGN');
+        $payments = Payment::where('currency', $currency);
 
         // Revenue summary
-        $totalRevenue = Payment::where('status', 'success')->sum('amount');
-        $monthlyRevenue = Payment::where('status', 'success')
+        $totalRevenue = (clone $payments)->where('status', 'success')->sum('amount');
+        $monthlyRevenue = (clone $payments)->where('status', 'success')
             ->where('created_at', '>=', $thirtyDaysAgo)->sum('amount');
         $totalOrders = Order::where('status', 'paid')->count();
 
         // Revenue by gateway
-        $revenueByGateway = Payment::where('status', 'success')
+        $revenueByGateway = (clone $payments)->where('status', 'success')
             ->selectRaw('gateway, SUM(amount) as total, COUNT(*) as count')
             ->groupBy('gateway')
-            ->get();
+            ->pluck('total', 'gateway');
 
         // Recent transactions
-        $recentPayments = Payment::with(['order.user:id,first_name,last_name,email'])
+        $recentPayments = (clone $payments)->with(['user:id,first_name,last_name,email', 'refund'])
             ->orderByDesc('created_at')
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
         // Monthly revenue trend
-        $monthlyTrend = Payment::where('status', 'success')
+        $monthlyTrend = (clone $payments)->where('status', 'success')
             ->where('created_at', '>=', now()->subMonths(12))
-            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, SUM(amount) as total")
+            ->selectRaw('SUBSTR(created_at, 1, 7) as month, SUM(amount) as revenue')
             ->groupBy('month')
             ->orderBy('month')
-            ->pluck('total', 'month');
+            ->get();
 
         // Active seats (users with active enrollments)
-        $activeSeats = User::whereHas('enrollments', fn($q) => $q->where('status', 'active'))
+        $activeSeats = User::whereHas('enrollments', fn ($q) => $q->where('status', 'active'))
             ->where('is_active', true)
             ->count();
 
         return Inertia::render('Admin/Billing/Index', [
+            'currency' => $currency,
+            'currencies' => Payment::distinct()->pluck('currency')->push('NGN')->unique()->values(),
+            'totalRevenue' => (float) $totalRevenue,
+            'monthlyRevenue' => (float) $monthlyRevenue,
+            'activeSeats' => $activeSeats,
             'metrics' => [
                 'totalRevenue' => $totalRevenue,
                 'monthlyRevenue' => $monthlyRevenue,
@@ -67,19 +76,17 @@ class BillingController extends Controller
      */
     public function refund(Request $request, int $paymentId)
     {
-        $payment = Payment::findOrFail($paymentId);
+        $data = $request->validate(['reason' => 'required|string|min:5|max:1000', 'confirmed' => 'accepted']);
+        $refund = app(PaymentRefundService::class)->request(Payment::findOrFail($paymentId), $request->user(), $data['reason']);
 
-        if ($payment->status !== 'successful') {
-            return back()->with('error', 'Only successful payments can be refunded.');
-        }
+        return back()->with($refund->status === 'processed' ? 'success' : 'info', 'Refund status: '.$refund->status.'. The request is recorded; do not submit a separate provider refund.');
+    }
 
-        $payment->markRefunded();
+    public function reconcileRefund(Request $request, int $paymentId)
+    {
+        $refund = Payment::findOrFail($paymentId)->refund()->firstOrFail();
+        $refund = app(PaymentRefundService::class)->reconcile($refund);
 
-        // Update order status
-        if ($payment->order) {
-            $payment->order->update(['status' => 'refunded']);
-        }
-
-        return back()->with('success', 'Payment has been marked as refunded.');
+        return back()->with('info', 'Verified refund status: '.$refund->status.'.');
     }
 }

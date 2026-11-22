@@ -4,12 +4,14 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "test": "node --test tests/js/*.test.js"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.2.1",
         "axios": "^1.11.0",
         "concurrently": "^9.0.1",
+        "fake-indexeddb": "^6.2.5",
         "laravel-vite-plugin": "^2.0.0",
         "tailwindcss": "^4.2.1",
         "vite": "^7.0.7"
@@ -17,12 +19,22 @@
     "dependencies": {
         "@headlessui/vue": "^1.7.23",
         "@inertiajs/vue3": "^2.3.16",
+        "@tiptap/extension-highlight": "^3.31.4",
+        "@tiptap/extension-image": "^3.31.4",
+        "@tiptap/extension-placeholder": "^3.31.4",
+        "@tiptap/extension-table": "^3.31.4",
+        "@tiptap/pm": "^3.31.4",
+        "@tiptap/starter-kit": "^3.31.4",
+        "@tiptap/vue-3": "^3.31.4",
         "@vitejs/plugin-vue": "^6.0.4",
         "@vueuse/core": "^14.2.1",
         "chart.js": "^4.5.1",
+        "dompurify": "^3.4.16",
         "lucide-vue-next": "^0.575.0",
+        "pdfjs-dist": "^6.5.438",
         "pinia": "^3.0.4",
         "plyr": "^3.8.4",
+        "pptx-preview": "^1.0.7",
         "vue": "^3.5.29",
         "vue-chartjs": "^5.3.3",
         "ziggy-js": "^2.6.2"

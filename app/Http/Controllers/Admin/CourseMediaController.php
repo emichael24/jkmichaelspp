@@ -3,117 +3,93 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\MediaAsset;
+use App\Services\PrivateMediaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
-use ZipArchive;
-use Exception;
 
 class CourseMediaController extends Controller
 {
-    /**
-     * Handle Chunked Video Uploads
-     */
-    public function uploadVideo(Request $request)
+    public function uploadVideo(Request $request, PrivateMediaService $media)
     {
-        $file = $request->file('file');
-        $fileName = $request->input('fileName');
-        $chunkIndex = $request->input('chunkIndex');
-        $totalChunks = $request->input('totalChunks');
-
-        $tempPath = 'temp_uploads/' . $fileName;
-
-        // Append chunk to the temp file
-        Storage::disk('local')->append(
-            $tempPath, 
-            $file->get()
-        );
-
-        if ($chunkIndex == $totalChunks - 1) {
-            // Upload complete! Move to final destination
-            $finalPath = 'courses/videos/' . Str::uuid() . '_' . $fileName;
-            Storage::disk('public')->put($finalPath, Storage::disk('local')->get($tempPath));
-            Storage::disk('local')->delete($tempPath);
-
-            return response()->json([
-                'status' => 'success',
-                'video_url' => asset("storage/{$finalPath}"),
-                'video_provider' => 's3', // Assume local maps to equivalent logic or S3 disk
-                'message' => 'Upload complete'
-            ]);
-        }
-
-        return response()->json(['status' => 'uploading', 'chunkIndex' => $chunkIndex]);
-    }
-
-    /**
-     * Handle SCORM .zip Upload and Extraction
-     */
-    public function uploadScorm(Request $request)
-    {
-        $request->validate([
-            'file' => 'required|file|mimes:zip|max:512000' // Max 500MB
+        $data = $request->validate([
+            'file' => 'required|file|max:5120', 'fileName' => ['required', 'string', 'max:120', 'regex:/^[A-Za-z0-9_.-]+$/'],
+            'chunkIndex' => 'required|integer|min:0|max:99', 'totalChunks' => 'required|integer|min:1|max:100',
         ]);
-
-        $zipFile = $request->file('file');
-        $folderName = 'scorm_' . Str::uuid();
-        $extractPath = storage_path("app/public/scorm/{$folderName}");
-
-        $zip = new ZipArchive;
-        if ($zip->open($zipFile->getRealPath()) === true) {
-            // Extract the contents
-            $zip->extractTo($extractPath);
-            $zip->close();
-
-            // Locate entry point (story.html, index_lms.html, or index.html)
-            $entryPoint = $this->findScormEntryPoint($extractPath);
-
-            if (!$entryPoint) {
-                return response()->json(['error' => 'No valid entry point (HTML file) found in the SCORM package.'], 400);
+        abort_unless($data['chunkIndex'] < $data['totalChunks'], 422);
+        $disk = Storage::disk('local');
+        $directory = 'upload-parts/'.$request->user()->id.'/'.hash('sha256', $data['fileName']);
+        $disk->makeDirectory($directory);
+        $lock = fopen($disk->path($directory.'/lock'), 'c');
+        abort_unless($lock && flock($lock, LOCK_EX), 503);
+        try {
+            $metaPath = $directory.'/state.json';
+            $state = $disk->exists($metaPath) ? json_decode($disk->get($metaPath), true, 512, JSON_THROW_ON_ERROR) : ['chunks' => (int) $data['totalChunks'], 'created' => time()];
+            abort_unless($state['chunks'] === (int) $data['totalChunks'], 409, 'Upload parameters changed. Start a new upload.');
+            if (isset($state['asset'])) {
+                return $this->videoResponse(MediaAsset::findOrFail($state['asset']));
             }
-
-            // Return relative path to be saved in Lesson model
-            $scormPathUrl = asset("storage/scorm/{$folderName}/{$entryPoint}");
-
-            return response()->json([
-                'status' => 'success',
-                'scorm_path' => $scormPathUrl,
-                'scorm_version' => '1.2', // Often assumed, can parse imsmanifest.xml later for precision
-                'message' => 'SCORM Package extracted successfully.'
-            ]);
-        }
-
-        return response()->json(['error' => 'Failed to open the zip file.'], 500);
-    }
-
-    /**
-     * Recursively search for common SCORM entry points.
-     */
-    private function findScormEntryPoint($path)
-    {
-        $commonNames = ['story_html5.html', 'story.html', 'index_lms.html', 'index.html', 'scormdriver.html'];
-        
-        // Scan the root of the extracted folder
-        $files = scandir($path);
-        foreach ($files as $file) {
-            if (in_array(strtolower($file), $commonNames)) {
-                return $file;
-            }
-        }
-
-        // If nested (e.g. within a subdirectory inside the zip)
-        foreach ($files as $file) {
-            if ($file !== '.' && $file !== '..' && is_dir($path . '/' . $file)) {
-                $subFiles = scandir($path . '/' . $file);
-                foreach ($subFiles as $subFile) {
-                    if (in_array(strtolower($subFile), $commonNames)) {
-                        return $file . '/' . $subFile;
-                    }
+            abort_unless(time() - $state['created'] < 86400, 410, 'Upload expired. Start again.');
+            $part = $directory.'/'.$data['chunkIndex'].'.part';
+            $source = $request->file('file')->getRealPath();
+            if ($disk->exists($part)) {
+                abort_unless(hash_equals(hash_file('sha256', $disk->path($part)), hash_file('sha256', $source)), 409, 'A different chunk already occupies this position.');
+            } else {
+                $stream = fopen($source, 'rb');
+                try {
+                    abort_unless($disk->put($part, $stream), 503);
+                } finally {
+                    fclose($stream);
                 }
             }
-        }
+            $disk->put($metaPath, json_encode($state));
+            for ($i = 0; $i < $state['chunks']; $i++) {
+                if (! $disk->exists($directory.'/'.$i.'.part')) {
+                    return response()->json(['status' => 'uploading', 'chunkIndex' => $data['chunkIndex']]);
+                }
+            }
+            $assembled = $disk->path($directory.'/assembled');
+            $output = fopen($assembled, 'wb');
+            try {
+                for ($i = 0; $i < $state['chunks']; $i++) {
+                    $input = fopen($disk->path($directory.'/'.$i.'.part'), 'rb');
+                    try {
+                        stream_copy_to_stream($input, $output);
+                    } finally {
+                        fclose($input);
+                    }
+                }
+            } finally {
+                fclose($output);
+            }
+            try {
+                $asset = $media->videoPath($assembled, $request->user());
+            } finally {
+                $disk->delete($directory.'/assembled');
+            }
+            $state['asset'] = $asset->id;
+            $disk->put($metaPath, json_encode($state));
+            for ($i = 0; $i < $state['chunks']; $i++) {
+                $disk->delete($directory.'/'.$i.'.part');
+            }
 
-        return null;
+            return $this->videoResponse($asset);
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+    }
+
+    public function uploadScorm(Request $request, PrivateMediaService $media)
+    {
+        $request->validate(['file' => 'required|file|mimes:zip|max:102400']);
+        $asset = $media->scorm($request->file('file'), $request->user());
+
+        return response()->json(['status' => 'success', 'scorm_path' => $asset->url(), 'scorm_version' => $asset->scorm_version]);
+    }
+
+    private function videoResponse(MediaAsset $asset)
+    {
+        return response()->json(['status' => 'success', 'video_url' => $asset->url(), 'video_provider' => 'local']);
     }
 }
-

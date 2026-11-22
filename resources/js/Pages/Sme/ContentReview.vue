@@ -27,7 +27,7 @@
                 <h3>{{ content.title || content.stem }}</h3>
 
                 <!-- For lessons -->
-                <div v-if="content.content_html" v-html="content.content_html" />
+                <SafeHtml v-if="content.content_html" :content="content.content_html" />
 
                 <!-- For questions -->
                 <div v-if="content.stem">
@@ -117,6 +117,7 @@
 </template>
 
 <script setup>
+import SafeHtml from '@/Components/SafeHtml.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { ArrowLeft, CheckCircle, XCircle, MessageSquare } from 'lucide-vue-next';

@@ -20,9 +20,9 @@
                     {{ summaryExpanded ? 'Collapse' : 'Expand' }}
                 </button>
             </div>
-            <div
+            <SafeHtml
                 :class="['text-sm text-primary-900 leading-relaxed transition-all', !summaryExpanded ? 'line-clamp-3' : '']"
-                v-html="summary"
+                :content="summary"
             />
         </div>
 
@@ -49,7 +49,7 @@
 
         <!-- Main content -->
         <div v-if="textContent" class="prose prose-surface max-w-none prose-headings:font-display prose-a:text-primary-600 prose-img:rounded-xl">
-            <div v-html="textContent" />
+            <SafeHtml :content="textContent" />
         </div>
 
         <!-- Empty state -->
@@ -62,6 +62,7 @@
 </template>
 
 <script setup>
+import SafeHtml from '@/Components/SafeHtml.vue';
 import { ref, computed } from 'vue';
 import { Clock, Sparkles, BookOpen, FileText } from 'lucide-vue-next';
 

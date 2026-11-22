@@ -30,6 +30,10 @@
                         @update:modelValue="applyFilters"
                     />
                 </div>
+                <select v-model="filterOrganization" aria-label="Filter by organization" class="rounded-xl border-surface-300 text-sm px-3 py-2 focus:border-primary-500 focus:ring-primary-500/20" @change="applyFilters">
+                    <option value="">All organizations</option>
+                    <option v-for="org in organizations" :key="org.id" :value="org.id">{{ org.name }}</option>
+                </select>
                 <select
                     v-model="filterRole"
                     class="rounded-xl border-surface-300 text-sm px-3 py-2 focus:border-primary-500 focus:ring-primary-500/20"
@@ -178,6 +182,7 @@ const props = defineProps({
 
 const search = ref(props.filters?.search || '');
 const filterRole = ref(props.filters?.role || '');
+const filterOrganization = ref(props.filters?.organization_id || '');
 const filterStatus = ref(props.filters?.is_active ?? '');
 
 let searchTimeout;
@@ -187,6 +192,7 @@ const applyFilters = () => {
         router.get('/admin/users', {
             search: search.value || undefined,
             role: filterRole.value || undefined,
+            organization_id: filterOrganization.value || undefined,
             is_active: filterStatus.value !== '' ? filterStatus.value : undefined,
         }, { preserveState: true, replace: true });
     }, 300);

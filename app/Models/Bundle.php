@@ -38,6 +38,7 @@ class Bundle extends Model
     {
         return $this->courses->sum(function ($course) {
             $product = $course->product;
+
             return $product ? $product->getCurrentPrice() : 0;
         });
     }

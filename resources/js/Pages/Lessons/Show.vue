@@ -42,6 +42,7 @@
                             ]"
                         >
                             <div :class="lessonStatusIcon(l.id)" />
+                            <component :is="lessonIcon(l)" class="h-3.5 w-3.5 shrink-0 text-surface-400" aria-hidden="true" />
                             <div class="min-w-0 flex-1">
                                 <span class="block truncate">{{ l.title }}</span>
                                 <span v-if="l.is_locked && l.availability_label" class="text-[11px] text-surface-400">
@@ -92,8 +93,14 @@
                             <BookmarkIcon class="h-5 w-5" :fill="isBookmarked ? 'currentColor' : 'none'" />
                         </button>
 
+                        <span
+                            v-if="progress.status !== 'completed' && lesson.is_activity"
+                            class="hidden text-xs text-surface-500 sm:inline"
+                        >
+                            {{ lesson.content_type === 'quiz' ? 'Pass the quiz to complete' : 'Submit your work to complete' }}
+                        </span>
                         <Button
-                            v-if="progress.status !== 'completed'"
+                            v-else-if="progress.status !== 'completed' && !lesson.scorm_path"
                             variant="success"
                             size="sm"
                             :icon="CheckCircle"
@@ -102,7 +109,7 @@
                         >
                             Mark Complete
                         </Button>
-                        <Badge v-else variant="success" size="sm">
+                        <Badge v-else-if="progress.status === 'completed'" variant="success" size="sm">
                             <CheckCircle class="mr-1 h-3.5 w-3.5" />
                             Completed
                         </Badge>
@@ -155,16 +162,16 @@
                                 Create Flashcards
                             </Button>
                             <Button
-                                v-if="!downloadedLesson"
+                                v-if="canSaveOffline && !downloadedLesson"
                                 variant="secondary"
                                 size="sm"
                                 :loading="downloadingLesson"
                                 @click="downloadLesson"
                             >
-                                Save Offline
+                                Save reading offline
                             </Button>
                             <Button
-                                v-else
+                                v-else-if="canSaveOffline"
                                 variant="ghost"
                                 size="sm"
                                 :loading="downloadingLesson"
@@ -175,6 +182,14 @@
                         </div>
                     </div>
                 </div>
+
+                <p v-if="offlineMessage" role="status" class="mb-4 rounded-xl border border-surface-200 bg-white p-4 text-sm text-surface-700">{{ offlineMessage }}</p>
+
+                <LessonActivity
+                    v-if="activeTab === 'activity'"
+                    :lesson="lesson"
+                    :activity="activity"
+                />
 
                 <ReadContent
                     v-if="activeTab === 'read'"
@@ -286,7 +301,9 @@ import AudioPlayer from '@/Components/Lesson/AudioPlayer.vue';
 import PdfViewer from '@/Components/Lesson/PdfViewer.vue';
 import LessonNotes from '@/Components/Lesson/LessonNotes.vue';
 import ScormPlayer from '@/Components/ScormPlayer.vue';
-import { saveLessonOffline, getOfflineLesson, removeOfflineLesson, cacheLessonAssets } from '@/pwa';
+import LessonActivity from '@/Components/Lesson/LessonActivity.vue';
+import { lessonIcon } from '@/Components/Authoring/lessonTypes';
+import { saveLessonOffline, getOfflineLesson, removeOfflineLesson } from '@/pwa';
 import {
     ArrowLeft, BookmarkIcon, CheckCircle, ChevronDown, ChevronLeft, ChevronRight,
     FileText, Play, Headphones, File, StickyNote,
@@ -306,10 +323,20 @@ const props = defineProps({
     nextLesson: Object,
     lessonProgress: Object,
     modules: Array,
+    activity: { type: Object, default: null },
+    sequential: Boolean,
 });
 
 const availableTabs = computed(() => {
     const tabs = [];
+
+    if (props.lesson.is_activity) {
+        const labels = { quiz: 'Quiz', assignment: 'Assignment', case_study: 'Case study' };
+        tabs.push({ id: 'activity', label: labels[props.lesson.content_type] || 'Activity', icon: lessonIcon(props.lesson) });
+        tabs.push({ id: 'notes', label: 'Notes', icon: StickyNote });
+
+        return tabs;
+    }
 
     if (props.lesson.text_content || props.lesson.summary) {
         tabs.push({ id: 'read', label: 'Read', icon: FileText });
@@ -336,16 +363,19 @@ const availableTabs = computed(() => {
     return tabs;
 });
 
-const activeTab = ref(availableTabs.value[0]?.id || 'read');
+const preferredTab = { pdf: 'pdf', slides: 'pdf', video: 'watch', audio: 'listen' }[props.lesson.content_type];
+const activeTab = ref(availableTabs.value.find((tab) => tab.id === preferredTab)?.id || availableTabs.value[0]?.id || 'read');
 const creatingFlashcards = ref(false);
 const downloadingLesson = ref(false);
 const downloadedLesson = ref(false);
+const offlineMessage = ref('');
+const canSaveOffline = computed(() => props.lesson.is_downloadable && !props.lesson.scorm_path && !props.lesson.is_activity && (props.lesson.text_content || props.lesson.summary));
 
 const hasKeyTerms = computed(() => Array.isArray(props.lesson?.key_terms) && props.lesson.key_terms.length > 0);
-const hasStudyTools = computed(() => hasKeyTerms.value || props.lesson?.text_content || props.lesson?.video_url || props.lesson?.audio_url);
+const hasStudyTools = computed(() => !props.lesson?.is_activity && (hasKeyTerms.value || props.lesson?.text_content || props.lesson?.video_url || props.lesson?.audio_url));
 
 onMounted(async () => {
-    const existing = await getOfflineLesson(props.lesson.id);
+    const existing = await getOfflineLesson(props.lesson.id).catch(() => null);
     downloadedLesson.value = !!existing;
 });
 
@@ -423,19 +453,11 @@ function createFlashcards() {
 async function downloadLesson() {
     downloadingLesson.value = true;
     try {
-        await saveLessonOffline(props.lesson.id, {
-            title: props.lesson.title,
-            summary: props.lesson.summary,
-            text_content: props.lesson.text_content,
-            key_terms: props.lesson.key_terms,
-            video_url: props.lesson.video_url,
-            audio_url: props.lesson.audio_url,
-            pdf_url: props.lesson.pdf_url,
-            slides_url: props.lesson.slides_url,
-            size: null,
-        });
-        await cacheLessonAssets(props.lesson);
+        await saveLessonOffline(props.lesson.id);
+        offlineMessage.value = 'Reading saved in this tab for 24 hours. Open Downloads to read it offline. Media and assessments need a connection.';
         downloadedLesson.value = true;
+    } catch (error) {
+        offlineMessage.value = error.response?.data?.message || error.message || 'Reading could not be saved.';
     } finally {
         downloadingLesson.value = false;
     }

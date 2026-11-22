@@ -106,7 +106,14 @@
         <!-- Actions -->
         <div class="flex flex-wrap items-center gap-4 mt-8 pb-8">
             <Link
-                v-if="courseSlug"
+                v-if="lessonUrl"
+                :href="lessonUrl"
+                class="px-6 py-3 rounded-xl bg-primary-600 text-white font-semibold text-sm hover:bg-primary-700 transition-colors"
+            >
+                Back to Lesson
+            </Link>
+            <Link
+                v-if="courseSlug && !lessonUrl"
                 :href="`/courses/${courseSlug}`"
                 class="px-6 py-3 rounded-xl bg-primary-600 text-white font-semibold text-sm hover:bg-primary-700 transition-colors"
             >
@@ -135,6 +142,7 @@ const props = defineProps({
     attempt: Object,
     quizTitle: String,
     courseSlug: String,
+    lessonUrl: { type: String, default: null },
     review: Array,
 });
 

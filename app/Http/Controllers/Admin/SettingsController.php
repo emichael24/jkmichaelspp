@@ -5,9 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\WhatsappSession;
+use App\Services\PlatformSettings;
 use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -33,9 +34,9 @@ class SettingsController extends Controller
             'storage_disk' => config('filesystems.default'),
             'max_upload_size' => ini_get('upload_max_filesize'),
             'payment_gateways' => [
-                'paystack' => !empty(config('services.paystack.secret_key')),
-                'flutterwave' => !empty(config('services.flutterwave.secret_key')),
-                'stripe' => !empty(config('services.stripe.secret')),
+                'paystack' => filled(app(\App\Services\PaystackSettings::class)->secret()),
+                'flutterwave' => ! empty(config('services.flutterwave.secret_key')),
+                'stripe' => ! empty(config('services.stripe.secret')),
             ],
             'notifications' => [
                 'push_enabled' => true,
@@ -47,6 +48,8 @@ class SettingsController extends Controller
             'require_email_verification' => true,
             'default_wa_session' => config('services.flexichurch.whatsapp_session'),
         ];
+
+        $settings = array_replace($settings, app(PlatformSettings::class)->all());
 
         return Inertia::render('Admin/Settings/Index', [
             'settings' => $settings,
@@ -60,10 +63,10 @@ class SettingsController extends Controller
      */
     public function update(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'platform_name' => 'string|max:255',
-            'timezone' => 'string|max:50',
-            'locale' => 'string|max:10',
+            'timezone' => 'timezone',
+            'locale' => 'in:en',
             'notifications.push_enabled' => 'boolean',
             'notifications.email_enabled' => 'boolean',
             'notifications.max_push_per_day' => 'integer|min:1|max:20',
@@ -71,6 +74,8 @@ class SettingsController extends Controller
             'allow_registration' => 'boolean',
             'require_email_verification' => 'boolean',
         ]);
+
+        app(PlatformSettings::class)->put($validated);
 
         return back()->with('success', 'Settings updated successfully.');
     }
@@ -89,9 +94,9 @@ class SettingsController extends Controller
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'like', "%{$search}%")
-                  ->orWhere('last_name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('whatsapp_number', 'like', "%{$search}%");
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('whatsapp_number', 'like', "%{$search}%");
             });
         }
 
@@ -129,7 +134,7 @@ class SettingsController extends Controller
     {
         $validated = $request->validate([
             'whatsapp_number' => ['required', 'string', 'max:30', 'regex:/^\+?[1-9]\d{6,19}$/'],
-            'whatsapp_session' => ['nullable', 'string', 'max:100'],
+            'whatsapp_session' => ['nullable', 'string', 'max:100', 'exists:whatsapp_sessions,session_id'],
         ]);
 
         $user->update([
@@ -166,7 +171,7 @@ class SettingsController extends Controller
         $request->validate([
             'pairs' => ['required', 'array', 'min:1', 'max:500'],
             'pairs.*.whatsapp_number' => ['required', 'string', 'max:30', 'regex:/^\+?[1-9]\d{6,19}$/'],
-            'pairs.*.whatsapp_session' => ['nullable', 'string', 'max:100'],
+            'pairs.*.whatsapp_session' => ['nullable', 'string', 'max:100', 'exists:whatsapp_sessions,session_id'],
             // Either email or user_id must be provided
             'pairs.*.email' => ['nullable', 'email', 'max:255'],
             'pairs.*.user_id' => ['nullable', 'integer'],
@@ -178,16 +183,21 @@ class SettingsController extends Controller
         $skipped = 0;
 
         foreach ($request->input('pairs') as $pair) {
-            if (!empty($pair['user_id'])) {
+            if (! empty($pair['user_id'])) {
                 $user = User::find($pair['user_id']);
-            } elseif (!empty($pair['email'])) {
+            } elseif (! empty($pair['email'])) {
                 $user = User::where('email', $pair['email'])->first();
             } else {
                 $skipped++;
+
                 continue;
             }
 
-            if (!$user) { $skipped++; continue; }
+            if (! $user) {
+                $skipped++;
+
+                continue;
+            }
 
             $user->update([
                 'whatsapp_number' => $pair['whatsapp_number'],
@@ -198,7 +208,7 @@ class SettingsController extends Controller
             $count++;
         }
 
-        return back()->with('success', "{$count} user(s) updated" . ($skipped ? ", {$skipped} skipped (not found)." : '.'));
+        return back()->with('success', "{$count} user(s) updated".($skipped ? ", {$skipped} skipped (not found)." : '.'));
     }
 
     /**
@@ -207,11 +217,12 @@ class SettingsController extends Controller
      */
     public function autoPairFromPhone(Request $request)
     {
+        $request->validate(['default_session' => 'nullable|string|max:100|exists:whatsapp_sessions,session_id']);
         $updated = User::whereNull('whatsapp_number')
             ->whereNotNull('phone')
             ->where('phone', '!=', '')
             ->update([
-                'whatsapp_number' => \Illuminate\Support\Facades\DB::raw('phone'),
+                'whatsapp_number' => DB::raw('phone'),
                 'whatsapp_session' => $request->input('default_session'),
                 'whatsapp_paired_at' => now(),
                 'whatsapp_paired_by' => auth()->id(),
@@ -220,4 +231,3 @@ class SettingsController extends Controller
         return back()->with('success', "{$updated} user(s) auto-paired from their phone number.");
     }
 }
-

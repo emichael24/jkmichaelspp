@@ -26,7 +26,7 @@ class SpacedRepetitionController extends Controller
         $flashcardCount = Flashcard::where('user_id', $userId)->count();
 
         return Inertia::render('Practice/Dashboard', [
-            'stats'          => $stats,
+            'stats' => $stats,
             'flashcardCount' => $flashcardCount,
         ]);
     }
@@ -46,16 +46,16 @@ class SpacedRepetitionController extends Controller
 
             if ($reviewable instanceof Flashcard) {
                 return [
-                    'item_id'  => $item->id,
-                    'type'     => 'flashcard',
-                    'front'    => $reviewable->front,
-                    'back'     => $reviewable->back,
-                    'domain'   => $reviewable->domain,
-                    'source'   => $reviewable->source,
-                    'ease'     => $item->ease_factor,
+                    'item_id' => $item->id,
+                    'type' => 'flashcard',
+                    'front' => $reviewable->front,
+                    'back' => $reviewable->back,
+                    'domain' => $reviewable->domain,
+                    'source' => $reviewable->source,
+                    'ease' => $item->ease_factor,
                     'interval' => $item->interval_days,
-                    'reps'     => $item->repetitions,
-                    'status'   => $item->status,
+                    'reps' => $item->repetitions,
+                    'status' => $item->status,
                 ];
             }
 
@@ -84,10 +84,10 @@ class SpacedRepetitionController extends Controller
         $updatedItem = $this->srService->submitReview($item, $validated['quality']);
 
         return back()->with('reviewResult', [
-            'ease'         => $updatedItem->ease_factor,
-            'interval'     => $updatedItem->interval_days,
-            'next_review'  => $updatedItem->next_review_at,
-            'status'       => $updatedItem->status,
+            'ease' => $updatedItem->ease_factor,
+            'interval' => $updatedItem->interval_days,
+            'next_review' => $updatedItem->next_review_at,
+            'status' => $updatedItem->status,
         ]);
     }
 
@@ -114,7 +114,7 @@ class SpacedRepetitionController extends Controller
             ->when($request->source, fn ($q, $s) => $q->where('source', $s))
             ->when($request->search, fn ($q, $s) => $q->where(function ($q2) use ($s) {
                 $q2->where('front', 'like', "%{$s}%")
-                   ->orWhere('back', 'like', "%{$s}%");
+                    ->orWhere('back', 'like', "%{$s}%");
             }))
             ->with('course:id,title')
             ->latest()
@@ -122,7 +122,7 @@ class SpacedRepetitionController extends Controller
 
         return Inertia::render('Practice/Flashcards', [
             'flashcards' => $flashcards,
-            'filters'    => $request->only(['course_id', 'domain', 'source', 'search']),
+            'filters' => $request->only(['course_id', 'domain', 'source', 'search']),
         ]);
     }
 
@@ -132,17 +132,17 @@ class SpacedRepetitionController extends Controller
     public function storeFlashcard(Request $request)
     {
         $validated = $request->validate([
-            'front'     => 'required|string|max:2000',
-            'back'      => 'required|string|max:5000',
+            'front' => 'required|string|max:2000',
+            'back' => 'required|string|max:5000',
             'course_id' => 'nullable|exists:courses,id',
-            'domain'    => 'nullable|string|max:255',
-            'tags'      => 'nullable|array',
+            'domain' => 'nullable|string|max:255',
+            'tags' => 'nullable|array',
         ]);
 
         $flashcard = Flashcard::create([
             ...$validated,
             'user_id' => Auth::id(),
-            'source'  => 'user_created',
+            'source' => 'user_created',
         ]);
 
         // Auto-create SR item
@@ -162,10 +162,10 @@ class SpacedRepetitionController extends Controller
         }
 
         $validated = $request->validate([
-            'front'  => 'required|string|max:2000',
-            'back'   => 'required|string|max:5000',
+            'front' => 'required|string|max:2000',
+            'back' => 'required|string|max:5000',
             'domain' => 'nullable|string|max:255',
-            'tags'   => 'nullable|array',
+            'tags' => 'nullable|array',
         ]);
 
         $flashcard->update($validated);

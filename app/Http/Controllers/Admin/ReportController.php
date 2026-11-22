@@ -3,14 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Models\AuditLog;
 use App\Models\Course;
 use App\Models\CourseEnrollment;
+use App\Models\Department;
+use App\Models\InternshipTask;
+use App\Models\InternshipTrack;
 use App\Models\Payment;
 use App\Models\QuizAttempt;
-use App\Models\Cohort;
-use App\Models\InternshipEnrollment;
-use App\Models\AuditLog;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -115,7 +116,7 @@ class ReportController extends Controller
      */
     public function department(Request $request): Response
     {
-        $departments = \App\Models\Department::withCount('users')
+        $departments = Department::withCount('users')
             ->get()
             ->map(function ($dept) {
                 $userIds = $dept->users()->pluck('id');
@@ -123,6 +124,7 @@ class ReportController extends Controller
                 $dept->completions_count = CourseEnrollment::whereIn('user_id', $userIds)->where('status', 'completed')->count();
                 $dept->avg_completion = $dept->enrollments_count > 0
                     ? round(($dept->completions_count / $dept->enrollments_count) * 100, 1) : 0;
+
                 return $dept;
             });
 
@@ -136,12 +138,13 @@ class ReportController extends Controller
      */
     public function internship(): Response
     {
-        $tracks = \App\Models\InternshipTrack::withCount(['enrollments', 'milestones'])
+        $tracks = InternshipTrack::withCount(['enrollments', 'milestones'])
             ->get()
             ->map(function ($track) {
-                $track->tasks_count = \App\Models\InternshipTask::whereHas('enrollment', function ($q) use ($track) {
+                $track->tasks_count = InternshipTask::whereHas('enrollment', function ($q) use ($track) {
                     $q->where('track_id', $track->id);
                 })->count();
+
                 return $track;
             });
 

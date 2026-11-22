@@ -1,10 +1,10 @@
 <template>
     <Head title="Create Course" />
 
-    <div class="max-w-4xl mx-auto space-y-6">
+    <div class="max-w-7xl mx-auto space-y-6">
         <!-- Header -->
         <div class="flex items-center gap-3">
-            <Link href="/admin/courses" class="p-2 rounded-lg hover:bg-surface-100 transition-colors">
+            <Link aria-label="Back to courses" href="/admin/courses" class="p-2 rounded-lg hover:bg-surface-100 transition-colors">
                 <ArrowLeft class="w-5 h-5 text-surface-400" />
             </Link>
             <div>
@@ -13,45 +13,42 @@
             </div>
         </div>
 
-        <form @submit.prevent="submit" class="space-y-6">
+        <div class="flex items-center gap-3 overflow-x-auto rounded-xl border border-surface-200 bg-white px-5 py-4 text-xs font-medium"><span class="whitespace-nowrap text-primary-700">01 · Course details</span><span class="text-surface-300">→</span><span class="whitespace-nowrap text-surface-400">02 · Curriculum & lessons</span><span class="text-surface-300">→</span><span class="whitespace-nowrap text-surface-400">03 · Review & publish</span></div>
+        <div v-if="Object.keys(form.errors).length" role="alert" class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"><p class="font-semibold">Please review the highlighted fields.</p><p v-for="message in form.errors" :key="message" class="mt-1">{{ message }}</p></div>
+        <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
+        <form @submit.prevent="submit" class="min-w-0 space-y-6">
             <!-- Basic Information -->
             <div class="bg-white rounded-2xl border border-surface-200/60 shadow-sm p-6">
                 <h2 class="text-lg font-semibold text-surface-900 mb-5">Basic Information</h2>
                 <div class="grid gap-5">
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Title *</label>
-                        <Input v-model="form.title" placeholder="e.g., PMP Certification Prep" :error="form.errors.title" />
+                        <label for="course-title" class="block text-sm font-medium text-surface-700 mb-1.5">Title *</label>
+                        <Input id="course-title" v-model="form.title" placeholder="e.g., PMP Certification Prep" :error="form.errors.title" />
                         <p v-if="form.errors.title" class="text-danger-500 text-xs mt-1">{{ form.errors.title }}</p>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Subtitle</label>
-                        <Input v-model="form.subtitle" placeholder="A short description that appears in search" />
+                        <label for="course-subtitle" class="block text-sm font-medium text-surface-700 mb-1.5">Subtitle</label>
+                        <Input id="course-subtitle" v-model="form.subtitle" placeholder="A short description that appears in search" />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Description</label>
-                        <textarea
-                            v-model="form.description"
-                            rows="4"
-                            class="w-full rounded-xl border-surface-200 focus:border-primary-500 focus:ring-primary-500 text-sm"
-                            placeholder="Full course description..."
-                        />
+                        <label for="course-description" class="block text-sm font-medium text-surface-700 mb-1.5">Description</label>
+                        <RichTextEditor v-model="form.description" label="Course description" placeholder="Describe the transformation learners can expect, who this course is for, and what makes it valuable." compact />
                     </div>
                     <div class="grid sm:grid-cols-2 gap-5">
                         <div>
-                            <label class="block text-sm font-medium text-surface-700 mb-1.5">Category *</label>
-                            <select v-model="form.category_id" class="w-full rounded-xl border-surface-200 text-sm">
+                            <label for="course-category_id" class="block text-sm font-medium text-surface-700 mb-1.5">Category *</label>
+                            <select id="course-category_id" v-model="form.category_id" class="w-full rounded-xl border-surface-200 text-sm">
                                 <option value="">Select category</option>
                                 <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
                             </select>
                             <p v-if="form.errors.category_id" class="text-danger-500 text-xs mt-1">{{ form.errors.category_id }}</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-surface-700 mb-1.5">Level *</label>
-                            <select v-model="form.level" class="w-full rounded-xl border-surface-200 text-sm">
+                            <label for="course-level" class="block text-sm font-medium text-surface-700 mb-1.5">Level *</label>
+                            <select id="course-level" v-model="form.level" class="w-full rounded-xl border-surface-200 text-sm">
                                 <option value="beginner">Beginner</option>
                                 <option value="intermediate">Intermediate</option>
                                 <option value="advanced">Advanced</option>
-                                <option value="expert">Expert</option>
                             </select>
                         </div>
                     </div>
@@ -63,25 +60,25 @@
                 <h2 class="text-lg font-semibold text-surface-900 mb-5">Pricing & Type</h2>
                 <div class="grid sm:grid-cols-2 gap-5">
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Type *</label>
-                        <select v-model="form.type" class="w-full rounded-xl border-surface-200 text-sm">
-                            <option value="free">Free</option>
-                            <option value="premium">Premium</option>
+                        <label for="course-type" class="block text-sm font-medium text-surface-700 mb-1.5">Type *</label>
+                        <select id="course-type" v-model="form.type" class="w-full rounded-xl border-surface-200 text-sm">
+                            <option value="self_paced">Self-paced</option>
+                            <option value="live">Live</option>
                             <option value="certified">Certified</option>
-                            <option value="enterprise">Enterprise</option>
+                            <option value="bootcamp">Bootcamp</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Duration (hours)</label>
-                        <Input v-model="form.duration_hours" type="number" step="0.5" min="0" placeholder="e.g., 35" />
+                        <label for="course-duration_hours" class="block text-sm font-medium text-surface-700 mb-1.5">Duration (hours)</label>
+                        <Input id="course-duration_hours" v-model="form.duration_hours" type="number" step="0.5" min="0" placeholder="e.g., 35" />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Price (NGN)</label>
-                        <Input v-model="form.price" type="number" min="0" placeholder="0 for free courses" />
+                        <label for="course-price" class="block text-sm font-medium text-surface-700 mb-1.5">Price (NGN)</label>
+                        <Input id="course-price" v-model="form.price" type="number" min="0" placeholder="0 for free courses" />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Discount Price</label>
-                        <Input v-model="form.discount_price" type="number" min="0" placeholder="Optional sale price" />
+                        <label for="course-discount_price" class="block text-sm font-medium text-surface-700 mb-1.5">Discount Price</label>
+                        <Input id="course-discount_price" v-model="form.discount_price" type="number" min="0" placeholder="Optional sale price" />
                     </div>
                 </div>
             </div>
@@ -115,8 +112,8 @@
                 <h2 class="text-lg font-semibold text-surface-900 mb-5">Learning Outcomes</h2>
                 <div class="space-y-3">
                     <div v-for="(outcome, i) in form.learning_outcomes" :key="i" class="flex items-center gap-2">
-                        <Input v-model="form.learning_outcomes[i]" :placeholder="`Outcome ${i + 1}`" class="flex-1" />
-                        <button type="button" @click="form.learning_outcomes.splice(i, 1)" class="p-2 text-surface-400 hover:text-danger-500">
+                        <Input :aria-label="`Learning outcome ${i + 1}`" v-model="form.learning_outcomes[i]" :placeholder="`Outcome ${i + 1}`" class="flex-1" />
+                        <button type="button" :aria-label="`Remove outcome ${i + 1}`" @click="form.learning_outcomes.splice(i, 1)" class="p-2 text-surface-400 hover:text-danger-500">
                             <X class="w-4 h-4" />
                         </button>
                     </div>
@@ -131,7 +128,7 @@
                 <h2 class="text-lg font-semibold text-surface-900 mb-5">Prerequisites</h2>
                 <div class="space-y-3">
                     <div v-for="(prereq, i) in form.prerequisites" :key="i" class="flex items-center gap-2">
-                        <Input v-model="form.prerequisites[i]" :placeholder="`Prerequisite ${i + 1}`" class="flex-1" />
+                        <Input :aria-label="`Prerequisite ${i + 1}`" v-model="form.prerequisites[i]" :placeholder="`Prerequisite ${i + 1}`" class="flex-1" />
                         <button type="button" @click="form.prerequisites.splice(i, 1)" class="p-2 text-surface-400 hover:text-danger-500">
                             <X class="w-4 h-4" />
                         </button>
@@ -169,14 +166,18 @@
                     <Button type="button" variant="ghost">Cancel</Button>
                 </Link>
                 <Button type="submit" variant="primary" :disabled="form.processing">
-                    {{ form.processing ? 'Creating...' : 'Create Course' }}
+                    {{ form.processing ? 'Creating...' : 'Save & build curriculum' }}
                 </Button>
             </div>
         </form>
+        <CourseSetupGuide :form="form" />
+        </div>
     </div>
 </template>
 
 <script setup>
+import CourseSetupGuide from '@/Components/Authoring/CourseSetupGuide.vue';
+import RichTextEditor from '@/Components/Authoring/RichTextEditor.vue';
 import { ref } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
@@ -196,9 +197,9 @@ const form = useForm({
     description: '',
     category_id: '',
     level: 'beginner',
-    type: 'free',
+    type: 'self_paced',
     duration_hours: '',
-    price: '',
+    price: 0,
     discount_price: '',
     learning_outcomes: [''],
     prerequisites: [],

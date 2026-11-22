@@ -23,7 +23,7 @@ class Simulation extends Model
     protected function casts(): array
     {
         return [
-            'is_published'     => 'boolean',
+            'is_published' => 'boolean',
             'estimated_minutes' => 'integer',
         ];
     }
@@ -77,11 +77,13 @@ class Simulation extends Model
 
     public function scopeSearch($query, ?string $term)
     {
-        if (! $term) return $query;
+        if (! $term) {
+            return $query;
+        }
 
         return $query->where(function ($q) use ($term) {
             $q->where('title', 'like', "%{$term}%")
-              ->orWhere('description', 'like', "%{$term}%");
+                ->orWhere('description', 'like', "%{$term}%");
         });
     }
 

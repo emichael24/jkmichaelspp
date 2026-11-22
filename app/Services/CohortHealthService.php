@@ -4,9 +4,13 @@ namespace App\Services;
 
 use App\Models\Cohort;
 use App\Models\CohortMember;
+use App\Models\CourseEnrollment;
 use App\Models\DailyActivityLog;
+use App\Models\ErrorPattern;
 use App\Models\Intervention;
+use App\Models\Lesson;
 use App\Models\ReadinessScore;
+use App\Models\User;
 use App\Models\UserMastery;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -30,38 +34,38 @@ class CohortHealthService
 
         if ($learnerIds->isEmpty()) {
             return [
-                'score'            => 0,
-                'engagement_rate'  => 0,
-                'avg_readiness'    => 0,
-                'on_time_rate'     => 0,
-                'intervention_rate'=> 0,
-                'learner_count'    => 0,
+                'score' => 0,
+                'engagement_rate' => 0,
+                'avg_readiness' => 0,
+                'on_time_rate' => 0,
+                'intervention_rate' => 0,
+                'learner_count' => 0,
             ];
         }
 
-        $engagementRate  = $this->engagementRate($learnerIds);
-        $avgReadiness    = $this->avgReadiness($learnerIds, $cohort->course_id);
-        $onTimeRate      = $this->onTimeRate($cohort, $learnerIds);
+        $engagementRate = $this->engagementRate($learnerIds);
+        $avgReadiness = $this->avgReadiness($learnerIds, $cohort->course_id);
+        $onTimeRate = $this->onTimeRate($cohort, $learnerIds);
         $interventionPct = $this->interventionRate($cohort, $learnerIds);
 
         // Lower intervention = healthier → invert
         $interventionScore = max(0, 100 - $interventionPct);
 
         $score = round(
-            $engagementRate  * 0.30 +
-            $avgReadiness    * 0.30 +
-            $onTimeRate      * 0.25 +
+            $engagementRate * 0.30 +
+            $avgReadiness * 0.30 +
+            $onTimeRate * 0.25 +
             $interventionScore * 0.15,
             1
         );
 
         return [
-            'score'             => $score,
-            'engagement_rate'   => round($engagementRate, 1),
-            'avg_readiness'     => round($avgReadiness, 1),
-            'on_time_rate'      => round($onTimeRate, 1),
+            'score' => $score,
+            'engagement_rate' => round($engagementRate, 1),
+            'avg_readiness' => round($avgReadiness, 1),
+            'on_time_rate' => round($onTimeRate, 1),
             'intervention_rate' => round($interventionPct, 1),
-            'learner_count'     => $learnerIds->count(),
+            'learner_count' => $learnerIds->count(),
         ];
     }
 
@@ -78,7 +82,7 @@ class CohortHealthService
             ->get(['user_id', 'domain', 'accuracy_pct'])
             ->groupBy('user_id');
 
-        $domains   = UserMastery::where('course_id', $cohort->course_id)
+        $domains = UserMastery::where('course_id', $cohort->course_id)
             ->whereIn('user_id', $learnerIds)
             ->select('domain')
             ->distinct()
@@ -99,15 +103,16 @@ class CohortHealthService
                     $entry = $userMastery->firstWhere('domain', $domain);
                     $cells[$domain] = $entry ? round((float) $entry->accuracy_pct) : null;
                 }
+
                 return [
-                    'id'     => $m->user_id,
-                    'name'   => $m->user->first_name . ' ' . $m->user->last_name,
-                    'cells'  => $cells,
+                    'id' => $m->user_id,
+                    'name' => $m->user->first_name.' '.$m->user->last_name,
+                    'cells' => $cells,
                 ];
             });
 
         return [
-            'domains'  => $domains,
+            'domains' => $domains,
             'learners' => $learners->values()->toArray(),
         ];
     }
@@ -143,20 +148,21 @@ class CohortHealthService
                 foreach ($dates as $date) {
                     $log = $userLogs->firstWhere('date', $date);
                     $cells[] = [
-                        'date'   => $date,
+                        'date' => $date,
                         'active' => $log && $log->time_spent_minutes > 0,
-                        'minutes'=> $log ? $log->time_spent_minutes : 0,
+                        'minutes' => $log ? $log->time_spent_minutes : 0,
                     ];
                 }
+
                 return [
-                    'id'    => $m->user_id,
-                    'name'  => $m->user->first_name . ' ' . $m->user->last_name,
+                    'id' => $m->user_id,
+                    'name' => $m->user->first_name.' '.$m->user->last_name,
                     'cells' => $cells,
                 ];
             });
 
         return [
-            'dates'    => $dates->toArray(),
+            'dates' => $dates->toArray(),
             'learners' => $learners->values()->toArray(),
         ];
     }
@@ -198,9 +204,9 @@ class CohortHealthService
         }
 
         return [
-            'buckets'  => $buckets,
-            'pass_line'=> 70,
-            'total'    => count($distribution),
+            'buckets' => $buckets,
+            'pass_line' => 70,
+            'total' => count($distribution),
         ];
     }
 
@@ -215,14 +221,14 @@ class CohortHealthService
 
         foreach ($learnerIds as $learnerId) {
             $reasons = $this->detectRisks($learnerId, $cohort);
-            if (!empty($reasons)) {
-                $user = \App\Models\User::find($learnerId, ['id', 'first_name', 'last_name', 'last_login_at']);
+            if (! empty($reasons)) {
+                $user = User::find($learnerId, ['id', 'first_name', 'last_name', 'last_login_at']);
                 $risks[] = [
-                    'id'          => $learnerId,
-                    'name'        => $user->first_name . ' ' . $user->last_name,
-                    'reasons'     => $reasons,
+                    'id' => $learnerId,
+                    'name' => $user->first_name.' '.$user->last_name,
+                    'reasons' => $reasons,
                     'last_active' => $user->last_login_at?->diffForHumans() ?? 'Never',
-                    'suggestion'  => $this->suggestIntervention($reasons),
+                    'suggestion' => $this->suggestIntervention($reasons),
                 ];
             }
         }
@@ -236,12 +242,12 @@ class CohortHealthService
 
     public function learner360(int $learnerId, Cohort $cohort): array
     {
-        $user = \App\Models\User::findOrFail($learnerId, [
+        $user = User::findOrFail($learnerId, [
             'id', 'first_name', 'last_name', 'email', 'avatar', 'last_login_at',
         ]);
 
         // Progress
-        $enrollment = \App\Models\CourseEnrollment::where('user_id', $learnerId)
+        $enrollment = CourseEnrollment::where('user_id', $learnerId)
             ->where('course_id', $cohort->course_id)
             ->first();
 
@@ -266,7 +272,7 @@ class CohortHealthService
             ->get(['score_pct', 'time_spent_seconds', 'created_at']);
 
         // Error patterns
-        $errorPatterns = \App\Models\ErrorPattern::forUser($learnerId)
+        $errorPatterns = ErrorPattern::forUser($learnerId)
             ->forCourse($cohort->course_id)
             ->get(['pattern_type', 'frequency', 'severity']);
 
@@ -285,26 +291,26 @@ class CohortHealthService
 
         return [
             'user' => [
-                'id'          => $user->id,
-                'name'        => $user->first_name . ' ' . $user->last_name,
-                'email'       => $user->email,
-                'avatar'      => $user->avatar,
+                'id' => $user->id,
+                'name' => $user->first_name.' '.$user->last_name,
+                'email' => $user->email,
+                'avatar' => $user->avatar,
                 'last_active' => $user->last_login_at?->diffForHumans() ?? 'Never',
             ],
-            'progress'      => [
-                'pct'    => $enrollment->progress_pct ?? 0,
+            'progress' => [
+                'pct' => $enrollment->progress_pct ?? 0,
                 'status' => $enrollment->status ?? 'not_started',
             ],
-            'mastery'       => $mastery,
-            'readiness'     => $readiness ? [
-                'score'           => $readiness->score_pct,
+            'mastery' => $mastery,
+            'readiness' => $readiness ? [
+                'score' => $readiness->score_pct,
                 'confidence_band' => $readiness->confidence_band,
                 'pass_likelihood' => $readiness->pass_likelihood,
-                'weak_areas'      => $readiness->weak_areas,
+                'weak_areas' => $readiness->weak_areas,
             ] : null,
-            'mock_history'  => $mocks->toArray(),
-            'error_patterns'=> $errorPatterns->toArray(),
-            'activity'      => $activity->toArray(),
+            'mock_history' => $mocks->toArray(),
+            'error_patterns' => $errorPatterns->toArray(),
+            'activity' => $activity->toArray(),
             'interventions' => $interventions->toArray(),
         ];
     }
@@ -329,21 +335,21 @@ class CohortHealthService
         $suggestions = [];
         foreach ($weakDomains as $wd) {
             // Find lessons that cover this domain
-            $lessons = \App\Models\Lesson::whereHas('module', function ($q) use ($cohort) {
+            $lessons = Lesson::whereHas('module', function ($q) use ($cohort) {
                 $q->where('course_id', $cohort->course_id);
             })
-            ->where(function ($q) use ($wd) {
-                $q->where('title', 'like', '%' . $wd->domain . '%');
-            })
-            ->limit(2)
-            ->get(['id', 'title']);
+                ->where(function ($q) use ($wd) {
+                    $q->where('title', 'like', '%'.$wd->domain.'%');
+                })
+                ->limit(2)
+                ->get(['id', 'title']);
 
             foreach ($lessons as $lesson) {
                 $suggestions[] = [
-                    'type'   => 'lesson',
-                    'id'     => $lesson->id,
-                    'title'  => $lesson->title,
-                    'reason' => "Cohort weak in {$wd->domain} (avg " . round($wd->avg_accuracy) . "%)",
+                    'type' => 'lesson',
+                    'id' => $lesson->id,
+                    'title' => $lesson->title,
+                    'reason' => "Cohort weak in {$wd->domain} (avg ".round($wd->avg_accuracy).'%)',
                 ];
             }
         }
@@ -365,10 +371,12 @@ class CohortHealthService
 
     private function engagementRate(Collection $learnerIds): float
     {
-        if ($learnerIds->isEmpty()) return 0;
+        if ($learnerIds->isEmpty()) {
+            return 0;
+        }
 
         $sevenDaysAgo = now()->subDays(7);
-        $activeCount  = DailyActivityLog::whereIn('user_id', $learnerIds)
+        $activeCount = DailyActivityLog::whereIn('user_id', $learnerIds)
             ->where('date', '>=', $sevenDaysAgo)
             ->where('time_spent_minutes', '>', 0)
             ->distinct('user_id')
@@ -379,7 +387,9 @@ class CohortHealthService
 
     private function avgReadiness(Collection $learnerIds, int $courseId): float
     {
-        if ($learnerIds->isEmpty()) return 0;
+        if ($learnerIds->isEmpty()) {
+            return 0;
+        }
 
         return (float) ReadinessScore::whereIn('user_id', $learnerIds)
             ->where('course_id', $courseId)
@@ -388,13 +398,15 @@ class CohortHealthService
 
     private function onTimeRate(Cohort $cohort, Collection $learnerIds): float
     {
-        if ($learnerIds->isEmpty()) return 0;
+        if ($learnerIds->isEmpty()) {
+            return 0;
+        }
 
-        $totalDays  = max(1, $cohort->start_date->diffInDays($cohort->end_date));
-        $elapsed    = max(1, $cohort->start_date->diffInDays(now()));
+        $totalDays = max(1, $cohort->start_date->diffInDays($cohort->end_date));
+        $elapsed = max(1, $cohort->start_date->diffInDays(now()));
         $expectedPct = min(100, ($elapsed / $totalDays) * 100);
 
-        $onTrack = \App\Models\CourseEnrollment::whereIn('user_id', $learnerIds)
+        $onTrack = CourseEnrollment::whereIn('user_id', $learnerIds)
             ->where('course_id', $cohort->course_id)
             ->where('progress_pct', '>=', $expectedPct * 0.5) // within 50% of expected
             ->count();
@@ -404,7 +416,9 @@ class CohortHealthService
 
     private function interventionRate(Cohort $cohort, Collection $learnerIds): float
     {
-        if ($learnerIds->isEmpty()) return 0;
+        if ($learnerIds->isEmpty()) {
+            return 0;
+        }
 
         $count = Intervention::forCohort($cohort->id)->recent(30)->count();
 
@@ -422,7 +436,7 @@ class CohortHealthService
             ->latest('date')
             ->first();
 
-        if (!$lastActivity || $lastActivity->date->diffInDays(now()) >= 3) {
+        if (! $lastActivity || $lastActivity->date->diffInDays(now()) >= 3) {
             $days = $lastActivity ? $lastActivity->date->diffInDays(now()) : 999;
             $reasons[] = "No activity in {$days} days";
         }
@@ -434,7 +448,7 @@ class CohortHealthService
             ->first();
 
         if ($readiness && $readiness->score_pct < 40) {
-            $reasons[] = 'Readiness score is ' . round($readiness->score_pct) . '%';
+            $reasons[] = 'Readiness score is '.round($readiness->score_pct).'%';
         }
 
         // 3. Declining trend (3 consecutive lower quiz scores)
@@ -453,17 +467,17 @@ class CohortHealthService
         }
 
         // 4. Behind schedule
-        $enrollment = \App\Models\CourseEnrollment::where('user_id', $learnerId)
+        $enrollment = CourseEnrollment::where('user_id', $learnerId)
             ->where('course_id', $cohort->course_id)
             ->first();
 
         if ($enrollment) {
-            $totalDays   = max(1, $cohort->start_date->diffInDays($cohort->end_date));
-            $elapsed     = max(1, $cohort->start_date->diffInDays(now()));
+            $totalDays = max(1, $cohort->start_date->diffInDays($cohort->end_date));
+            $elapsed = max(1, $cohort->start_date->diffInDays(now()));
             $expectedPct = min(100, ($elapsed / $totalDays) * 100);
 
             if ($enrollment->progress_pct < $expectedPct * 0.5) {
-                $reasons[] = 'Behind schedule (' . round($enrollment->progress_pct) . '% vs ' . round($expectedPct) . '% expected)';
+                $reasons[] = 'Behind schedule ('.round($enrollment->progress_pct).'% vs '.round($expectedPct).'% expected)';
             }
         }
 

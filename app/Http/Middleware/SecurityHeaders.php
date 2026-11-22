@@ -16,8 +16,17 @@ class SecurityHeaders
     {
         $response = $next($request);
 
+        if ($request->user() && ! $request->is('offline')) {
+            $response->headers->removeCacheControlDirective('public');
+            $response->headers->addCacheControlDirective('private');
+            $response->headers->addCacheControlDirective('no-store');
+            $response->headers->addCacheControlDirective('max-age', 0);
+        }
+
         foreach (SecurityService::getSecurityHeaders() as $key => $value) {
-            $response->headers->set($key, $value);
+            if (! $response->headers->has($key)) {
+                $response->headers->set($key, $value);
+            }
         }
 
         return $response;

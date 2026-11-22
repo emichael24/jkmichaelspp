@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Plan;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use App\Models\Plan;
 
 class SubscriptionPlanController extends Controller
 {
@@ -14,7 +14,7 @@ class SubscriptionPlanController extends Controller
         $plans = Plan::with('features')->orderBy('sort_order')->get();
 
         return Inertia::render('Admin/Subscriptions/PlansIndex', [
-            'plans' => $plans
+            'plans' => $plans,
         ]);
     }
 
@@ -31,7 +31,7 @@ class SubscriptionPlanController extends Controller
         // Typical flow for B2B Paystack invoice link:
         // We'd hit Paystack's API to create a Payment Request / Invoice.
 
-        $mockLink = "https://paystack.com/pay/b2b-invoice-" . uniqid();
+        $mockLink = 'https://paystack.com/pay/b2b-invoice-'.uniqid();
 
         return redirect()->back()->with('success', "Invoice link generated: $mockLink");
     }

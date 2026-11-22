@@ -25,13 +25,13 @@ class UserMastery extends Model
     ];
 
     protected $casts = [
-        'accuracy_pct'      => 'decimal:2',
-        'confidence_score'  => 'decimal:2',
-        'speed_score'       => 'decimal:2',
+        'accuracy_pct' => 'decimal:2',
+        'confidence_score' => 'decimal:2',
+        'speed_score' => 'decimal:2',
         'consistency_score' => 'decimal:2',
-        'improvement_rate'  => 'decimal:2',
-        'total_attempts'    => 'integer',
-        'last_attempt_at'   => 'datetime',
+        'improvement_rate' => 'decimal:2',
+        'total_attempts' => 'integer',
+        'last_attempt_at' => 'datetime',
     ];
 
     // ── Relationships ────────────────────────────
@@ -79,7 +79,7 @@ class UserMastery extends Model
             $this->accuracy_pct >= 90 => 'expert',
             $this->accuracy_pct >= 70 => 'proficient',
             $this->accuracy_pct >= 40 => 'developing',
-            default                   => 'novice',
+            default => 'novice',
         };
     }
 

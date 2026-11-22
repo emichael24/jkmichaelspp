@@ -1,0 +1,248 @@
+{
+  "deployment": {
+    "release": "20261005-licenses",
+    "verified_at": "2026-10-05T15:11:59.916110+00:00",
+    "url": "https://app.jkmichaelspm.com/organization/courses",
+    "runtime_archive_sha256": "1c8b0123fe226dd870d80559a36ee618a8baaf834e911fe4496eda3571ddb9aa",
+    "verified_runtime_files": 957,
+    "schema_changed": true,
+    "migration": {
+      "pending": 0,
+      "licenses": 0,
+      "assignments": 0,
+      "company_orders": 0
+    },
+    "rollback_release": "/var/www/vhosts/jkmichaelspm.com/.jkm-releases/20261005-organizations-license-rollback",
+    "database_preserved": true,
+    "counts": {
+      "organizations": 3,
+      "users": 29,
+      "course_enrollments": 130,
+      "crm_contacts": 0,
+      "crm_contact_imports": 0,
+      "orders": 0,
+      "payments": 0,
+      "certificates": 0
+    },
+    "guest_checks": {
+      "/login": {
+        "status": 200,
+        "login_required": true
+      },
+      "/admin/organizations": {
+        "status": 200,
+        "login_required": true
+      },
+      "/organization/courses": {
+        "status": 200,
+        "login_required": true
+      },
+      "/organization/courses/catalog": {
+        "status": 200,
+        "login_required": true
+      },
+      "/organization/billing": {
+        "status": 200,
+        "login_required": true
+      }
+    },
+    "verified_assets": 7,
+    "operational_checks": 28,
+    "units": {
+      "jkm-queue.service": "active",
+      "jkm-contact-imports.service": "active",
+      "jkm-scheduler.timer": "active",
+      "jkm-health.timer": "active"
+    },
+    "payment_mode": "test",
+    "backup_path": "/root/jkm-licenses-20261005/backup-151148",
+    "backup_hashes": {
+      "production.sql": "aca98c6a4c4f5a5517a727e0c0ed80ab1782aebc2940019eebdfaf3043dd7182",
+      "runtime.tar.gz": "983c912ee401a3500fec3fa1abbe335d52cb73103f6791b4428bbbed905e81a3"
+    },
+    "previous_release": "/var/www/vhosts/jkmichaelspm.com/.jkm-releases/20261005-organizations"
+  },
+  "concurrency": {
+    "database": "jk_licenses_test",
+    "license_capacity": 1,
+    "parallel_requests": 2,
+    "results": [
+      {
+        "rejected": [
+          "members"
+        ]
+      },
+      {
+        "assigned": 1
+      }
+    ],
+    "production_data_used": false
+  },
+  "provider": {
+    "provider": "Paystack",
+    "mode": "test",
+    "phase": "checkout_initialized",
+    "quantity": 2,
+    "total_ngn": 100,
+    "order_scope": "organization",
+    "order_status": "pending",
+    "organization_licenses": 0,
+    "purchaser_enrollments": 0,
+    "checkout_host": "checkout.paystack.com",
+    "payment_reference": "JKM-P3DY3GGSA2SO",
+    "production_data_used": false,
+    "charge_submitted": false
+  },
+  "live_rendering": {
+    "method": "Read-only controller rendering against real production records; no accounts, assignments, orders or payments created",
+    "responses": {
+      "platform_allocation_1": 200,
+      "platform_allocation_2": 200,
+      "platform_allocation_3": 200,
+      "organization_courses": 200,
+      "organization_catalog": 200,
+      "organization_billing": 200
+    },
+    "existing_organization_admin_available": true,
+    "routes": [
+      {
+        "uri": "organization/courses",
+        "middleware": [
+          "web",
+          "auth",
+          "role:org_admin",
+          "throttle:60,1"
+        ]
+      },
+      {
+        "uri": "organization/courses/catalog",
+        "middleware": [
+          "web",
+          "auth",
+          "role:org_admin",
+          "throttle:60,1"
+        ]
+      },
+      {
+        "uri": "organization/courses/{course}/purchase",
+        "middleware": [
+          "web",
+          "auth",
+          "role:org_admin",
+          "throttle:60,1",
+          "throttle:10,1"
+        ]
+      },
+      {
+        "uri": "organization/licenses/{license}",
+        "middleware": [
+          "web",
+          "auth",
+          "role:org_admin",
+          "throttle:60,1"
+        ]
+      },
+      {
+        "uri": "organization/licenses/{license}/members",
+        "middleware": [
+          "web",
+          "auth",
+          "role:org_admin",
+          "throttle:60,1"
+        ]
+      },
+      {
+        "uri": "organization/licenses/{license}/assign",
+        "middleware": [
+          "web",
+          "auth",
+          "role:org_admin",
+          "throttle:60,1",
+          "throttle:15,1"
+        ]
+      },
+      {
+        "uri": "organization/licenses/{license}/assignments/{assignment}",
+        "middleware": [
+          "web",
+          "auth",
+          "role:org_admin",
+          "throttle:60,1"
+        ]
+      },
+      {
+        "uri": "organization/billing",
+        "middleware": [
+          "web",
+          "auth",
+          "role:org_admin",
+          "throttle:60,1"
+        ]
+      },
+      {
+        "uri": "organization/billing/{uuid}",
+        "middleware": [
+          "web",
+          "auth",
+          "role:org_admin",
+          "throttle:60,1"
+        ]
+      },
+      {
+        "uri": "admin/organization-license-courses",
+        "middleware": [
+          "web",
+          "auth",
+          "role:platform_admin"
+        ]
+      },
+      {
+        "uri": "admin/organizations/{organization}/licenses",
+        "middleware": [
+          "web",
+          "auth",
+          "role:platform_admin"
+        ]
+      },
+      {
+        "uri": "admin/organizations/{organization}/licenses",
+        "middleware": [
+          "web",
+          "auth",
+          "role:platform_admin"
+        ]
+      },
+      {
+        "uri": "admin/organizations/{organization}/licenses/{license}",
+        "middleware": [
+          "web",
+          "auth",
+          "role:platform_admin"
+        ]
+      }
+    ],
+    "platform_administrator_verified": true
+  },
+  "validation": {
+    "sqlite": {
+      "tests": 196,
+      "assertions": 1669
+    },
+    "mariadb": {
+      "tests": 196,
+      "assertions": 1669,
+      "database": "jk_licenses_test"
+    },
+    "build": "passed; 2840 modules; 29.22 seconds",
+    "browser": [
+      "organization department assignment: 2 learners, deadline, 2 of 20 places used",
+      "zero-value company purchase: 5 places, receipt, no purchaser enrollment",
+      "platform administrator manual allocation: 12 places",
+      "desktop 1280px and mobile 390px receipt; no horizontal page overflow",
+      "temporary viewport reset; local hostname changed to avoid cross-port preview cookie collision"
+    ],
+    "browser_data": "synthetic local preview only",
+    "provider_paid_fulfillment": "verified with deterministic provider-response tests; real test API checkout initialization performed without charging",
+    "production_test_data_added": false
+  }
+}

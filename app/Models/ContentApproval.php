@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Traits\RecordsDomainAudit;
 use Illuminate\Database\Eloquent\Model;
 
 class ContentApproval extends Model
 {
+    use RecordsDomainAudit;
+
     protected $fillable = [
-        'approvable_type',
+        'snapshot_hash', 'approvable_type',
         'approvable_id',
         'status',
         'submitted_by',
@@ -21,7 +24,7 @@ class ContentApproval extends Model
     {
         return [
             'submitted_at' => 'datetime',
-            'reviewed_at'  => 'datetime',
+            'reviewed_at' => 'datetime',
         ];
     }
 
@@ -70,7 +73,7 @@ class ContentApproval extends Model
     public function scopeForContent($query, string $type, int $id)
     {
         return $query->where('approvable_type', $type)
-                     ->where('approvable_id', $id);
+            ->where('approvable_id', $id);
     }
 
     /*
@@ -92,30 +95,30 @@ class ContentApproval extends Model
     public function approve(User $reviewer, ?string $notes = null): void
     {
         $this->update([
-            'status'       => 'approved',
-            'reviewed_by'  => $reviewer->id,
+            'status' => 'approved',
+            'reviewed_by' => $reviewer->id,
             'review_notes' => $notes,
-            'reviewed_at'  => now(),
+            'reviewed_at' => now(),
         ]);
     }
 
     public function reject(User $reviewer, ?string $notes = null): void
     {
         $this->update([
-            'status'       => 'rejected',
-            'reviewed_by'  => $reviewer->id,
+            'status' => 'rejected',
+            'reviewed_by' => $reviewer->id,
             'review_notes' => $notes,
-            'reviewed_at'  => now(),
+            'reviewed_at' => now(),
         ]);
     }
 
     public function requestChanges(User $reviewer, ?string $notes = null): void
     {
         $this->update([
-            'status'       => 'changes_requested',
-            'reviewed_by'  => $reviewer->id,
+            'status' => 'changes_requested',
+            'reviewed_by' => $reviewer->id,
             'review_notes' => $notes,
-            'reviewed_at'  => now(),
+            'reviewed_at' => now(),
         ]);
     }
 }

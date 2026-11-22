@@ -1,0 +1,136 @@
+{
+  "release": "20261005-organizations",
+  "verified_at": "2026-10-05T14:26:18.738176+00:00",
+  "url": "https://app.jkmichaelspm.com/admin/organizations",
+  "runtime_archive_sha256": "cc9f3b4152edea948d1e43405a37a45c3cb38f7453428cfaf3833ab4b985290a",
+  "verified_runtime_files": 933,
+  "schema_changed": false,
+  "database_preserved": true,
+  "counts": {
+    "organizations": 3,
+    "users": 29,
+    "course_enrollments": 130,
+    "crm_contacts": 0,
+    "crm_contact_imports": 0
+  },
+  "guest_checks": {
+    "/login": {
+      "status": 200,
+      "login_required": true
+    },
+    "/admin/organizations": {
+      "status": 200,
+      "login_required": true
+    },
+    "/admin/organizations/create": {
+      "status": 200,
+      "login_required": true
+    }
+  },
+  "verified_assets": 3,
+  "operational_checks": 28,
+  "units": {
+    "jkm-queue.service": "active",
+    "jkm-contact-imports.service": "active",
+    "jkm-scheduler.timer": "active",
+    "jkm-health.timer": "active"
+  },
+  "payment_mode": "test",
+  "backup_path": "/root/jkm-organizations-20261005/backup-142609",
+  "backup_hashes": {
+    "production.sql": "a862179d6bd350b431e7b608f490c7c32fc94b2391106afd7b8171821e470b4c",
+    "runtime.tar.gz": "de1296273d2b4dd6ad87113271069edb325ea2c7c240f6c2a6d5cfff3a02ee78"
+  },
+  "previous_release": "/var/www/vhosts/jkmichaelspm.com/.jkm-releases/20261005T125643Z",
+  "production_rendering": {
+    "method": "Read-only controller rendering against actual production organizations; no authentication or email-verification state changed",
+    "responses": {
+      "index": 200,
+      "create": 200,
+      "edit_1": 200,
+      "edit_2": 200,
+      "edit_3": 200,
+      "candidates": 200
+    },
+    "routes": [
+      {
+        "name": "admin.organizations.candidates",
+        "middleware": [
+          "web",
+          "auth",
+          "role:platform_admin",
+          "throttle:60,1"
+        ]
+      },
+      {
+        "name": "admin.organizations.index",
+        "middleware": [
+          "web",
+          "auth",
+          "role:platform_admin"
+        ]
+      },
+      {
+        "name": "admin.organizations.create",
+        "middleware": [
+          "web",
+          "auth",
+          "role:platform_admin"
+        ]
+      },
+      {
+        "name": "admin.organizations.store",
+        "middleware": [
+          "web",
+          "auth",
+          "role:platform_admin"
+        ]
+      },
+      {
+        "name": "admin.organizations.edit",
+        "middleware": [
+          "web",
+          "auth",
+          "role:platform_admin"
+        ]
+      },
+      {
+        "name": "admin.organizations.update",
+        "middleware": [
+          "web",
+          "auth",
+          "role:platform_admin"
+        ]
+      }
+    ],
+    "administrator_email": "admin@jkmichaelspm.com",
+    "administrator_verified": true,
+    "production_test_organization_exists": false
+  },
+  "tests": {
+    "focused_sqlite": {
+      "tests": 15,
+      "assertions": 199
+    },
+    "frozen_full_mariadb": {
+      "tests": 183,
+      "assertions": 1515
+    },
+    "asset_build": "passed"
+  },
+  "browser": {
+    "environment": "Isolated local preview at 127.0.0.1:8900",
+    "created_and_edited_synthetic_organization": true,
+    "seat_limit_saved": 30,
+    "ineligible_administrator_search_excluded": true,
+    "new_administrator_fields_checked": true,
+    "desktop_and_mobile_verified": true,
+    "console_warnings_or_errors": 0,
+    "screenshots": [
+      "organization-management-desktop-2026-10-05.png",
+      "organization-management-mobile-2026-10-05.png",
+      "organization-form-desktop-2026-10-05.png",
+      "organization-form-mobile-2026-10-05.png"
+    ]
+  }
+}

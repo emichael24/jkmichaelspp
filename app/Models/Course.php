@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\RecordsDomainAudit;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -10,9 +11,10 @@ use Illuminate\Support\Str;
 class Course extends Model
 {
     use HasFactory, SoftDeletes;
+    use RecordsDomainAudit;
 
     protected $fillable = [
-        'uuid',
+        'uuid', 'revision_of_id', 'superseded_at',
         'category_id',
         'title',
         'slug',
@@ -35,25 +37,35 @@ class Course extends Model
         'version',
         'author_id',
         'reviewer_id',
+        'created_by_role',
+        'approval_status',
+        'submitted_for_review_at',
+        'approved_by',
+        'approved_at',
+        'rejection_reason',
         'total_enrollments',
         'avg_rating',
+        'sequential_lessons',
     ];
 
     protected function casts(): array
     {
         return [
-            'exam_blueprint'    => 'array',
-            'prerequisites'     => 'array',
+            'exam_blueprint' => 'array',
+            'prerequisites' => 'array',
             'learning_outcomes' => 'array',
-            'tags'              => 'array',
-            'is_published'      => 'boolean',
-            'published_at'      => 'datetime',
-            'price'             => 'decimal:2',
-            'discount_price'    => 'decimal:2',
-            'duration_hours'    => 'decimal:1',
-            'avg_rating'        => 'decimal:2',
+            'tags' => 'array',
+            'is_published' => 'boolean',
+            'sequential_lessons' => 'boolean',
+            'published_at' => 'datetime', 'superseded_at' => 'datetime',
+            'submitted_for_review_at' => 'datetime',
+            'approved_at' => 'datetime',
+            'price' => 'decimal:2',
+            'discount_price' => 'decimal:2',
+            'duration_hours' => 'decimal:1',
+            'avg_rating' => 'decimal:2',
             'total_enrollments' => 'integer',
-            'version'           => 'integer',
+            'version' => 'integer',
         ];
     }
 
@@ -76,6 +88,11 @@ class Course extends Model
     public function reviewer()
     {
         return $this->belongsTo(User::class, 'reviewer_id');
+    }
+
+    public function approvedBy()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     public function modules()
@@ -161,12 +178,14 @@ class Course extends Model
 
     public function scopeSearch($query, ?string $term)
     {
-        if (! $term) return $query;
+        if (! $term) {
+            return $query;
+        }
 
         return $query->where(function ($q) use ($term) {
             $q->where('title', 'like', "%{$term}%")
-              ->orWhere('subtitle', 'like', "%{$term}%")
-              ->orWhere('description', 'like', "%{$term}%");
+                ->orWhere('subtitle', 'like', "%{$term}%")
+                ->orWhere('description', 'like', "%{$term}%");
         });
     }
 

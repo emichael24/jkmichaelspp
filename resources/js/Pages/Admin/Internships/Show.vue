@@ -182,6 +182,7 @@
             <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[85vh] overflow-y-auto">
                 <h3 class="text-lg font-semibold text-surface-900 mb-4">Edit Track</h3>
                 <form @submit.prevent="submitEdit">
+                    <label class="block text-sm font-medium">Review criteria<input v-model="rubricInput" class="mt-2 w-full rounded-lg border border-surface-200 p-2 text-sm" /><span class="mt-1 block text-xs font-normal text-surface-500">Comma-separated. Every criterion is scored 0–5.</span></label><p v-for="error in editForm.errors" :key="error" role="alert" class="text-xs text-red-700">{{ error }}</p>
                     <div class="space-y-3">
                         <div><label class="block text-sm font-medium text-surface-700 mb-1">Title</label><input v-model="editForm.title" type="text" class="w-full px-3 py-2 border border-surface-200 rounded-lg text-sm" /></div>
                         <div><label class="block text-sm font-medium text-surface-700 mb-1">Description</label><textarea v-model="editForm.description" rows="3" class="w-full px-3 py-2 border border-surface-200 rounded-lg text-sm"></textarea></div>
@@ -289,6 +290,7 @@ const props = defineProps({
 const showAddMilestone = ref(false);
 const showEnroll = ref(false);
 const showEdit = ref(false);
+const rubricInput = ref((props.track.review_rubric || ['Quality', 'Timeliness', 'Communication', 'Initiative', 'Technical skill']).join(', '));
 const showAddTask = ref(false);
 const activeEnrollmentId = ref(null);
 
@@ -310,6 +312,7 @@ const editForm = useForm({
     price: props.track.price,
     max_participants: props.track.max_participants,
     is_published: props.track.is_published,
+    review_rubric: props.track.review_rubric || [],
 });
 
 function submitMilestone() {
@@ -346,6 +349,7 @@ function submitTask() {
 }
 
 function submitEdit() {
+    editForm.review_rubric = rubricInput.value.split(',').map(s => s.trim()).filter(Boolean);
     editForm.put(`/admin/internships/${props.track.id}`, {
         onSuccess: () => { showEdit.value = false; },
     });

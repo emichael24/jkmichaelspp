@@ -20,7 +20,7 @@ class SimulationChoice extends Model
     {
         return [
             'score_impact' => 'array',
-            'sort_order'   => 'integer',
+            'sort_order' => 'integer',
         ];
     }
 

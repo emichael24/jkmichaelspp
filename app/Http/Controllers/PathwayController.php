@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\CareerPathway;
 use App\Models\CourseEnrollment;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -21,6 +20,7 @@ class PathwayController extends Controller
         $pathways = $pathways->map(function ($pathway) use ($userId) {
             $progress = $pathway->getProgressForUser($userId);
             $pathway->user_progress = $progress;
+
             return $pathway;
         });
 
@@ -55,6 +55,7 @@ class PathwayController extends Controller
             $enrollment = $enrollments->get($course->id);
             $course->enrollment_status = $enrollment?->status;
             $course->enrollment_progress = $enrollment?->progress_pct ?? 0;
+
             return $course;
         });
 

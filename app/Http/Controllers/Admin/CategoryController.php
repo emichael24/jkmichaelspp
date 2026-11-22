@@ -23,11 +23,11 @@ class CategoryController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'        => 'required|string|max:255',
+            'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
-            'icon'        => 'nullable|string|max:50',
-            'parent_id'   => 'nullable|exists:categories,id',
-            'is_active'   => 'boolean',
+            'icon' => 'nullable|string|max:50',
+            'parent_id' => 'nullable|exists:categories,id',
+            'is_active' => 'boolean',
         ]);
 
         Category::create($validated);
@@ -39,11 +39,11 @@ class CategoryController extends Controller
     public function update(Request $request, Category $category)
     {
         $validated = $request->validate([
-            'name'        => 'required|string|max:255',
+            'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
-            'icon'        => 'nullable|string|max:50',
-            'parent_id'   => 'nullable|exists:categories,id',
-            'is_active'   => 'boolean',
+            'icon' => 'nullable|string|max:50',
+            'parent_id' => 'nullable|exists:categories,id',
+            'is_active' => 'boolean',
         ]);
 
         $category->update($validated);
@@ -67,7 +67,7 @@ class CategoryController extends Controller
     public function reorder(Request $request)
     {
         $validated = $request->validate([
-            'order'   => 'required|array',
+            'order' => 'required|array',
             'order.*' => 'integer|exists:categories,id',
         ]);
 

@@ -19,7 +19,7 @@
         <!-- Leading icon -->
         <component v-if="icon && !loading" :is="icon" :class="iconClasses" />
 
-        <span v-if="$slots.default"><slot /></span>
+        <span v-if="$slots.default" class="inline-flex items-center justify-center gap-2"><slot /></span>
 
         <!-- Trailing icon -->
         <component v-if="trailingIcon" :is="trailingIcon" :class="iconClasses" />

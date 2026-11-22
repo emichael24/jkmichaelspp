@@ -18,7 +18,7 @@ class CohortWeeklyPlan extends Model
 
     protected $casts = [
         'start_date' => 'date',
-        'end_date'   => 'date',
+        'end_date' => 'date',
     ];
 
     /* ── relationships ── */
@@ -36,6 +36,7 @@ class CohortWeeklyPlan extends Model
     public function isCurrent(): bool
     {
         $today = now()->toDateString();
+
         return $this->start_date->toDateString() <= $today
             && $this->end_date->toDateString() >= $today;
     }

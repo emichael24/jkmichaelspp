@@ -13,9 +13,9 @@ class MessagingLog extends Model
     ];
 
     protected $casts = [
-        'sent_at'      => 'datetime',
+        'sent_at' => 'datetime',
         'delivered_at' => 'datetime',
-        'opened_at'    => 'datetime',
+        'opened_at' => 'datetime',
     ];
 
     public function campaign()

@@ -21,15 +21,15 @@ class DailyActivityLog extends Model
     ];
 
     protected $casts = [
-        'date'                   => 'datetime:Y-m-d',
-        'lessons_completed'      => 'integer',
-        'quizzes_completed'      => 'integer',
-        'questions_answered'     => 'integer',
-        'questions_correct'      => 'integer',
-        'time_spent_minutes'     => 'integer',
-        'xp_earned'              => 'integer',
-        'simulations_completed'  => 'integer',
-        'flashcards_reviewed'    => 'integer',
+        'date' => 'datetime:Y-m-d',
+        'lessons_completed' => 'integer',
+        'quizzes_completed' => 'integer',
+        'questions_answered' => 'integer',
+        'questions_correct' => 'integer',
+        'time_spent_minutes' => 'integer',
+        'xp_earned' => 'integer',
+        'simulations_completed' => 'integer',
+        'flashcards_reviewed' => 'integer',
     ];
 
     // ── Relationships ────────────────────────────

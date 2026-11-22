@@ -24,7 +24,7 @@ class AssignmentController extends Controller
             ->get();
 
         return Inertia::render('Facilitator/Assignments/Index', [
-            'cohort'      => $cohort,
+            'cohort' => $cohort,
             'assignments' => $assignments,
         ]);
     }
@@ -47,21 +47,21 @@ class AssignmentController extends Controller
         $this->authorizeFacilitator($cohort);
 
         $validated = $request->validate([
-            'title'              => 'required|string|max:255',
-            'description'        => 'required|string',
-            'instructions'       => 'nullable|string',
-            'rubric'             => 'nullable|array',
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'instructions' => 'nullable|string',
+            'rubric' => 'nullable|array',
             'rubric.*.criterion' => 'required_with:rubric|string',
             'rubric.*.description' => 'nullable|string',
             'rubric.*.max_score' => 'required_with:rubric|integer|min:1',
-            'max_score'          => 'integer|min:1|max:1000',
-            'due_date'           => 'nullable|date',
-            'allow_late'         => 'boolean',
-            'max_resubmissions'  => 'integer|min:0|max:10',
+            'max_score' => 'integer|min:1|max:1000',
+            'due_date' => 'nullable|date',
+            'allow_late' => 'boolean',
+            'max_resubmissions' => 'integer|min:0|max:10',
         ]);
 
-        $validated['course_id']  = $cohort->course_id;
-        $validated['cohort_id']  = $cohort->id;
+        $validated['course_id'] = $cohort->course_id;
+        $validated['cohort_id'] = $cohort->id;
         $validated['created_by'] = Auth::id();
 
         Assignment::create($validated);
@@ -75,6 +75,7 @@ class AssignmentController extends Controller
     public function submissions(Cohort $cohort, Assignment $assignment)
     {
         $this->authorizeFacilitator($cohort);
+        abort_unless($assignment->cohort_id === $cohort->id, 404);
 
         $submissions = $assignment->submissions()
             ->with('user')
@@ -83,8 +84,8 @@ class AssignmentController extends Controller
             ->get();
 
         return Inertia::render('Facilitator/Assignments/Grading', [
-            'cohort'      => $cohort,
-            'assignment'  => $assignment,
+            'cohort' => $cohort,
+            'assignment' => $assignment,
             'submissions' => $submissions,
         ]);
     }
@@ -94,21 +95,22 @@ class AssignmentController extends Controller
     public function grade(Request $request, Cohort $cohort, AssignmentSubmission $submission)
     {
         $this->authorizeFacilitator($cohort);
+        abort_unless($submission->assignment->cohort_id === $cohort->id, 404);
 
         $validated = $request->validate([
-            'score'         => 'required|integer|min:0',
+            'score' => 'required|integer|min:0',
             'rubric_scores' => 'nullable|array',
-            'feedback'      => 'nullable|string',
-            'status'        => 'required|in:graded,returned',
+            'feedback' => 'nullable|string',
+            'status' => 'required|in:graded,returned',
         ]);
 
         $submission->update([
-            'score'         => $validated['score'],
+            'score' => $validated['score'],
             'rubric_scores' => $validated['rubric_scores'] ?? null,
-            'feedback'      => $validated['feedback'] ?? null,
-            'status'        => $validated['status'],
-            'graded_by'     => Auth::id(),
-            'graded_at'     => now(),
+            'feedback' => $validated['feedback'] ?? null,
+            'status' => $validated['status'],
+            'graded_by' => Auth::id(),
+            'graded_at' => now(),
         ]);
 
         return back()->with('success', 'Submission graded.');
@@ -119,9 +121,10 @@ class AssignmentController extends Controller
     public function edit(Cohort $cohort, Assignment $assignment)
     {
         $this->authorizeFacilitator($cohort);
+        abort_unless($assignment->cohort_id === $cohort->id, 404);
 
         return Inertia::render('Facilitator/Assignments/Edit', [
-            'cohort'     => $cohort,
+            'cohort' => $cohort,
             'assignment' => $assignment,
         ]);
     }
@@ -131,17 +134,18 @@ class AssignmentController extends Controller
     public function update(Request $request, Cohort $cohort, Assignment $assignment)
     {
         $this->authorizeFacilitator($cohort);
+        abort_unless($assignment->cohort_id === $cohort->id, 404);
 
         $validated = $request->validate([
-            'title'              => 'required|string|max:255',
-            'description'        => 'required|string',
-            'instructions'       => 'nullable|string',
-            'rubric'             => 'nullable|array',
-            'max_score'          => 'integer|min:1|max:1000',
-            'due_date'           => 'nullable|date',
-            'allow_late'         => 'boolean',
-            'max_resubmissions'  => 'integer|min:0|max:10',
-            'is_published'       => 'boolean',
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'instructions' => 'nullable|string',
+            'rubric' => 'nullable|array',
+            'max_score' => 'integer|min:1|max:1000',
+            'due_date' => 'nullable|date',
+            'allow_late' => 'boolean',
+            'max_resubmissions' => 'integer|min:0|max:10',
+            'is_published' => 'boolean',
         ]);
 
         $assignment->update($validated);
@@ -155,6 +159,7 @@ class AssignmentController extends Controller
     public function destroy(Cohort $cohort, Assignment $assignment)
     {
         $this->authorizeFacilitator($cohort);
+        abort_unless($assignment->cohort_id === $cohort->id, 404);
         $assignment->delete();
 
         return back()->with('success', 'Assignment deleted.');
@@ -165,7 +170,7 @@ class AssignmentController extends Controller
     private function authorizeFacilitator(Cohort $cohort): void
     {
         $user = Auth::user();
-        if ($cohort->facilitator_id !== $user->id && !$user->hasRole('platform_admin')) {
+        if ($cohort->facilitator_id !== $user->id && ! $user->hasRole('platform_admin')) {
             abort(403, 'Unauthorized');
         }
     }

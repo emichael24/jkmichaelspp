@@ -1,66 +1,102 @@
 <?php
 
+use App\Http\Controllers\Admin\AuditLogController as AdminAuditLogController;
+use App\Http\Controllers\Admin\BillingController as AdminBillingController;
+use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
+use App\Http\Controllers\Admin\CourseApprovalController;
+use App\Http\Controllers\Admin\CourseController as AdminCourseController;
+use App\Http\Controllers\Admin\CourseEnrollmentController;
+use App\Http\Controllers\Admin\CourseMediaController;
+use App\Http\Controllers\Admin\CRMController;
+use App\Http\Controllers\Admin\CrmPipelineController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\EventController as AdminEventController;
+use App\Http\Controllers\Admin\InternshipTrackController as AdminInternshipTrackController;
+use App\Http\Controllers\Admin\LaunchChecklistController;
+use App\Http\Controllers\Admin\LearningRuleController;
+use App\Http\Controllers\Admin\MessagingController;
+use App\Http\Controllers\Admin\MockExamController as AdminMockExamController;
+use App\Http\Controllers\Admin\QuestionController as AdminQuestionController;
+use App\Http\Controllers\Admin\QuizController as AdminQuizController;
+use App\Http\Controllers\Admin\ReportController as AdminReportController;
+use App\Http\Controllers\Admin\SettingsController as AdminSettingsController;
+use App\Http\Controllers\Admin\SimulationController as AdminSimulationController;
+use App\Http\Controllers\Admin\SubscriptionPlanController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\AI\AdminAIController;
+use App\Http\Controllers\AI\FacilitatorAIController;
+use App\Http\Controllers\AI\StudentAIController;
+use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\Api\AiStudioController;
+use App\Http\Controllers\Api\ExamController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\ResetPasswordController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\CourseController;
-use App\Http\Controllers\LessonController;
-use App\Http\Controllers\EnrollmentController;
+use App\Http\Controllers\AuthoringCurriculumController;
+use App\Http\Controllers\AuthoringMediaController;
 use App\Http\Controllers\BookmarkController;
-use App\Http\Controllers\NoteController;
-use App\Http\Controllers\QuizController;
-use App\Http\Controllers\MockExamController;
-use App\Http\Controllers\SpacedRepetitionController;
-use App\Http\Controllers\AnalyticsController;
-use App\Http\Controllers\GamificationController;
-use App\Http\Controllers\ScormController;
-use App\Http\Controllers\Admin\CourseMediaController;
-use App\Http\Controllers\Admin\UserController as AdminUserController;
-use App\Http\Controllers\Admin\CourseController as AdminCourseController;
-use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
-use App\Http\Controllers\Admin\QuestionController as AdminQuestionController;
-use App\Http\Controllers\Admin\QuizController as AdminQuizController;
-use App\Http\Controllers\Admin\MockExamController as AdminMockExamController;
-use App\Http\Controllers\Facilitator\DashboardController as FacilitatorDashboardController;
-use App\Http\Controllers\Facilitator\CohortController as FacilitatorCohortController;
-use App\Http\Controllers\Facilitator\WeeklyPlanController as FacilitatorWeeklyPlanController;
+use App\Http\Controllers\CertificateController;
+use App\Http\Controllers\CourseController;
+use App\Http\Controllers\CourseRatingController;
+use App\Http\Controllers\CourseRevisionController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EnrollmentController;
+use App\Http\Controllers\EventController;
 use App\Http\Controllers\Facilitator\AnnouncementController as FacilitatorAnnouncementController;
-use App\Http\Controllers\Facilitator\InterventionController as FacilitatorInterventionController;
 use App\Http\Controllers\Facilitator\AssignmentController as FacilitatorAssignmentController;
+use App\Http\Controllers\Facilitator\CohortController as FacilitatorCohortController;
+use App\Http\Controllers\Facilitator\DashboardController as FacilitatorDashboardController;
 use App\Http\Controllers\Facilitator\GradebookController as FacilitatorGradebookController;
+use App\Http\Controllers\Facilitator\GradingController;
+use App\Http\Controllers\Facilitator\InternshipOversightController as FacilitatorInternshipOversightController;
+use App\Http\Controllers\Facilitator\InterventionController as FacilitatorInterventionController;
 use App\Http\Controllers\Facilitator\MeetingController as FacilitatorMeetingController;
+use App\Http\Controllers\Facilitator\WeeklyPlanController as FacilitatorWeeklyPlanController;
+use App\Http\Controllers\ForumController;
+use App\Http\Controllers\GamificationController;
 use App\Http\Controllers\InternshipController;
 use App\Http\Controllers\InternshipSubmissionController;
-use App\Http\Controllers\SponsorController;
+use App\Http\Controllers\LearnerAnalyticsController;
+use App\Http\Controllers\LessonActivityController;
+use App\Http\Controllers\LessonController;
+use App\Http\Controllers\MessageController;
+use App\Http\Controllers\MockExamController;
+use App\Http\Controllers\NoteController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\OfflineLearningController;
+use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\Organization\DepartmentController;
+use App\Http\Controllers\Organization\InvitationController;
+use App\Http\Controllers\Organization\PeopleController;
+use App\Http\Controllers\Organization\ReportController;
+use App\Http\Controllers\PathwayController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PaymentWebhookController;
 use App\Http\Controllers\PortfolioController;
-use App\Http\Controllers\CertificateController;
-use App\Http\Controllers\Admin\InternshipTrackController as AdminInternshipTrackController;
-use App\Http\Controllers\Admin\SimulationController as AdminSimulationController;
-use App\Http\Controllers\Facilitator\InternshipOversightController as FacilitatorInternshipOversightController;
+use App\Http\Controllers\PrivateMediaController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProtectedDocumentController;
+use App\Http\Controllers\PushSubscriptionController;
+use App\Http\Controllers\QuizController;
+use App\Http\Controllers\ScormController;
 use App\Http\Controllers\SimulationController;
 use App\Http\Controllers\Sme\ContentReviewController as SmeContentReviewController;
 use App\Http\Controllers\Sme\QuestionManagementController as SmeQuestionManagementController;
+use App\Http\Controllers\SpacedRepetitionController;
+use App\Http\Controllers\Sponsor\MeetingController;
+use App\Http\Controllers\SponsorController;
 use App\Http\Controllers\StorefrontController;
-use App\Http\Controllers\OrderController;
-use App\Http\Controllers\PaymentWebhookController;
-use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\ForumController;
-use App\Http\Controllers\MessageController;
 use App\Http\Controllers\StudyGroupController;
-use App\Http\Controllers\EventController;
-use App\Http\Controllers\PathwayController;
-use App\Http\Controllers\CourseRatingController;
-use App\Http\Controllers\OnboardingController;
-use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
-use App\Http\Controllers\Admin\ReportController as AdminReportController;
-use App\Http\Controllers\Admin\SettingsController as AdminSettingsController;
-use App\Http\Controllers\Admin\BillingController as AdminBillingController;
-use App\Http\Controllers\Admin\AuditLogController as AdminAuditLogController;
-use App\Http\Controllers\Admin\EventController as AdminEventController;
+use App\Http\Controllers\SubscriptionController;
+use App\Models\CohortMember;
+use App\Models\DirectMessage;
+use App\Models\Event;
+use App\Services\CommunityAccessService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -73,9 +109,37 @@ Route::get('/', function () {
     if (auth()->check()) {
         return redirect('/dashboard');
     }
+
     return Inertia::render('Welcome');
 });
-Route::get('/offline', fn () => response()->file(public_path('offline.html')));
+Route::get('/offline', fn () => response()->view('offline'));
+
+Route::get('/organization', App\Http\Controllers\Organization\DashboardController::class)
+    ->middleware(['auth', 'role:org_admin'])->name('organization.dashboard');
+Route::middleware(['auth', 'role:org_admin', 'throttle:60,1'])->prefix('organization')->group(function () {
+    Route::get('/courses', [App\Http\Controllers\Organization\CourseLicenseController::class, 'index']);
+    Route::get('/courses/catalog', [App\Http\Controllers\Organization\CourseLicenseController::class, 'catalog']);
+    Route::post('/courses/{course}/purchase', [App\Http\Controllers\Organization\CourseLicenseController::class, 'purchase'])->middleware('throttle:10,1');
+    Route::get('/licenses/{license}', [App\Http\Controllers\Organization\CourseLicenseController::class, 'show']);
+    Route::get('/licenses/{license}/members', [App\Http\Controllers\Organization\CourseLicenseController::class, 'members']);
+    Route::post('/licenses/{license}/assign', [App\Http\Controllers\Organization\CourseLicenseController::class, 'assign'])->middleware('throttle:15,1');
+    Route::delete('/licenses/{license}/assignments/{assignment}', [App\Http\Controllers\Organization\CourseLicenseController::class, 'release']);
+    Route::get('/billing', [App\Http\Controllers\Organization\BillingController::class, 'index']);
+    Route::get('/billing/{uuid}', [App\Http\Controllers\Organization\BillingController::class, 'show']);
+    Route::get('/people', [PeopleController::class, 'index'])->name('organization.people');
+    Route::post('/invitations', [PeopleController::class, 'invite'])->middleware('throttle:10,1');
+    Route::post('/people/import', [PeopleController::class, 'import'])->middleware('throttle:5,1');
+    Route::delete('/invitations/{invitation}', [PeopleController::class, 'revoke']);
+    Route::patch('/people/{member}', [PeopleController::class, 'update']);
+    Route::get('/departments', [DepartmentController::class, 'index']);
+    Route::post('/departments', [DepartmentController::class, 'store']);
+    Route::patch('/departments/{department}', [DepartmentController::class, 'update']);
+    Route::delete('/departments/{department}', [DepartmentController::class, 'destroy']);
+    Route::get('/reports', [ReportController::class, 'index']);
+    Route::get('/reports/export', [ReportController::class, 'export'])->middleware('throttle:8,1');
+});
+Route::get('/organization-invitations/{token}', [InvitationController::class, 'show'])->middleware('throttle:30,1')->name('organization.invitation.show');
+Route::post('/organization-invitations/{token}', [InvitationController::class, 'accept'])->middleware('throttle:10,1')->name('organization.invitation.accept');
 
 /*
 |--------------------------------------------------------------------------
@@ -84,13 +148,13 @@ Route::get('/offline', fn () => response()->file(public_path('offline.html')));
 */
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
-    Route::post('/login', [LoginController::class, 'store']);
+    Route::post('/login', [LoginController::class, 'store'])->middleware('throttle:login');
 
     Route::get('/register', [RegisterController::class, 'create'])->name('register');
     Route::post('/register', [RegisterController::class, 'store']);
 
     Route::get('/forgot-password', [ForgotPasswordController::class, 'create'])->name('password.request');
-    Route::post('/forgot-password', [ForgotPasswordController::class, 'store'])->name('password.email');
+    Route::post('/forgot-password', [ForgotPasswordController::class, 'store'])->middleware('throttle:5,1')->name('password.email');
 
     Route::get('/reset-password/{token}', [ResetPasswordController::class, 'create'])->name('password.reset');
     Route::post('/reset-password', [ResetPasswordController::class, 'store'])->name('password.store');
@@ -101,11 +165,7 @@ Route::middleware('guest')->group(function () {
 | Auth Required Routes
 |--------------------------------------------------------------------------
 */
-use App\Http\Controllers\Api\ExamController;
-
 // Existing routes...
-
-use App\Http\Controllers\LearnerAnalyticsController;
 
 // Existing routes...
 
@@ -114,11 +174,18 @@ Route::middleware('auth')->group(function () {
     Route::get('/courses/{course}/analytics', [LearnerAnalyticsController::class, 'showDashboard'])->name('learner.analytics.show');
 
     // SCORM API Bridge
+    Route::get('/media/{asset}', [PrivateMediaController::class, 'show'])->name('media.show');
+    Route::get('/lessons/{lesson}/documents/{type}', [ProtectedDocumentController::class, 'lesson'])->whereIn('type', ['pdf', 'slides'])->middleware('throttle:120,1');
+    Route::get('/lessons/{lesson}/documents/{type}/pages/{page}', [ProtectedDocumentController::class, 'lessonPage'])->whereIn('type', ['pdf', 'slides'])->whereNumber('page')->middleware('throttle:120,1');
+    Route::get('/lessons/{lesson}/documents/{type}/source', [ProtectedDocumentController::class, 'lessonSource'])->whereIn('type', ['pdf', 'slides'])->middleware('throttle:30,1');
+    Route::post('/lessons/{lesson}/submission', [LessonActivityController::class, 'submit'])->middleware('throttle:20,1')->name('lessons.submission');
+    Route::get('/assignment-submissions/{submission}/files/{index}', [LessonActivityController::class, 'file'])->whereNumber('index')->middleware('throttle:60,1')->name('assignment-submissions.file');
+    Route::get('/lessons/{lesson}/scorm-launch', [PrivateMediaController::class, 'launch'])->name('scorm.launch');
     Route::post('/api/scorm/commit/{lesson_id}', [ScormController::class, 'commit'])->name('scorm.commit');
 
     // Advanced Assessment / Mock Exam Engine Endpoints
     Route::post('/api/exams/mock/{id}/generate', [ExamController::class, 'generate']);
-    Route::post('/api/exams/attempts/{id}/pause', [ExamController::class, 'autoSave']);
+    Route::post('/api/exams/attempts/{id}/pause', [ExamController::class, 'pause']);
     Route::post('/api/exams/attempts/{id}/submit', [ExamController::class, 'submit']);
 
     // Logout
@@ -161,6 +228,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/lessons/{lesson}/bookmark', [LessonController::class, 'toggleBookmark'])->name('lessons.bookmark');
     Route::post('/lessons/{lesson}/flashcards', [LessonController::class, 'createFlashcards'])->name('lessons.flashcards');
     Route::get('/lessons/{lesson}/download/{type}', [LessonController::class, 'download'])->name('lessons.download');
+    Route::get('/lessons/{lesson}/offline', [OfflineLearningController::class, 'download'])->middleware('throttle:30,1');
+    Route::post('/api/progress/sync', [OfflineLearningController::class, 'sync'])->middleware('throttle:60,1');
+    Route::get('/api/offline/session', [OfflineLearningController::class, 'session']);
 
     // Bookmarks
     Route::get('/bookmarks', [BookmarkController::class, 'index'])->name('bookmarks.index');
@@ -180,11 +250,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/quiz-attempts/{attempt}/flag', [QuizController::class, 'flag'])->name('quiz.flag');
     Route::post('/quiz-attempts/{attempt}/complete', [QuizController::class, 'complete'])->name('quiz.complete');
     Route::get('/quiz-attempts/{attempt}/review', [QuizController::class, 'review'])->name('quiz.review');
+    Route::get('/quiz-attempts/{attempt}', [QuizController::class, 'play'])->whereNumber('attempt')->name('quiz.play');
 
     // Mock Exams (Learner)
     Route::get('/mock-exams', [MockExamController::class, 'index'])->name('mock-exams.index');
     Route::get('/mock-exams/{mockExam}', [MockExamController::class, 'show'])->name('mock-exams.show');
     Route::post('/mock-exams/{mockExam}/start', [MockExamController::class, 'start'])->name('mock-exams.start');
+    Route::post('/mock-attempts/{attempt}/pause', [MockExamController::class, 'pause'])->name('mock-exams.pause');
     Route::post('/mock-attempts/{attempt}/resume', [MockExamController::class, 'resume'])->name('mock-exams.resume');
     Route::post('/mock-attempts/{attempt}/answer', [MockExamController::class, 'answer'])->name('mock-exams.answer');
     Route::post('/mock-attempts/{attempt}/complete', [MockExamController::class, 'complete'])->name('mock-exams.complete');
@@ -248,12 +320,13 @@ Route::middleware('auth')->group(function () {
     // My Cohorts (Learner)
     Route::get('/my-cohorts', function () {
         $user = auth()->user();
-        $cohorts = \App\Models\CohortMember::where('user_id', $user->id)
+        $cohorts = CohortMember::where('user_id', $user->id)
             ->where('status', 'active')
             ->with(['cohort.course', 'cohort.facilitator'])
             ->get()
             ->pluck('cohort')
             ->filter();
+
         return Inertia::render('MyCohorts', ['cohorts' => $cohorts->values()]);
     })->name('my-cohorts');
 
@@ -265,13 +338,16 @@ Route::middleware('auth')->group(function () {
     Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
     Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
     Route::get('/orders/{uuid}', [OrderController::class, 'show'])->name('orders.show');
+    Route::post('/orders/{uuid}/resume', [OrderController::class, 'resume'])->middleware('throttle:10,1')->name('orders.resume');
+    Route::post('/orders/{uuid}/refresh-payment', [OrderController::class, 'refreshPayment'])->middleware('throttle:10,1')->name('orders.refresh-payment');
     Route::post('/cart/validate-discount', [OrderController::class, 'validateDiscount'])->name('cart.validateDiscount');
 
     // Subscriptions (Learner)
-    Route::get('/subscriptions', [\App\Http\Controllers\SubscriptionController::class, 'index'])->name('subscriptions.index');
-    Route::post('/subscriptions/{plan}/subscribe', [\App\Http\Controllers\SubscriptionController::class, 'subscribe'])->name('subscriptions.subscribe');
-    Route::post('/subscriptions/{plan}/paystack/initialize', [\App\Http\Controllers\SubscriptionController::class, 'initializePaystack'])->name('subscriptions.paystack.initialize');
-    Route::get('/subscriptions/paystack/callback', [\App\Http\Controllers\SubscriptionController::class, 'paystackCallback'])->name('subscriptions.paystack.callback');
+    Route::post('/subscriptions/{subscription}/cancel', [SubscriptionController::class, 'cancel'])->name('subscriptions.cancel');
+    Route::get('/subscriptions', [SubscriptionController::class, 'index'])->name('subscriptions.index');
+    Route::post('/subscriptions/{plan}/subscribe', [SubscriptionController::class, 'subscribe'])->name('subscriptions.subscribe');
+    Route::post('/subscriptions/{plan}/paystack/initialize', [SubscriptionController::class, 'initializePaystack'])->name('subscriptions.paystack.initialize');
+    Route::get('/subscriptions/paystack/callback', [SubscriptionController::class, 'paystackCallback'])->name('subscriptions.paystack.callback');
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
@@ -284,15 +360,15 @@ Route::middleware('auth')->group(function () {
     // Community Hub
     Route::get('/community', function () {
         $user = auth()->user();
-        $forumCount = \App\Models\Forum::count();
-        $studyGroupCount = \App\Models\StudyGroup::count();
-        $upcomingEvents = \App\Models\Event::where('start_date', '>=', now())->count();
-        $unreadMessages = \App\Models\DirectMessage::where('receiver_id', $user->id)->whereNull('read_at')->count();
+        $forumCount = app(CommunityAccessService::class)->forums($user)->count();
+        $studyGroupCount = app(CommunityAccessService::class)->groups($user)->count();
+        $upcomingEvents = Event::published()->upcoming()->count();
+        $unreadMessages = DirectMessage::unreadCountFor($user->id);
 
-        return \Inertia\Inertia::render('Community/Dashboard', [
+        return Inertia::render('Community/Dashboard', [
             'stats' => [
-                'forums'       => $forumCount,
-                'studyGroups'  => $studyGroupCount,
+                'forums' => $forumCount,
+                'studyGroups' => $studyGroupCount,
                 'upcomingEvents' => $upcomingEvents,
                 'unreadMessages' => $unreadMessages,
             ],
@@ -348,7 +424,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/onboarding/complete', [OnboardingController::class, 'complete'])->name('onboarding.complete');
 
     // Downloads / Offline
-    Route::get('/downloads', fn () => \Inertia\Inertia::render('Downloads/Index'))->name('downloads.index');
+    Route::get('/downloads', fn () => Inertia::render('Downloads/Index'))->name('downloads.index');
 });
 
 /*
@@ -361,14 +437,21 @@ Route::middleware(['auth', 'role:platform_admin'])
     ->group(function () {
         Route::get('/', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
 
+        Route::get('/organizations/administrator-candidates', [\App\Http\Controllers\Admin\OrganizationController::class, 'candidates'])->middleware('throttle:60,1')->name('admin.organizations.candidates');
+        Route::resource('organizations', \App\Http\Controllers\Admin\OrganizationController::class)->only(['index', 'create', 'store', 'edit', 'update'])->names('admin.organizations');
+        Route::get('/organization-license-courses', [App\Http\Controllers\Admin\OrganizationLicenseController::class, 'courses']);
+        Route::get('/organizations/{organization}/licenses', [App\Http\Controllers\Admin\OrganizationLicenseController::class, 'index']);
+        Route::post('/organizations/{organization}/licenses', [App\Http\Controllers\Admin\OrganizationLicenseController::class, 'store']);
+        Route::patch('/organizations/{organization}/licenses/{license}', [App\Http\Controllers\Admin\OrganizationLicenseController::class, 'update']);
+
         // B2B CRM Pipelines
-        Route::get('/crm/pipeline', [\App\Http\Controllers\Admin\CrmPipelineController::class, 'index'])->name('admin.crm.pipeline');
-        Route::post('/crm/pipeline/{deal}/stage', [\App\Http\Controllers\Admin\CrmPipelineController::class, 'updateDealStage'])->name('admin.crm.pipeline.stage');
+        Route::get('/crm/pipeline', [CrmPipelineController::class, 'index'])->name('admin.crm.pipeline');
+        Route::post('/crm/pipeline/{deal}/stage', [CrmPipelineController::class, 'updateDealStage'])->name('admin.crm.pipeline.stage');
 
         // Subscriptions
-        Route::get('/subscriptions/plans', [\App\Http\Controllers\Admin\SubscriptionPlanController::class, 'index'])->name('admin.subscriptions.plans');
-        Route::post('/subscriptions/invoice-link', [\App\Http\Controllers\Admin\SubscriptionPlanController::class, 'generateInvoiceLink'])->name('admin.subscriptions.invoice');
-        Route::put('/subscriptions/plans/{plan}', [\App\Http\Controllers\Admin\SubscriptionPlanController::class, 'update'])->name('admin.subscriptions.plans.update');
+        Route::get('/subscriptions/plans', [SubscriptionPlanController::class, 'index'])->name('admin.subscriptions.plans');
+        Route::post('/subscriptions/invoice-link', [SubscriptionPlanController::class, 'generateInvoiceLink'])->name('admin.subscriptions.invoice');
+        Route::put('/subscriptions/plans/{plan}', [SubscriptionPlanController::class, 'update'])->name('admin.subscriptions.plans.update');
 
         // Course Media Uploads (Chunked Video & SCORM)
         Route::post('/media/video', [CourseMediaController::class, 'uploadVideo'])->name('admin.media.video.upload');
@@ -396,6 +479,9 @@ Route::middleware(['auth', 'role:platform_admin'])
         Route::get('/courses/create', [AdminCourseController::class, 'create'])->name('admin.courses.create');
         Route::post('/courses', [AdminCourseController::class, 'store'])->name('admin.courses.store');
         Route::get('/courses/{course}/edit', [AdminCourseController::class, 'edit'])->name('admin.courses.edit');
+        Route::get('/courses/{course}/learners', [CourseEnrollmentController::class, 'index'])->name('admin.courses.learners.index');
+        Route::get('/courses/{course}/learners/search', [CourseEnrollmentController::class, 'search'])->middleware('throttle:60,1')->name('admin.courses.learners.search');
+        Route::post('/courses/{course}/enrollments', [CourseEnrollmentController::class, 'store'])->middleware('throttle:60,1')->name('admin.courses.enrollments.store');
         Route::put('/courses/{course}', [AdminCourseController::class, 'update'])->name('admin.courses.update');
         Route::delete('/courses/{course}', [AdminCourseController::class, 'destroy'])->name('admin.courses.destroy');
         Route::put('/courses/{course}/publish', [AdminCourseController::class, 'publish'])->name('admin.courses.publish');
@@ -457,15 +543,17 @@ Route::middleware(['auth', 'role:platform_admin'])
         Route::get('/reports/compliance', [AdminReportController::class, 'compliance'])->name('admin.reports.compliance');
         Route::get('/reports/department', [AdminReportController::class, 'department'])->name('admin.reports.department');
         Route::get('/reports/internship', [AdminReportController::class, 'internship'])->name('admin.reports.internship');
-        Route::get('/launch-checklist', [\App\Http\Controllers\Admin\LaunchChecklistController::class, 'index'])->name('admin.launch.checklist');
-        Route::put('/launch-checklist/{item}', [\App\Http\Controllers\Admin\LaunchChecklistController::class, 'update'])->name('admin.launch.checklist.update');
-        Route::put('/enrollments/{enrollment}/status', [\App\Http\Controllers\Admin\EnrollmentController::class, 'updateStatus'])->name('admin.enrollments.status');
-        Route::post('/enrollments/auto-expire', [\App\Http\Controllers\Admin\EnrollmentController::class, 'autoExpireByDeadline'])->name('admin.enrollments.auto-expire');
-        Route::put('/enrollments/bulk', [\App\Http\Controllers\Admin\EnrollmentController::class, 'bulkUpdate'])->name('admin.enrollments.bulk');
+        Route::get('/launch-checklist', [LaunchChecklistController::class, 'index'])->name('admin.launch.checklist');
+        Route::put('/launch-checklist/{item}', [LaunchChecklistController::class, 'update'])->name('admin.launch.checklist.update');
+        Route::put('/enrollments/{enrollment}/status', [App\Http\Controllers\Admin\EnrollmentController::class, 'updateStatus'])->name('admin.enrollments.status');
+        Route::post('/enrollments/auto-expire', [App\Http\Controllers\Admin\EnrollmentController::class, 'autoExpireByDeadline'])->name('admin.enrollments.auto-expire');
+        Route::put('/enrollments/bulk', [App\Http\Controllers\Admin\EnrollmentController::class, 'bulkUpdate'])->name('admin.enrollments.bulk');
 
         // Settings
         Route::get('/settings', [AdminSettingsController::class, 'index'])->name('admin.settings.index');
         Route::put('/settings', [AdminSettingsController::class, 'update'])->name('admin.settings.update');
+        Route::get('/settings/payments', [App\Http\Controllers\Admin\PaymentSettingsController::class, 'index'])->name('admin.settings.payments');
+        Route::put('/settings/payments', [App\Http\Controllers\Admin\PaymentSettingsController::class, 'update'])->middleware('throttle:5,1')->name('admin.settings.payments.update');
         // WhatsApp Number Pairings
         Route::get('/settings/whatsapp-pairings', [AdminSettingsController::class, 'waPairings'])->name('admin.settings.wa-pairings');
         Route::patch('/settings/whatsapp-pairings/{user}/pair', [AdminSettingsController::class, 'pairUser'])->name('admin.settings.wa-pair');
@@ -473,9 +561,13 @@ Route::middleware(['auth', 'role:platform_admin'])
         Route::post('/settings/whatsapp-pairings/bulk', [AdminSettingsController::class, 'bulkPairUsers'])->name('admin.settings.wa-bulk-pair');
         Route::post('/settings/whatsapp-pairings/auto-pair', [AdminSettingsController::class, 'autoPairFromPhone'])->name('admin.settings.wa-auto-pair');
 
+        // Preserve bookmarks and links from the previous Commerce navigation.
+        Route::redirect('/commerce', '/admin/billing')->name('admin.commerce');
+
         // Billing
         Route::get('/billing', [AdminBillingController::class, 'index'])->name('admin.billing.index');
         Route::post('/billing/refund/{payment}', [AdminBillingController::class, 'refund'])->name('admin.billing.refund');
+        Route::post('/billing/refund/{payment}/reconcile', [AdminBillingController::class, 'reconcileRefund'])->middleware('throttle:10,1')->name('admin.billing.refund.reconcile');
 
         // Audit Logs
         Route::get('/audit-logs', [AdminAuditLogController::class, 'index'])->name('admin.audit-logs.index');
@@ -498,10 +590,22 @@ Route::middleware(['auth', 'role:platform_admin'])
 | Facilitator Routes
 |--------------------------------------------------------------------------
 */
-use App\Http\Controllers\Facilitator\GradingController;
-use App\Http\Controllers\Api\AiStudioController;
 
-// Later in file...
+Route::post('/authoring/media/{type}', [AuthoringMediaController::class, 'store'])
+    ->middleware(['auth', 'role:platform_admin|facilitator', 'throttle:120,1'])->name('authoring.media.store');
+Route::get('/authoring/documents/{asset}', [ProtectedDocumentController::class, 'preview'])
+    ->middleware(['auth', 'throttle:120,1']);
+Route::get('/authoring/documents/{asset}/pages/{page}', [ProtectedDocumentController::class, 'previewPage'])
+    ->whereNumber('page')->middleware(['auth', 'throttle:120,1']);
+Route::get('/authoring/documents/{asset}/source', [ProtectedDocumentController::class, 'previewSource'])
+    ->middleware(['auth', 'throttle:30,1']);
+Route::middleware(['auth', 'role:platform_admin|facilitator'])->group(function () {
+    Route::put('/authoring/courses/{course}/drip', [AuthoringCurriculumController::class, 'drip'])->name('authoring.curriculum.drip');
+    Route::get('/authoring/lessons/{lesson}/submissions', [LessonActivityController::class, 'submissions'])->name('authoring.lessons.submissions');
+    Route::put('/authoring/submissions/{submission}/grade', [LessonActivityController::class, 'grade'])->name('authoring.submissions.grade');
+});
+Route::post('/authoring/courses/{course}/reorder', [AuthoringCurriculumController::class, 'reorder'])
+    ->middleware(['auth', 'role:platform_admin|facilitator'])->name('authoring.curriculum.reorder');
 
 Route::middleware(['auth', 'role:facilitator'])
     ->prefix('facilitator')
@@ -514,7 +618,7 @@ Route::middleware(['auth', 'role:facilitator'])
         Route::post('/grading/{id}', [GradingController::class, 'storeGrade'])->name('facilitator.grading.store');
 
         // AI Studio Endpoint
-        Route::post('/ai-studio/generate-quiz', [AiStudioController::class, 'generateQuiz'])->name('facilitator.ai.generate');
+        Route::post('/ai-studio/generate-quiz', [AiStudioController::class, 'generateQuiz'])->middleware('throttle:10,1')->name('facilitator.ai.generate');
 
         // Cohorts CRUD
         Route::get('/cohorts', [FacilitatorCohortController::class, 'index'])->name('facilitator.cohorts.index');
@@ -633,11 +737,11 @@ Route::middleware(['auth', 'role:platform_admin'])
 Route::middleware(['auth', 'role:platform_admin'])
     ->prefix('admin')
     ->group(function () {
-        Route::get('/course-approvals', [\App\Http\Controllers\Admin\CourseApprovalController::class, 'index'])->name('admin.course-approvals.index');
-        Route::get('/course-approvals/{course}', [\App\Http\Controllers\Admin\CourseApprovalController::class, 'show'])->name('admin.course-approvals.show');
-        Route::post('/course-approvals/{course}/approve', [\App\Http\Controllers\Admin\CourseApprovalController::class, 'approve'])->name('admin.course-approvals.approve');
-        Route::post('/course-approvals/{course}/reject', [\App\Http\Controllers\Admin\CourseApprovalController::class, 'reject'])->name('admin.course-approvals.reject');
-        Route::put('/course-approvals/{course}/unpublish', [\App\Http\Controllers\Admin\CourseApprovalController::class, 'unpublish'])->name('admin.course-approvals.unpublish');
+        Route::get('/course-approvals', [CourseApprovalController::class, 'index'])->name('admin.course-approvals.index');
+        Route::get('/course-approvals/{course}', [CourseApprovalController::class, 'show'])->name('admin.course-approvals.show');
+        Route::post('/course-approvals/{course}/approve', [CourseApprovalController::class, 'approve'])->name('admin.course-approvals.approve');
+        Route::post('/course-approvals/{course}/reject', [CourseApprovalController::class, 'reject'])->name('admin.course-approvals.reject');
+        Route::put('/course-approvals/{course}/unpublish', [CourseApprovalController::class, 'unpublish'])->name('admin.course-approvals.unpublish');
     });
 
 /*
@@ -645,47 +749,62 @@ Route::middleware(['auth', 'role:platform_admin'])
 | Admin — ERP / CRM
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth', 'role:platform_admin|org_admin'])
+// Platform CRM contains global contacts and campaigns; organization roles must not access it.
+Route::middleware(['auth', 'role:platform_admin'])->group(function () {
+    Route::get('/admin/learning-rules', [LearningRuleController::class, 'index'])->name('admin.learning-rules.index');
+    Route::put('/admin/learning-rules/{course}', [LearningRuleController::class, 'update'])->name('admin.learning-rules.update');
+});
+Route::middleware(['auth', 'role:platform_admin'])
     ->prefix('admin/erp')
     ->group(function () {
         // CRM Dashboard
-        Route::get('/', [\App\Http\Controllers\Admin\CRMController::class, 'dashboard'])->name('admin.erp.dashboard');
+        Route::get('/', [CRMController::class, 'dashboard'])->name('admin.erp.dashboard');
 
         // Contacts
-        Route::get('/contacts', [\App\Http\Controllers\Admin\CRMController::class, 'contactsIndex'])->name('admin.crm.contacts.index');
-        Route::post('/contacts', [\App\Http\Controllers\Admin\CRMController::class, 'contactStore'])->name('admin.crm.contacts.store');
-        Route::get('/contacts/{contact}', [\App\Http\Controllers\Admin\CRMController::class, 'contactShow'])->name('admin.crm.contacts.show');
-        Route::put('/contacts/{contact}', [\App\Http\Controllers\Admin\CRMController::class, 'contactUpdate'])->name('admin.crm.contacts.update');
-        Route::delete('/contacts/{contact}', [\App\Http\Controllers\Admin\CRMController::class, 'contactDestroy'])->name('admin.crm.contacts.destroy');
+        Route::get('/contacts', [CRMController::class, 'contactsIndex'])->name('admin.crm.contacts.index');
+        Route::post('/contacts', [CRMController::class, 'contactStore'])->name('admin.crm.contacts.store');
+        Route::get('/contacts/import/template', [CRMController::class, 'contactImportTemplate'])->name('admin.crm.contacts.import.template');
+        Route::get('/contacts/imports', [\App\Http\Controllers\Admin\ContactImportController::class, 'index'])->name('admin.crm.contact-imports.index');
+        Route::post('/contacts/imports', [\App\Http\Controllers\Admin\ContactImportController::class, 'store'])->middleware('throttle:10,1')->name('admin.crm.contact-imports.store');
+        Route::post('/contacts/imports/{id}/retry', [\App\Http\Controllers\Admin\ContactImportController::class, 'retry'])->middleware('throttle:10,1');
+        Route::post('/contacts/imports/{id}/cancel', [\App\Http\Controllers\Admin\ContactImportController::class, 'cancel']);
+        Route::get('/contacts/imports/{id}/errors', [\App\Http\Controllers\Admin\ContactImportController::class, 'errors']);
+        Route::post('/contacts/import/preview', [CRMController::class, 'contactImportPreview'])->middleware('throttle:10,1')->name('admin.crm.contacts.import.preview');
+        Route::post('/contacts/import', [CRMController::class, 'contactImport'])->middleware('throttle:10,1')->name('admin.crm.contacts.import');
+        Route::get('/contacts/{contact}', [CRMController::class, 'contactShow'])->name('admin.crm.contacts.show');
+        Route::put('/contacts/{contact}', [CRMController::class, 'contactUpdate'])->name('admin.crm.contacts.update');
+        Route::delete('/contacts/{contact}', [CRMController::class, 'contactDestroy'])->name('admin.crm.contacts.destroy');
 
         // Deals / Pipeline
-        Route::get('/deals', [\App\Http\Controllers\Admin\CRMController::class, 'dealsIndex'])->name('admin.crm.deals.index');
-        Route::post('/deals', [\App\Http\Controllers\Admin\CRMController::class, 'dealStore'])->name('admin.crm.deals.store');
-        Route::put('/deals/{deal}', [\App\Http\Controllers\Admin\CRMController::class, 'dealUpdate'])->name('admin.crm.deals.update');
+        Route::get('/deals', [CRMController::class, 'dealsIndex'])->name('admin.crm.deals.index');
+        Route::post('/deals', [CRMController::class, 'dealStore'])->name('admin.crm.deals.store');
+        Route::put('/deals/{deal}', [CRMController::class, 'dealUpdate'])->name('admin.crm.deals.update');
 
         // Activities
-        Route::post('/activities', [\App\Http\Controllers\Admin\CRMController::class, 'activityStore'])->name('admin.crm.activities.store');
-        Route::put('/activities/{activity}/complete', [\App\Http\Controllers\Admin\CRMController::class, 'activityComplete'])->name('admin.crm.activities.complete');
+        Route::post('/activities', [CRMController::class, 'activityStore'])->name('admin.crm.activities.store');
+        Route::put('/activities/{activity}/complete', [CRMController::class, 'activityComplete'])->name('admin.crm.activities.complete');
 
         // Messaging Campaigns
-        Route::get('/messaging', [\App\Http\Controllers\Admin\MessagingController::class, 'index'])->name('admin.messaging.index');
-        Route::post('/messaging', [\App\Http\Controllers\Admin\MessagingController::class, 'store'])->name('admin.messaging.store');
-        Route::get('/messaging/{campaign}', [\App\Http\Controllers\Admin\MessagingController::class, 'show'])->name('admin.messaging.show');
-        Route::post('/messaging/{campaign}/send', [\App\Http\Controllers\Admin\MessagingController::class, 'send'])->name('admin.messaging.send');
-        Route::post('/messaging/quick-send', [\App\Http\Controllers\Admin\MessagingController::class, 'quickSend'])->name('admin.messaging.quickSend');
+        Route::get('/messaging', [MessagingController::class, 'index'])->name('admin.messaging.index');
+        Route::post('/messaging', [MessagingController::class, 'store'])->name('admin.messaging.store');
+        Route::post('/messaging/audience-preview', [MessagingController::class, 'audiencePreview'])->middleware('throttle:30,1')->name('admin.messaging.audiencePreview');
+        Route::get('/messaging/{campaign}', [MessagingController::class, 'show'])->name('admin.messaging.show');
+        Route::post('/messaging/{campaign}/cancel', [MessagingController::class, 'cancel'])->name('admin.messaging.cancel');
+        Route::post('/messaging/{campaign}/send', [MessagingController::class, 'send'])->name('admin.messaging.send');
+        Route::post('/messaging/quick-send', [MessagingController::class, 'quickSend'])->name('admin.messaging.quickSend');
 
         // WhatsApp Sessions
-        Route::get('/whatsapp', [\App\Http\Controllers\Admin\MessagingController::class, 'waSessionsIndex'])->name('admin.whatsapp.sessions');
-        Route::post('/whatsapp/sessions', [\App\Http\Controllers\Admin\MessagingController::class, 'createWaSession'])->name('admin.whatsapp.sessions.create');
-        Route::get('/whatsapp/sessions/{sessionId}/qr', [\App\Http\Controllers\Admin\MessagingController::class, 'getWaQrCode'])->name('admin.whatsapp.qr');
-        Route::get('/whatsapp/sessions/{sessionId}/status', [\App\Http\Controllers\Admin\MessagingController::class, 'waSessionStatus'])->name('admin.whatsapp.status');
-        Route::post('/whatsapp/sessions/{sessionId}/logout', [\App\Http\Controllers\Admin\MessagingController::class, 'logoutWaSession'])->name('admin.whatsapp.logout');
+        Route::get('/whatsapp', [MessagingController::class, 'waSessionsIndex'])->name('admin.whatsapp.sessions');
+        Route::post('/whatsapp/sessions', [MessagingController::class, 'createWaSession'])->name('admin.whatsapp.sessions.create');
+        Route::get('/whatsapp/sessions/{sessionId}/qr', [MessagingController::class, 'getWaQrCode'])->name('admin.whatsapp.qr');
+        Route::get('/whatsapp/sessions/{sessionId}/status', [MessagingController::class, 'waSessionStatus'])->name('admin.whatsapp.status');
+        Route::post('/whatsapp/sessions/{sessionId}/logout', [MessagingController::class, 'logoutWaSession'])->name('admin.whatsapp.logout');
 
         // Admin AI Insights
-        Route::get('/ai', [\App\Http\Controllers\AI\AdminAIController::class, 'index'])->name('admin.ai.index');
-        Route::post('/ai/platform-insights', [\App\Http\Controllers\AI\AdminAIController::class, 'generatePlatformInsights'])->name('admin.ai.platformInsights');
-        Route::post('/ai/cohort-insights', [\App\Http\Controllers\AI\AdminAIController::class, 'generateCohortInsights'])->name('admin.ai.cohortInsights');
-        Route::post('/ai/generate-content', [\App\Http\Controllers\AI\AdminAIController::class, 'generateContent'])->name('admin.ai.generateContent');
+        Route::get('/ai', [AdminAIController::class, 'index'])->name('admin.ai.index');
+        Route::post('/ai/platform-insights', [AdminAIController::class, 'generatePlatformInsights'])->middleware('throttle:10,1')->name('admin.ai.platformInsights');
+        Route::post('/ai/cohort-insights', [AdminAIController::class, 'generateCohortInsights'])->middleware('throttle:10,1')->name('admin.ai.cohortInsights');
+        Route::post('/ai/generate-content', [AdminAIController::class, 'generateContent'])->middleware('throttle:10,1')->name('admin.ai.generateContent');
     });
 
 /*
@@ -697,32 +816,35 @@ Route::middleware(['auth', 'role:facilitator|platform_admin'])
     ->prefix('facilitator')
     ->group(function () {
         // Facilitator Course CRUD
-        Route::get('/courses', [\App\Http\Controllers\Facilitator\CourseController::class, 'index'])->name('facilitator.courses.index');
-        Route::get('/courses/create', [\App\Http\Controllers\Facilitator\CourseController::class, 'create'])->name('facilitator.courses.create');
-        Route::post('/courses', [\App\Http\Controllers\Facilitator\CourseController::class, 'store'])->name('facilitator.courses.store');
-        Route::get('/courses/{course}/edit', [\App\Http\Controllers\Facilitator\CourseController::class, 'edit'])->name('facilitator.courses.edit');
-        Route::put('/courses/{course}', [\App\Http\Controllers\Facilitator\CourseController::class, 'update'])->name('facilitator.courses.update');
-        Route::post('/courses/{course}/submit-review', [\App\Http\Controllers\Facilitator\CourseController::class, 'submitForReview'])->name('facilitator.courses.submitReview');
-        Route::delete('/courses/{course}', [\App\Http\Controllers\Facilitator\CourseController::class, 'destroy'])->name('facilitator.courses.destroy');
+        Route::get('/courses', [App\Http\Controllers\Facilitator\CourseController::class, 'index'])->name('facilitator.courses.index');
+        Route::get('/courses/create', [App\Http\Controllers\Facilitator\CourseController::class, 'create'])->name('facilitator.courses.create');
+        Route::post('/courses', [App\Http\Controllers\Facilitator\CourseController::class, 'store'])->name('facilitator.courses.store');
+        Route::get('/courses/{course}/edit', [App\Http\Controllers\Facilitator\CourseController::class, 'edit'])->name('facilitator.courses.edit');
+        Route::put('/courses/{course}', [App\Http\Controllers\Facilitator\CourseController::class, 'update'])->name('facilitator.courses.update');
+        Route::post('/courses/{course}/submit-review', [App\Http\Controllers\Facilitator\CourseController::class, 'submitForReview'])->name('facilitator.courses.submitReview');
+        Route::delete('/courses/{course}', [App\Http\Controllers\Facilitator\CourseController::class, 'destroy'])->name('facilitator.courses.destroy');
 
         // Modules
-        Route::post('/courses/{course}/modules', [\App\Http\Controllers\Facilitator\CourseController::class, 'storeModule'])->name('facilitator.courses.modules.store');
-        Route::put('/courses/{course}/modules/{module}', [\App\Http\Controllers\Facilitator\CourseController::class, 'updateModule'])->name('facilitator.courses.modules.update');
-        Route::delete('/courses/{course}/modules/{module}', [\App\Http\Controllers\Facilitator\CourseController::class, 'destroyModule'])->name('facilitator.courses.modules.destroy');
+        Route::post('/courses/{course}/modules', [App\Http\Controllers\Facilitator\CourseController::class, 'storeModule'])->name('facilitator.courses.modules.store');
+        Route::put('/courses/{course}/modules/{module}', [App\Http\Controllers\Facilitator\CourseController::class, 'updateModule'])->name('facilitator.courses.modules.update');
+        Route::delete('/courses/{course}/modules/{module}', [App\Http\Controllers\Facilitator\CourseController::class, 'destroyModule'])->name('facilitator.courses.modules.destroy');
 
         // Lessons
-        Route::post('/courses/{course}/modules/{module}/lessons', [\App\Http\Controllers\Facilitator\CourseController::class, 'storeLesson'])->name('facilitator.courses.lessons.store');
-        Route::put('/courses/{course}/modules/{module}/lessons/{lesson}', [\App\Http\Controllers\Facilitator\CourseController::class, 'updateLesson'])->name('facilitator.courses.lessons.update');
-        Route::delete('/courses/{course}/modules/{module}/lessons/{lesson}', [\App\Http\Controllers\Facilitator\CourseController::class, 'destroyLesson'])->name('facilitator.courses.lessons.destroy');
+        Route::get('/courses/{course}/modules/{module}/lessons/create', [App\Http\Controllers\Facilitator\CourseController::class, 'createLesson'])->name('facilitator.courses.lessons.create');
+        Route::get('/courses/{course}/modules/{module}/lessons/{lesson}/edit', [App\Http\Controllers\Facilitator\CourseController::class, 'editLesson'])->name('facilitator.courses.lessons.edit');
+        Route::post('/courses/{course}/thumbnail', [App\Http\Controllers\Facilitator\CourseController::class, 'updateThumbnail'])->name('facilitator.courses.thumbnail');
+        Route::post('/courses/{course}/modules/{module}/lessons', [App\Http\Controllers\Facilitator\CourseController::class, 'storeLesson'])->name('facilitator.courses.lessons.store');
+        Route::put('/courses/{course}/modules/{module}/lessons/{lesson}', [App\Http\Controllers\Facilitator\CourseController::class, 'updateLesson'])->name('facilitator.courses.lessons.update');
+        Route::delete('/courses/{course}/modules/{module}/lessons/{lesson}', [App\Http\Controllers\Facilitator\CourseController::class, 'destroyLesson'])->name('facilitator.courses.lessons.destroy');
 
         // AI Content Studio
-        Route::get('/ai-studio', [\App\Http\Controllers\AI\FacilitatorAIController::class, 'index'])->name('facilitator.ai.studio');
-        Route::post('/ai-studio/tts', [\App\Http\Controllers\AI\FacilitatorAIController::class, 'generateTTS'])->name('facilitator.ai.tts');
-        Route::post('/ai-studio/voice-clone', [\App\Http\Controllers\AI\FacilitatorAIController::class, 'cloneVoice'])->name('facilitator.ai.cloneVoice');
-        Route::post('/ai-studio/avatar', [\App\Http\Controllers\AI\FacilitatorAIController::class, 'generateAvatar'])->name('facilitator.ai.avatar');
-        Route::post('/ai-studio/repurpose', [\App\Http\Controllers\AI\FacilitatorAIController::class, 'repurposeContent'])->name('facilitator.ai.repurpose');
-        Route::post('/ai-studio/transcribe', [\App\Http\Controllers\AI\FacilitatorAIController::class, 'transcribeAudio'])->name('facilitator.ai.transcribe');
-        Route::get('/ai-studio/jobs/{job}', [\App\Http\Controllers\AI\FacilitatorAIController::class, 'jobStatus'])->name('facilitator.ai.jobStatus');
+        Route::get('/ai-studio', [FacilitatorAIController::class, 'index'])->name('facilitator.ai.studio');
+        Route::post('/ai-studio/tts', [FacilitatorAIController::class, 'generateTTS'])->middleware('throttle:10,1')->name('facilitator.ai.tts');
+        Route::post('/ai-studio/voice-clone', [FacilitatorAIController::class, 'cloneVoice'])->middleware('throttle:10,1')->name('facilitator.ai.cloneVoice');
+        Route::post('/ai-studio/avatar', [FacilitatorAIController::class, 'generateAvatar'])->middleware('throttle:10,1')->name('facilitator.ai.avatar');
+        Route::post('/ai-studio/repurpose', [FacilitatorAIController::class, 'repurposeContent'])->middleware('throttle:10,1')->name('facilitator.ai.repurpose');
+        Route::post('/ai-studio/transcribe', [FacilitatorAIController::class, 'transcribeAudio'])->middleware('throttle:10,1')->name('facilitator.ai.transcribe');
+        Route::get('/ai-studio/jobs/{job}', [FacilitatorAIController::class, 'jobStatus'])->name('facilitator.ai.jobStatus');
     });
 
 /*
@@ -732,17 +854,20 @@ Route::middleware(['auth', 'role:facilitator|platform_admin'])
 */
 Route::middleware('auth')->prefix('ai')->group(function () {
     // AI Tutor Chat
-    Route::get('/tutor', [\App\Http\Controllers\AI\StudentAIController::class, 'tutorIndex'])->name('ai.tutor');
-    Route::post('/tutor/sessions', [\App\Http\Controllers\AI\StudentAIController::class, 'createSession'])->name('ai.tutor.newSession');
-    Route::post('/tutor/sessions/{session}/chat', [\App\Http\Controllers\AI\StudentAIController::class, 'chat'])->name('ai.tutor.chat');
-    Route::put('/tutor/sessions/{session}/archive', [\App\Http\Controllers\AI\StudentAIController::class, 'archiveSession'])->name('ai.tutor.archive');
+    Route::get('/tutor', [StudentAIController::class, 'tutorIndex'])->name('ai.tutor');
+    Route::post('/tutor/sessions', [StudentAIController::class, 'createSession'])->middleware('throttle:10,1')->name('ai.tutor.newSession');
+    Route::get('/tutor/sessions/{session}', [StudentAIController::class, 'showSession'])->name('ai.tutor.session');
+    Route::post('/tutor/sessions/{session}/chat', [StudentAIController::class, 'chat'])->middleware('throttle:10,1')->name('ai.tutor.chat');
+    Route::put('/tutor/sessions/{session}/archive', [StudentAIController::class, 'archiveSession'])->name('ai.tutor.archive');
 
     // Lesson AI Tools
-    Route::get('/lessons/{lesson}/summary', [\App\Http\Controllers\AI\StudentAIController::class, 'getLessonSummary'])->name('ai.lesson.summary');
-    Route::post('/lessons/{lesson}/generate-quiz', [\App\Http\Controllers\AI\StudentAIController::class, 'generateQuiz'])->name('ai.lesson.quiz');
+    Route::post('/lesson-summary', [StudentAIController::class, 'summarizeText'])->middleware('throttle:10,1')->name('ai.text.summary');
+    Route::post('/quiz', [StudentAIController::class, 'quizFromText'])->middleware('throttle:10,1')->name('ai.text.quiz');
+    Route::get('/lessons/{lesson}/summary', [StudentAIController::class, 'getLessonSummary'])->middleware('throttle:10,1')->name('ai.lesson.summary');
+    Route::post('/lessons/{lesson}/generate-quiz', [StudentAIController::class, 'generateQuiz'])->middleware('throttle:10,1')->name('ai.lesson.quiz');
 
     // Personalized Recommendations
-    Route::get('/recommendations', [\App\Http\Controllers\AI\StudentAIController::class, 'getRecommendations'])->name('ai.recommendations');
+    Route::get('/recommendations', [StudentAIController::class, 'getRecommendations'])->middleware('throttle:10,1')->name('ai.recommendations');
 });
 
 /*
@@ -751,17 +876,18 @@ Route::middleware('auth')->prefix('ai')->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::middleware('auth')->group(function () {
-    Route::post('/payments/paystack/initialize', [\App\Http\Controllers\PaymentController::class, 'initializePaystack'])->name('payments.paystack.initialize');
-    Route::get('/payments/paystack/callback', [\App\Http\Controllers\PaymentController::class, 'paystackCallback'])->name('payments.paystack.callback');
+    Route::post('/payments/paystack/initialize', [PaymentController::class, 'initializePaystack'])->name('payments.paystack.initialize');
+    Route::get('/payments/paystack/callback', [PaymentController::class, 'paystackCallback'])->name('payments.paystack.callback');
 });
 
 // Paystack Webhook (no auth — verified via signature)
-Route::post('/webhooks/paystack', [\App\Http\Controllers\PaymentWebhookController::class, 'paystack'])->name('webhooks.paystack');
+Route::post('/webhooks/paystack', [PaymentWebhookController::class, 'paystack'])->name('webhooks.paystack');
 
 // WhatsApp Webhook (for incoming messages)
-Route::post('/webhooks/whatsapp', function (\Illuminate\Http\Request $request) {
+Route::post('/webhooks/whatsapp', function (Request $request) {
     // Log incoming WA messages for CRM activities
-    \Illuminate\Support\Facades\Log::info('WhatsApp webhook', $request->all());
+    Log::info('WhatsApp webhook', $request->all());
+
     return response()->json(['status' => 'ok']);
 })->name('webhooks.whatsapp');
 
@@ -783,7 +909,7 @@ Route::middleware(['auth', 'role:sme_reviewer'])
     ->prefix('sme')
     ->group(function () {
         // SME Dashboard
-        Route::get('/dashboard', [\App\Http\Controllers\Sme\DashboardController::class, '__invoke'])->name('sme.dashboard');
+        Route::get('/dashboard', [App\Http\Controllers\Sme\DashboardController::class, '__invoke'])->name('sme.dashboard');
 
         // Content Library
         Route::get('/', [SmeContentReviewController::class, 'library'])->name('sme.library');
@@ -821,8 +947,10 @@ Route::middleware(['auth', 'role:sme_reviewer'])
 Route::middleware(['auth', 'role:sponsor'])
     ->prefix('sponsor')
     ->group(function () {
-        Route::get('/', [\App\Http\Controllers\Sponsor\DashboardController::class, '__invoke'])->name('sponsor.dashboard');        Route::get('/interns', [SponsorController::class, 'myInterns'])->name('sponsor.interns');
-        Route::get('/scorecards', [SponsorController::class, 'myScorecards'])->name('sponsor.scorecards');        Route::get('/review-queue', [SponsorController::class, 'reviewQueue'])->name('sponsor.reviewQueue');
+        Route::get('/', [App\Http\Controllers\Sponsor\DashboardController::class, '__invoke'])->name('sponsor.dashboard');
+        Route::get('/interns', [SponsorController::class, 'myInterns'])->name('sponsor.interns');
+        Route::get('/scorecards', [SponsorController::class, 'myScorecards'])->name('sponsor.scorecards');
+        Route::get('/review-queue', [SponsorController::class, 'reviewQueue'])->name('sponsor.reviewQueue');
         Route::get('/submissions/{submission}', [SponsorController::class, 'showSubmission'])->name('sponsor.submissions.show');
         Route::post('/submissions/{submission}/review', [SponsorController::class, 'review'])->name('sponsor.submissions.review');
         Route::get('/interns/{enrollment}/progress', [SponsorController::class, 'internProgress'])->name('sponsor.internProgress');
@@ -830,10 +958,10 @@ Route::middleware(['auth', 'role:sponsor'])
         Route::post('/scorecards', [SponsorController::class, 'storeScorecard'])->name('sponsor.scorecards.store');
 
         // Meeting Hub
-        Route::get('/meetings', [\App\Http\Controllers\Sponsor\MeetingController::class, 'index'])->name('sponsor.meetings.index');
-        Route::post('/meetings', [\App\Http\Controllers\Sponsor\MeetingController::class, 'store'])->name('sponsor.meetings.store');
-        Route::post('/meetings/{meeting}/attendance', [\App\Http\Controllers\Sponsor\MeetingController::class, 'markAttendance'])->name('sponsor.meetings.attendance');
-        Route::post('/meetings/{meeting}/notes', [\App\Http\Controllers\Sponsor\MeetingController::class, 'saveNotes'])->name('sponsor.meetings.notes');
+        Route::get('/meetings', [MeetingController::class, 'index'])->name('sponsor.meetings.index');
+        Route::post('/meetings', [MeetingController::class, 'store'])->name('sponsor.meetings.store');
+        Route::post('/meetings/{meeting}/attendance', [MeetingController::class, 'markAttendance'])->name('sponsor.meetings.attendance');
+        Route::post('/meetings/{meeting}/notes', [MeetingController::class, 'saveNotes'])->name('sponsor.meetings.notes');
     });
 
 /*
@@ -851,3 +979,22 @@ Route::post('/payments/webhook/stripe', [PaymentWebhookController::class, 'strip
 */
 Route::get('/certificates/{uuid}/verify', [CertificateController::class, 'verify'])->name('certificates.verify');
 Route::get('/portfolio/{userUuid}', [PortfolioController::class, 'publicView'])->name('portfolio.public');
+
+Route::get('/scorm-assets/{token}/{path}', [PrivateMediaController::class, 'scorm'])->where('path', '.*')->name('scorm.asset');
+
+Route::middleware(['auth', 'role:platform_admin|facilitator'])->group(function () {
+    foreach (['admin', 'facilitator'] as $workspace) {
+        Route::post('/'.$workspace.'/courses/{course}/revisions', [CourseRevisionController::class, 'store'])->name($workspace.'.courses.revisions');
+        Route::post('/'.$workspace.'/courses/{course}/recall', [CourseRevisionController::class, 'recall'])->name($workspace.'.courses.recall');
+    }
+});
+
+Route::middleware(['auth', 'throttle:30,1'])->group(function () {
+    Route::get('/api/push/key', [PushSubscriptionController::class, 'key']);
+    Route::post('/api/push/subscribe', [PushSubscriptionController::class, 'store']);
+    Route::delete('/api/push/subscribe', [PushSubscriptionController::class, 'destroy']);
+});
+
+// Signed preference links for CRM recipients who do not have a platform login.
+Route::get('/message-preferences/{contact}/{channel}', [\App\Http\Controllers\ContactMessagePreferenceController::class, 'show'])->middleware(['signed', 'throttle:30,1'])->name('messaging.unsubscribe');
+Route::post('/message-preferences/{contact}/{channel}', [\App\Http\Controllers\ContactMessagePreferenceController::class, 'update'])->middleware(['signed', 'throttle:30,1']);

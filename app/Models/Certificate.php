@@ -2,17 +2,20 @@
 
 namespace App\Models;
 
+use App\Models\Traits\RecordsDomainAudit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
 class Certificate extends Model
 {
+    use RecordsDomainAudit;
+
     protected $guarded = [];
 
     protected $casts = [
-        'metadata'   => 'array',
-        'issued_at'  => 'datetime',
+        'metadata' => 'array',
+        'issued_at' => 'datetime',
         'expires_at' => 'datetime',
         'is_revoked' => 'boolean',
     ];
@@ -28,7 +31,7 @@ class Certificate extends Model
                 $cert->uuid = (string) Str::uuid();
             }
             if (empty($cert->certificate_number)) {
-                $cert->certificate_number = 'JKM-' . date('Y') . '-' . strtoupper(Str::random(5));
+                $cert->certificate_number = 'JKM-'.date('Y').'-'.strtoupper(Str::random(5));
             }
         });
     }
@@ -49,7 +52,7 @@ class Certificate extends Model
 
     public function scopeValid($q)
     {
-        return $q->where('is_revoked', false);
+        return $q->where('is_revoked', false)->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()));
     }
 
     public function scopeForUser($q, int $userId)
@@ -61,8 +64,13 @@ class Certificate extends Model
 
     public function isValid(): bool
     {
-        if ($this->is_revoked) return false;
-        if ($this->expires_at && $this->expires_at->isPast()) return false;
+        if ($this->is_revoked) {
+            return false;
+        }
+        if ($this->expires_at && $this->expires_at->isPast()) {
+            return false;
+        }
+
         return true;
     }
 }

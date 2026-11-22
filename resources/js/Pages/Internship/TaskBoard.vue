@@ -3,14 +3,14 @@
 
     <div class="space-y-6">
         <!-- Header -->
-        <div class="flex items-center justify-between">
+        <div class="flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-3">
-                <a href="/internship" class="p-2 rounded-lg hover:bg-surface-100 transition-colors">
+                <a href="/internship" aria-label="Back to internship overview" class="p-2 rounded-lg hover:bg-surface-100 transition-colors">
                     <ArrowLeft class="w-5 h-5 text-surface-500" />
                 </a>
                 <div>
                     <h1 class="text-xl font-display font-bold text-surface-900">Task Board</h1>
-                    <p class="text-sm text-surface-500">{{ enrollment.track?.title }} · {{ enrollment.project_title || '' }}</p>
+                    <p class="text-sm text-surface-500">{{ enrollment.track?.title }}<span v-if="enrollment.project_title"> · {{ enrollment.project_title }}</span></p>
                 </div>
             </div>
             <!-- Filter -->
@@ -26,13 +26,14 @@
             </div>
         </div>
 
+        <div class="flex flex-wrap items-end justify-between gap-3 rounded-xl border border-surface-200 bg-white p-4"><label for="task-stage" class="text-sm font-medium">Task stage<select id="task-stage" v-model="stageFilter" class="mt-2 block w-full min-w-44 rounded-lg border border-surface-200 bg-white px-3 py-2 text-sm"><option value="">All stages</option><option v-for="column in columns" :key="column.key" :value="column.key">{{ column.label }}</option></select></label><p class="max-w-md text-xs leading-relaxed text-surface-500">Open a task to organize your work or submit it. Your sponsor moves reviewed work to Done.</p></div>
         <!-- Kanban Board -->
         <div class="overflow-x-auto pb-4">
-            <div class="flex gap-4 min-w-max">
+            <div class="flex gap-4 min-w-max max-sm:min-w-0 max-sm:flex-col">
                 <div
-                    v-for="col in columns"
+                    v-for="col in columns.filter(c => !stageFilter || c.key === stageFilter)"
                     :key="col.key"
-                    class="w-72 shrink-0"
+                    class="w-72 shrink-0 max-sm:w-full"
                 >
                     <!-- Column header -->
                     <div class="flex items-center justify-between mb-3 px-1">
@@ -50,12 +51,13 @@
                         <div
                             v-for="task in filteredTasks(col.key)"
                             :key="task.id"
-                            class="bg-white rounded-lg border border-surface-200/60 p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                            class="bg-white rounded-lg border border-surface-200/60 p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer focus-visible:outline-2 focus-visible:outline-primary-500"
+                            role="button" tabindex="0" :aria-label="`Open ${task.title}`" @keydown.enter="openTask(task)" @keydown.space.prevent="openTask(task)"
                             @click="openTask(task)"
                         >
                             <div class="flex items-start justify-between mb-1">
                                 <p class="text-sm font-medium text-surface-900 line-clamp-2 flex-1">{{ task.title }}</p>
-                                <GripVertical class="w-4 h-4 text-surface-300 shrink-0 ml-1" />
+                                <ArrowUpRight class="w-4 h-4 text-surface-300 shrink-0 ml-1" />
                             </div>
 
                             <p v-if="task.description" class="text-xs text-surface-500 line-clamp-2 mb-2">{{ task.description }}</p>
@@ -87,22 +89,7 @@
         </div>
 
         <!-- Task Detail Modal -->
-        <div v-if="selectedTask" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="selectedTask = null">
-            <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[85vh] overflow-y-auto">
-                <div class="flex items-start justify-between mb-4">
-                    <div>
-                        <h3 class="text-lg font-semibold text-surface-900">{{ selectedTask.title }}</h3>
-                        <div class="flex items-center gap-2 mt-1">
-                            <span :class="['px-2 py-0.5 rounded text-xs font-medium', typeBadge(selectedTask.type)]">{{ selectedTask.type }}</span>
-                            <span :class="['px-2 py-0.5 rounded text-xs font-medium', priorityBadge(selectedTask.priority)]">{{ selectedTask.priority }}</span>
-                            <span v-if="selectedTask.due_date" class="text-xs text-surface-400">Due {{ formatDate(selectedTask.due_date) }}</span>
-                        </div>
-                    </div>
-                    <button @click="selectedTask = null" class="p-1 text-surface-400 hover:text-surface-600">
-                        <X class="w-5 h-5" />
-                    </button>
-                </div>
-
+        <Modal :open="!!selectedTask" :title="selectedTask?.title || 'Task details'" :closeable="!submissionForm.processing" @close="selectedTask = null"><div v-if="selectedTask">
                 <p v-if="selectedTask.description" class="text-sm text-surface-600 mb-4">{{ selectedTask.description }}</p>
 
                 <div v-if="selectedTask.milestone" class="mb-4">
@@ -110,12 +97,13 @@
                     <p class="text-sm text-surface-700">{{ selectedTask.milestone.title }}</p>
                 </div>
 
-                <!-- Move to status -->
-                <div>
+                <p v-if="taskError" role="alert" class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{{ taskError }}</p>
+                <p v-if="['in_review', 'approved', 'done'].includes(selectedTask.status)" class="rounded-xl bg-surface-50 p-4 text-sm text-surface-600">Submitted work is managed through sponsor review. <a href="/internship/submissions" class="font-medium text-primary-700 underline">View submissions and feedback</a></p>
+                <div v-else>
                     <p class="text-xs font-semibold text-surface-500 uppercase mb-2">Move To</p>
                     <div class="flex flex-wrap gap-2">
                         <button
-                            v-for="col in columns"
+                            v-for="col in columns.filter(c => ['backlog', 'this_week', 'today', 'in_progress'].includes(c.key))"
                             :key="col.key"
                             @click="moveTask(selectedTask, col.key)"
                             :disabled="selectedTask.status === col.key"
@@ -128,16 +116,18 @@
                         </button>
                     </div>
                 </div>
+                <form v-if="!['in_review', 'approved', 'done'].includes(selectedTask.status)" @submit.prevent="submitWork" class="mt-6 space-y-4 border-t border-surface-100 pt-5"><h4 class="font-semibold">Submit your work</h4><p class="text-xs leading-relaxed text-surface-500">Send your work to your sponsor for review. Each resubmission keeps the previous version.</p><p v-for="error in submissionForm.errors" :key="error" role="alert" class="text-sm text-red-700">{{ error }}</p><label class="block text-sm font-medium">Work and reflection<textarea v-model="submissionForm.content" rows="5" maxlength="10000" class="mt-2 w-full rounded-xl border border-surface-200 p-3 font-normal" /></label><label class="block text-sm font-medium">Supporting file links<textarea v-model="fileLinks" rows="2" class="mt-2 w-full rounded-xl border border-surface-200 p-3 font-normal" placeholder="One https:// link per line, up to five" /><span class="mt-1 block text-xs font-normal text-surface-500">Use links your sponsor can access. Do not put passwords or access tokens in links.</span></label><label class="block text-sm font-medium">Time spent (minutes)<input v-model.number="submissionForm.time_log_minutes" type="number" min="0" max="10080" class="mt-2 block w-36 rounded-xl border border-surface-200 p-3" /></label><button :disabled="submissionForm.processing" class="w-full rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">{{ submissionForm.processing ? 'Submitting…' : 'Submit for review' }}</button></form>
             </div>
-        </div>
+        </Modal>
     </div>
 </template>
 
 <script setup>
 import { ref } from 'vue';
-import { Head, router } from '@inertiajs/vue3';
-import { ArrowLeft, GripVertical, X } from 'lucide-vue-next';
+import { Head, router, useForm } from '@inertiajs/vue3';
+import { ArrowLeft, ArrowUpRight } from 'lucide-vue-next';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Modal from '@/Components/UI/Modal.vue';
 
 defineOptions({ layout: AppLayout });
 
@@ -147,7 +137,11 @@ const props = defineProps({
 });
 
 const activeFilter = ref('all');
+const stageFilter = ref('');
 const selectedTask = ref(null);
+const submissionForm = useForm({ content: '', file_urls: [], time_log_minutes: null });
+const fileLinks = ref('');
+const taskError = ref('');
 
 const filterOptions = [
     { label: 'All', value: 'all' },
@@ -174,12 +168,19 @@ function filteredTasks(colKey) {
 
 function openTask(task) {
     selectedTask.value = { ...task };
+    taskError.value = ''; submissionForm.reset(); submissionForm.clearErrors(); fileLinks.value = '';
 }
 
 function moveTask(task, newStatus) {
     router.put(`/internship/tasks/${task.id}/status`, { status: newStatus }, {
         onSuccess: () => { selectedTask.value = null; },
+        onError: errors => { taskError.value = Object.values(errors).join(' '); },
     });
+}
+
+function submitWork() {
+    submissionForm.file_urls = fileLinks.value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    submissionForm.post(`/internship/tasks/${selectedTask.value.id}/submit`, { onSuccess: () => { selectedTask.value = null; stageFilter.value = 'in_review'; } });
 }
 
 function typeBadge(type) {

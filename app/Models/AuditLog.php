@@ -5,13 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Str;
 
 class AuditLog extends Model
 {
     public $timestamps = false;
 
     protected $fillable = [
-        'user_id',
+        'user_id', 'organization_id', 'correlation_id',
         'action',
         'auditable_type',
         'auditable_id',
@@ -27,6 +28,12 @@ class AuditLog extends Model
         'new_values' => 'array',
         'created_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        static::updating(fn () => throw new \LogicException('Audit records are append-only.'));
+        static::deleting(fn () => throw new \LogicException('Audit records are append-only.'));
+    }
 
     public function user(): BelongsTo
     {
@@ -51,6 +58,8 @@ class AuditLog extends Model
     ): self {
         return self::create([
             'user_id' => $userId ?? auth()->id(),
+            'organization_id' => auth()->user()?->organization_id,
+            'correlation_id' => request()->attributes->get('audit_correlation') ?? tap((string) Str::uuid(), fn ($id) => request()->attributes->set('audit_correlation', $id)),
             'action' => $action,
             'auditable_type' => $auditableType,
             'auditable_id' => $auditableId,
@@ -84,7 +93,7 @@ class AuditLog extends Model
 
     public function getChangedFields(): array
     {
-        if (!$this->old_values || !$this->new_values) {
+        if (! $this->old_values || ! $this->new_values) {
             return [];
         }
 

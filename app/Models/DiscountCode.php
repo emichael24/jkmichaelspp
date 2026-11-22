@@ -46,20 +46,32 @@ class DiscountCode extends Model
 
     public function isValid(?int $productId = null): bool
     {
-        if (!$this->is_active) return false;
-        if ($this->max_uses && $this->used_count >= $this->max_uses) return false;
-        if ($this->valid_from && $this->valid_from->isFuture()) return false;
-        if ($this->valid_until && $this->valid_until->isPast()) return false;
-        if ($this->product_id && $productId && $this->product_id !== $productId) return false;
+        if (! $this->is_active) {
+            return false;
+        }
+        if ($this->max_uses !== null && $this->used_count >= $this->max_uses) {
+            return false;
+        }
+        if ($this->valid_from && $this->valid_from->isFuture()) {
+            return false;
+        }
+        if ($this->valid_until && $this->valid_until->isPast()) {
+            return false;
+        }
+        if ($this->product_id && $this->product_id !== $productId) {
+            return false;
+        }
+
         return true;
     }
 
     public function calculateDiscount(float $price): float
     {
         if ($this->type === 'percentage') {
-            return round($price * ($this->value / 100), 2);
+            return min($price, max(0, round($price * ($this->value / 100), 2)));
         }
-        return min($this->value, $price);
+
+        return min(max(0, $this->value), $price);
     }
 
     public function incrementUsage(): void

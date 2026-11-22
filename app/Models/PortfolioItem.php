@@ -11,7 +11,7 @@ class PortfolioItem extends Model
 
     protected $casts = [
         'skills_demonstrated' => 'array',
-        'is_public'           => 'boolean',
+        'is_public' => 'boolean',
     ];
 
     /* ── Relationships ─────────────────────────────── */

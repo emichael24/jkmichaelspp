@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
-use App\Models\User;
 use App\Models\Course;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Spatie\Permission\Models\Role;
+use Tests\TestCase;
 
 class AiStudioTest extends TestCase
 {
@@ -16,60 +18,61 @@ class AiStudioTest extends TestCase
     {
         // 1. Setup Data & Roles
         $user = User::factory()->create();
+        Role::findOrCreate('facilitator', 'web');
         $user->assignRole('facilitator'); // Assuming Spatie roles or similar
-        
-        $course = Course::factory()->create();
 
-        // 2. Mock the OpenAI HTTP Response
+        $course = Course::factory()->create(['author_id' => $user->id, 'is_published' => false]);
+
+        // Exercise the configured integration contract without contacting a provider.
+        config(['services.flexichurch.base_url' => 'https://ai-provider.test', 'services.flexichurch.api_key' => 'test-only-key']);
+        Http::preventStrayRequests();
         Http::fake([
-            'api.openai.com/v1/chat/completions' => Http::response([
-                'choices' => [
-                    [
-                        'message' => [
-                            'content' => json_encode([
-                                'questions' => [
-                                    [
-                                        'stem' => 'What is Agile?',
-                                        'options' => ['A', 'B', 'C', 'D'],
-                                        'correct_index' => 0,
-                                        'explanation' => 'Because A is right.'
-                                    ]
-                                ]
-                            ])
-                        ]
-                    ]
-                ]
-            ], 200)
+            'ai-provider.test/ai/chat' => Http::response([
+                'status' => 'success',
+                'data' => [
+                    'content' => json_encode([
+                        'questions' => [
+                            [
+                                'stem' => 'What is Agile?',
+                                'options' => ['A', 'B', 'C', 'D'],
+                                'correct_index' => 0,
+                                'explanation' => 'Because A is right.',
+                            ],
+                        ],
+                    ]),
+                ],
+            ], 200),
         ]);
 
         // 3. Act
         $response = $this->actingAs($user)
-            ->postJson("/facilitator/ai-studio/generate-quiz", [
+            ->postJson('/facilitator/ai-studio/generate-quiz', [
                 'course_id' => $course->id,
                 'content_text' => 'We will learn about Agile methodologies today.',
                 'domain' => 'Agile Framework',
                 'difficulty' => 'easy',
-                'count' => 1
+                'count' => 1,
             ]);
 
         // 4. Assert
         $response->assertStatus(200)
-                 ->assertJson([
-                     'status' => 'success',
-                     'message' => 'Successfully generated 1 questions.'
-                 ]);
+            ->assertJson([
+                'status' => 'success',
+                'message' => 'Successfully generated 1 questions.',
+            ]);
 
         $this->assertDatabaseHas('questions', [
             'course_id' => $course->id,
             'domain' => 'Agile Framework',
             'difficulty' => 'easy',
-            'status' => 'draft'
+            'status' => 'draft',
         ]);
-        
+
         // Assert the mock hit the endpoint
-        Http::assertSent(function (\Illuminate\Http\Client\Request $request) {
-            return str_contains($request->url(), 'api.openai.com');
+        Http::assertSent(function (Request $request) {
+            return $request->url() === 'https://ai-provider.test/ai/chat'
+                && $request->method() === 'POST'
+                && str_contains($request['message'], 'Agile methodologies');
         });
     }
 }
-

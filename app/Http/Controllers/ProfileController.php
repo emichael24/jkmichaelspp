@@ -33,11 +33,11 @@ class ProfileController extends Controller
         $user = Auth::user();
 
         $validated = $request->validate([
-            'first_name'  => ['required', 'string', 'max:100'],
-            'last_name'   => ['required', 'string', 'max:100'],
-            'phone'       => ['nullable', 'string', 'max:20'],
-            'timezone'    => ['nullable', 'string', 'max:50'],
-            'locale'      => ['nullable', 'string', 'max:10'],
+            'first_name' => ['required', 'string', 'max:100'],
+            'last_name' => ['required', 'string', 'max:100'],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'timezone' => ['nullable', 'string', 'max:50'],
+            'locale' => ['nullable', 'string', 'max:10'],
         ]);
 
         $user->update($validated);
@@ -49,7 +49,7 @@ class ProfileController extends Controller
     {
         $validated = $request->validate([
             'current_password' => ['required', 'current_password'],
-            'password'         => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
         Auth::user()->update([
@@ -64,21 +64,21 @@ class ProfileController extends Controller
         $user = Auth::user();
 
         $validated = $request->validate([
-            'goal'                => ['nullable', Rule::in(['certification', 'skill', 'internship'])],
-            'exam_date'           => ['nullable', 'date'],
-            'daily_minutes'       => ['nullable', 'integer', 'min:5', 'max:120'],
+            'goal' => ['nullable', Rule::in(['certification', 'skill', 'internship'])],
+            'exam_date' => ['nullable', 'date'],
+            'daily_minutes' => ['nullable', 'integer', 'min:5', 'max:120'],
             'learning_preference' => ['nullable', Rule::in(['read', 'watch', 'listen'])],
-            'experience_level'    => ['nullable', Rule::in(['beginner', 'intermediate', 'advanced'])],
+            'experience_level' => ['nullable', Rule::in(['beginner', 'intermediate', 'advanced'])],
             'accessibility_prefs' => ['nullable', 'array'],
-            'accessibility_prefs.dyslexia_font'   => ['nullable', 'boolean'],
-            'accessibility_prefs.high_contrast'    => ['nullable', 'boolean'],
+            'accessibility_prefs.dyslexia_font' => ['nullable', 'boolean'],
+            'accessibility_prefs.high_contrast' => ['nullable', 'boolean'],
             'accessibility_prefs.color_blind_mode' => ['nullable', 'string'],
-            'accessibility_prefs.extended_time'    => ['nullable', 'boolean'],
-            'notification_prefs'  => ['nullable', 'array'],
-            'notification_prefs.push'        => ['nullable', 'boolean'],
-            'notification_prefs.email'       => ['nullable', 'boolean'],
+            'accessibility_prefs.extended_time' => ['nullable', 'boolean'],
+            'notification_prefs' => ['nullable', 'array'],
+            'notification_prefs.push' => ['nullable', 'boolean'],
+            'notification_prefs.email' => ['nullable', 'boolean'],
             'notification_prefs.quiet_start' => ['nullable', 'string'],
-            'notification_prefs.quiet_end'   => ['nullable', 'string'],
+            'notification_prefs.quiet_end' => ['nullable', 'string'],
         ]);
 
         $user->update($validated);

@@ -77,8 +77,8 @@ class QuestionFlag extends Model
     public function resolve(User $resolver, string $notes, string $status = 'resolved'): void
     {
         $this->update([
-            'status'           => $status,
-            'resolved_by'      => $resolver->id,
+            'status' => $status,
+            'resolved_by' => $resolver->id,
             'resolution_notes' => $notes,
         ]);
     }

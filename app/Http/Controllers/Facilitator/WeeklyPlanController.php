@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Cohort;
 use App\Models\CohortPlanItem;
 use App\Models\CohortWeeklyPlan;
+use App\Models\Lesson;
+use App\Models\Module;
+use App\Models\Quiz;
 use App\Services\CohortHealthService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -27,22 +30,22 @@ class WeeklyPlanController extends Controller
             ->get();
 
         // Available items the facilitator can drag onto the plan
-        $lessons = \App\Models\Lesson::whereHas('module', fn ($q) => $q->where('course_id', $cohort->course_id))
+        $lessons = Lesson::whereHas('module', fn ($q) => $q->where('course_id', $cohort->course_id))
             ->orderBy('title')
             ->get(['id', 'title', 'module_id']);
 
         // Quizzes for this course
-        $quizzes = \App\Models\Quiz::where('quizzable_type', 'App\\Models\\Module')
-            ->whereIn('quizzable_id', \App\Models\Module::where('course_id', $cohort->course_id)->pluck('id'))
+        $quizzes = Quiz::where('quizzable_type', 'App\\Models\\Module')
+            ->whereIn('quizzable_id', Module::where('course_id', $cohort->course_id)->pluck('id'))
             ->get(['id', 'title']);
 
         $suggestions = $this->healthService->suggestPlanItems($cohort);
 
         return Inertia::render('Facilitator/Plans/Builder', [
-            'cohort'      => $cohort,
-            'plans'       => $plans,
-            'lessons'     => $lessons,
-            'quizzes'     => $quizzes,
+            'cohort' => $cohort,
+            'plans' => $plans,
+            'lessons' => $lessons,
+            'quizzes' => $quizzes,
             'suggestions' => $suggestions,
         ]);
     }
@@ -54,9 +57,9 @@ class WeeklyPlanController extends Controller
 
         $validated = $request->validate([
             'week_number' => 'required|integer|min:1',
-            'title'       => 'nullable|string|max:255',
-            'start_date'  => 'required|date',
-            'end_date'    => 'required|date|after_or_equal:start_date',
+            'title' => 'nullable|string|max:255',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
         ]);
 
         $validated['cohort_id'] = $cohort->id;
@@ -70,11 +73,12 @@ class WeeklyPlanController extends Controller
     public function updateWeek(Request $request, Cohort $cohort, CohortWeeklyPlan $plan)
     {
         $this->authorizeFacilitator($cohort);
+        abort_unless($plan->cohort_id === $cohort->id, 404);
 
         $validated = $request->validate([
-            'title'      => 'nullable|string|max:255',
+            'title' => 'nullable|string|max:255',
             'start_date' => 'required|date',
-            'end_date'   => 'required|date|after_or_equal:start_date',
+            'end_date' => 'required|date|after_or_equal:start_date',
         ]);
 
         $plan->update($validated);
@@ -86,6 +90,7 @@ class WeeklyPlanController extends Controller
     public function destroyWeek(Cohort $cohort, CohortWeeklyPlan $plan)
     {
         $this->authorizeFacilitator($cohort);
+        abort_unless($plan->cohort_id === $cohort->id, 404);
         $plan->delete();
 
         return back()->with('success', 'Week removed.');
@@ -95,16 +100,17 @@ class WeeklyPlanController extends Controller
     public function addItem(Request $request, Cohort $cohort, CohortWeeklyPlan $plan)
     {
         $this->authorizeFacilitator($cohort);
+        abort_unless($plan->cohort_id === $cohort->id, 404);
 
         $validated = $request->validate([
             'itemable_type' => 'required|string|in:App\\Models\\Lesson,App\\Models\\Quiz,App\\Models\\MockExam',
-            'itemable_id'   => 'required|integer',
-            'is_mandatory'  => 'nullable|boolean',
-            'due_date'      => 'nullable|date',
+            'itemable_id' => 'required|integer',
+            'is_mandatory' => 'nullable|boolean',
+            'due_date' => 'nullable|date',
         ]);
 
         $validated['weekly_plan_id'] = $plan->id;
-        $validated['sort_order']     = $plan->items()->max('sort_order') + 1;
+        $validated['sort_order'] = $plan->items()->max('sort_order') + 1;
 
         CohortPlanItem::create($validated);
 
@@ -115,6 +121,7 @@ class WeeklyPlanController extends Controller
     public function removeItem(Cohort $cohort, CohortPlanItem $item)
     {
         $this->authorizeFacilitator($cohort);
+        abort_unless($item->weeklyPlan->cohort_id === $cohort->id, 404);
         $item->delete();
 
         return back()->with('success', 'Item removed.');
@@ -124,10 +131,11 @@ class WeeklyPlanController extends Controller
     public function reorder(Request $request, Cohort $cohort, CohortWeeklyPlan $plan)
     {
         $this->authorizeFacilitator($cohort);
+        abort_unless($plan->cohort_id === $cohort->id, 404);
 
         $request->validate([
-            'items'        => 'required|array',
-            'items.*.id'   => 'required|integer|exists:cohort_plan_items,id',
+            'items' => 'required|array',
+            'items.*.id' => 'required|integer|exists:cohort_plan_items,id',
             'items.*.sort_order' => 'required|integer|min:0',
         ]);
 

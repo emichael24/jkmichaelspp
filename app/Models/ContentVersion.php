@@ -8,6 +8,12 @@ class ContentVersion extends Model
 {
     public $timestamps = false;
 
+    protected static function booted(): void
+    {
+        static::updating(fn () => throw new \LogicException('Published snapshots cannot be changed.'));
+        static::deleting(fn () => throw new \LogicException('Published snapshots cannot be deleted.'));
+    }
+
     protected $fillable = [
         'versionable_type',
         'versionable_id',
@@ -21,9 +27,9 @@ class ContentVersion extends Model
     protected function casts(): array
     {
         return [
-            'data'           => 'array',
+            'data' => 'array',
             'version_number' => 'integer',
-            'created_at'     => 'datetime',
+            'created_at' => 'datetime',
         ];
     }
 
@@ -52,7 +58,7 @@ class ContentVersion extends Model
     public function scopeForContent($query, string $type, int $id)
     {
         return $query->where('versionable_type', $type)
-                     ->where('versionable_id', $id);
+            ->where('versionable_id', $id);
     }
 
     public function scopeLatestFirst($query)

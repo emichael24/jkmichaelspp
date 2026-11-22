@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('course_id')->constrained()->cascadeOnDelete();
-            $table->timestamp('enrolled_at');
+            $table->dateTime('enrolled_at');
             $table->enum('enrolled_by', ['self', 'admin', 'system'])->default('self');
             $table->date('deadline')->nullable();
             $table->unsignedTinyInteger('progress_pct')->default(0);

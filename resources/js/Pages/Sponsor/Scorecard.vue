@@ -24,7 +24,7 @@
         </div>
 
         <!-- Scorecard Form -->
-        <form @submit.prevent="submit" class="bg-white rounded-xl border border-surface-200/60 p-6 space-y-5">
+        <form @submit.prevent="submit" class="bg-white rounded-xl border border-surface-200/60 p-6 space-y-5"><div v-if="Object.keys(form.errors).length" role="alert" class="rounded-xl bg-red-50 p-3 text-sm text-red-800"><p v-for="error in form.errors" :key="error">{{ error }}</p></div><p class="text-sm text-surface-500">Score all five categories from 1 to 5. The saved overall score is their average. Each period can be submitted once.</p>
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-surface-700 mb-1">Period Type</label>
@@ -41,11 +41,11 @@
 
             <!-- Score Categories -->
             <div>
-                <label class="block text-sm font-medium text-surface-700 mb-2">Evaluation Criteria (0-5)</label>
+                <label class="block text-sm font-medium text-surface-700 mb-2">Evaluation criteria (1–5)</label>
                 <div class="space-y-3">
                     <div v-for="cat in categories" :key="cat.key" class="flex items-center gap-3">
-                        <label class="text-sm text-surface-600 w-40">{{ cat.label }}</label>
-                        <input v-model.number="form.scores[cat.key]" type="number" min="0" max="5" step="0.5"
+                        <label :for="`rating-${cat.key}`" class="text-sm text-surface-600 w-40">{{ cat.label }}</label>
+                        <input :id="`rating-${cat.key}`" v-model.number="form.scores[cat.key]" type="number" min="1" max="5" step="1" required
                                class="w-24 px-3 py-2 border border-surface-200 rounded-lg text-sm text-center" />
                         <div class="flex-1">
                             <div class="w-full bg-surface-100 rounded-full h-2">
@@ -57,9 +57,7 @@
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-surface-700 mb-1">Overall Score (0-5)</label>
-                <input v-model.number="form.overall_score" type="number" min="0" max="5" step="0.5"
-                       class="w-32 px-3 py-2 border border-surface-200 rounded-lg text-sm" />
+                <p class="text-sm font-medium text-surface-700">Calculated overall score</p><output class="mt-2 block text-2xl font-semibold text-primary-700" aria-live="polite">{{ average }} / 5</output>
             </div>
 
             <div>
@@ -95,6 +93,7 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { ArrowLeft } from 'lucide-vue-next';
 import SponsorLayout from '@/Layouts/SponsorLayout.vue';
@@ -111,7 +110,7 @@ const categories = [
     { key: 'timeliness', label: 'Timeliness' },
     { key: 'communication', label: 'Communication' },
     { key: 'initiative', label: 'Initiative' },
-    { key: 'professionalism', label: 'Professionalism' },
+    { key: 'technical_skill', label: 'Technical skill' },
 ];
 
 const nextPeriod = (props.existingScorecards?.length || 0) + 1;
@@ -120,13 +119,14 @@ const form = useForm({
     enrollment_id: props.enrollment.id,
     period_type: 'weekly',
     period_number: nextPeriod,
-    scores: { quality: 0, timeliness: 0, communication: 0, initiative: 0, professionalism: 0 },
+    scores: { quality: '', timeliness: '', communication: '', initiative: '', technical_skill: '' },
     overall_score: 0,
     comments: '',
     improvement_actions: [],
     ready_for_next: false,
 });
 
+const average = computed(() => Object.values(form.scores).every(v => v !== '') ? (Object.values(form.scores).reduce((sum, v) => sum + Number(v), 0) / 5).toFixed(1) : '—');
 function submit() {
     form.improvement_actions = form.improvement_actions.filter(a => a.trim());
     form.post('/sponsor/scorecards');

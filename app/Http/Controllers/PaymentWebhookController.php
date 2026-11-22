@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\PaymentService;
+use App\Models\Payment;
 use App\Services\NotificationService;
+use App\Services\PaymentRefundService;
+use App\Services\PaymentService;
+use App\Services\SubscriptionBillingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -19,101 +22,28 @@ class PaymentWebhookController extends Controller
      */
     public function paystack(Request $request)
     {
-        // Verify signature
-        $signature = $request->header('x-paystack-signature');
-        $secret = config('services.paystack.secret_key');
-        $computedHash = hash_hmac('sha512', $request->getContent(), $secret);
-
-        if ($signature !== $computedHash) {
-            Log::warning('Paystack webhook signature mismatch');
-            return response()->json(['error' => 'Invalid signature'], 400);
-        }
+        $mode = app(\App\Services\PaystackSettings::class)->signedMode($request->getContent(), $request->header('x-paystack-signature'));
+        if (! $mode) return response()->json(['error' => 'Invalid signature'], 400);
 
         $payload = $request->all();
-        $event = $payload['event'] ?? '';        
-        // Handle Subscription updates
-        if ($event === 'invoice.payment_succeeded') {
-            $metadata = $payload['data']['metadata'] ?? [];
-            if (isset($metadata['is_b2b_subscription'])) {
-                // E.g. finding user/organization by custom metadata
-                $user = \App\Models\User::find($metadata['user_id']);
-                $plan = \App\Models\Plan::find($metadata['plan_id']);
-                
-                if ($user && $plan) {
-                    $user->subscribeTo(
-                        $plan, 
-                        'paystack', 
-                        $payload['data']['subscription'] ?? null
-                    );
-                    
-                    // Mark CRM Deal as Won possibly
-                    if (isset($metadata['deal_id'])) {
-                        $deal = \App\Models\CrmDeal::find($metadata['deal_id']);
-                        if ($deal) {
-                            $deal->update([
-                                'stage' => 'Won',
-                                'status' => 'won'
-                            ]);
-                            \App\Models\CrmDealStageHistory::create([
-                                'deal_id' => $deal->id,
-                                'new_stage' => 'Won',
-                                'moved_by_user_id' => $user->id,
-                            ]);
-                        }
-                    }
-                }
-                return response()->json(['status' => 'ok']);
+        $event = $payload['event'] ?? '';
+        if (str_starts_with($event, 'refund.')) {
+            $payment = Payment::where('gateway', 'paystack')->where('gateway_reference', data_get($payload, 'data.transaction_reference'))->first();
+            if ($payment?->refund && (! $payment->payment_mode || $payment->payment_mode === $mode)) {
+                app(PaymentRefundService::class)->reconcile($payment->refund);
             }
 
-            $subscriptionCode = $payload['data']['subscription']['subscription_code'] ?? $payload['data']['subscription_code'] ?? null;
-            if ($subscriptionCode) {
-                \App\Models\Subscription::where('payment_provider', 'paystack')
-                    ->where('payment_provider_id', $subscriptionCode)
-                    ->update([
-                        'status' => 'active',
-                        'ends_at' => null,
-                        'canceled_at' => null,
-                        'cancels_at' => null,
-                    ]);
-            }
+            return response()->json(['status' => 'ok']);
         }
-        if ($event === 'invoice.payment_failed') {
-            $subscriptionCode = $payload['data']['subscription']['subscription_code'] ?? $payload['data']['subscription_code'] ?? null;
-            if ($subscriptionCode) {
-                \App\Models\Subscription::where('payment_provider', 'paystack')
-                    ->where('payment_provider_id', $subscriptionCode)
-                    ->update([
-                        'status' => 'past_due',
-                    ]);
-            }
+        $billing = app(SubscriptionBillingService::class);
+        if (in_array($event, ['subscription.create', 'subscription.disable', 'subscription.not_renew', 'invoice.update', 'invoice.payment_failed'], true)) {
+            $billing->webhook($payload, $mode);
         }
-        if (in_array($event, ['subscription.disable', 'subscription.not_renew'], true)) {
-            $subscriptionCode = $payload['data']['subscription_code'] ?? null;
-            if ($subscriptionCode) {
-                \App\Models\Subscription::where('payment_provider', 'paystack')
-                    ->where('payment_provider_id', $subscriptionCode)
-                    ->update([
-                        'status' => 'canceled',
-                        'canceled_at' => now(),
-                        'ends_at' => now(),
-                    ]);
-            }
-        }
-        if (in_array($event, ['subscription.create', 'subscription.enable'], true)) {
-            $subscriptionCode = $payload['data']['subscription_code'] ?? null;
-            if ($subscriptionCode) {
-                \App\Models\Subscription::where('payment_provider', 'paystack')
-                    ->where('payment_provider_id', $subscriptionCode)
-                    ->update([
-                        'status' => 'active',
-                        'ends_at' => null,
-                        'canceled_at' => null,
-                        'cancels_at' => null,
-                    ]);
-            }
+        if ($event === 'charge.success' && $billing->confirm($payload['data']['reference'] ?? '', null, $mode)) {
+            return response()->json(['status' => 'ok']);
         }
         if ($event === 'charge.success') {
-            $success = $this->paymentService->verifyPaystackWebhook($payload);
+            $success = $this->paymentService->verifyPaystackWebhook($payload, $mode);
             if ($success) {
                 $this->sendPaymentNotifications($payload['data']['reference'] ?? null);
             }
@@ -131,8 +61,9 @@ class PaymentWebhookController extends Controller
         $secretHash = config('services.flutterwave.secret_hash');
         $signature = $request->header('verif-hash');
 
-        if ($secretHash && $signature !== $secretHash) {
+        if (! is_string($secretHash) || $secretHash === '' || ! is_string($signature) || ! hash_equals($secretHash, $signature)) {
             Log::warning('Flutterwave webhook hash mismatch');
+
             return response()->json(['error' => 'Invalid hash'], 400);
         }
 
@@ -157,23 +88,23 @@ class PaymentWebhookController extends Controller
         $signature = $request->header('Stripe-Signature');
         $endpointSecret = config('services.stripe.webhook_secret');
 
-        // Basic signature verification
-        if ($endpointSecret && $signature) {
-            $elements = collect(explode(',', $signature))
-                ->mapWithKeys(function ($part) {
-                    [$key, $value] = explode('=', $part, 2);
-                    return [$key => $value];
-                });
-
-            $timestamp = $elements->get('t');
-            $expectedSig = $elements->get('v1');
-            $payload = $timestamp . '.' . $request->getContent();
-            $computedSig = hash_hmac('sha256', $payload, $endpointSecret);
-
-            if (!hash_equals($computedSig, $expectedSig ?? '')) {
-                Log::warning('Stripe webhook signature mismatch');
-                return response()->json(['error' => 'Invalid signature'], 400);
+        if (! is_string($endpointSecret) || $endpointSecret === '' || ! is_string($signature)) {
+            return response()->json(['error' => 'Webhook verification is unavailable'], 400);
+        }
+        $elements = [];
+        foreach (explode(',', $signature) as $part) {
+            $pair = explode('=', trim($part), 2);
+            if (count($pair) === 2) {
+                $elements[$pair[0]][] = $pair[1];
             }
+        }
+        $timestamp = $elements['t'][0] ?? '';
+        if (! ctype_digit($timestamp) || abs(time() - (int) $timestamp) > 300) {
+            return response()->json(['error' => 'Invalid signature timestamp'], 400);
+        }
+        $computedSig = hash_hmac('sha256', $timestamp.'.'.$request->getContent(), $endpointSecret);
+        if (! collect($elements['v1'] ?? [])->contains(fn ($value) => hash_equals($computedSig, $value))) {
+            return response()->json(['error' => 'Invalid signature'], 400);
         }
 
         $payload = $request->all();
@@ -191,9 +122,9 @@ class PaymentWebhookController extends Controller
     private function sendPaymentNotifications(?string $reference, ?string $txRef = null): void
     {
         try {
-            $payment = \App\Models\Payment::query()
-                ->when($reference, fn($q) => $q->where('gateway_reference', $reference))
-                ->when($txRef, fn($q) => $q->where('gateway_reference', $txRef))
+            $payment = Payment::query()
+                ->when($reference, fn ($q) => $q->where('gateway_reference', $reference))
+                ->when($txRef, fn ($q) => $q->where('gateway_reference', $txRef))
                 ->with(['order.items.product', 'user'])
                 ->first();
 

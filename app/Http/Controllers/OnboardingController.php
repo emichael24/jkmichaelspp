@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use App\Models\Course;
 use App\Models\Question;
 use App\Models\QuestionResponse;
@@ -32,11 +31,11 @@ class OnboardingController extends Controller
             ->limit(10)
             ->get()
             ->map(fn ($q) => [
-                'id'       => $q->id,
-                'stem'     => $q->stem,
-                'domain'   => $q->domain,
-                'options'  => collect($q->options)->values()->map(fn ($o, $i) => [
-                    'id'   => is_array($o) ? ($o['id'] ?? chr(65 + $i)) : chr(65 + $i),
+                'id' => $q->id,
+                'stem' => $q->stem,
+                'domain' => $q->domain,
+                'options' => collect($q->options)->values()->map(fn ($o, $i) => [
+                    'id' => is_array($o) ? ($o['id'] ?? chr(65 + $i)) : chr(65 + $i),
                     'text' => is_array($o) ? ($o['text'] ?? '') : (string) $o,
                 ])->values(),
             ]);
@@ -50,7 +49,7 @@ class OnboardingController extends Controller
 
         return Inertia::render('Onboarding/Index', [
             'user' => $user->only('id', 'first_name', 'last_name', 'goal', 'exam_date', 'daily_minutes', 'learning_preference', 'experience_level', 'accessibility_prefs'),
-            'courses'            => $courses,
+            'courses' => $courses,
             'diagnosticQuestions' => $diagnosticQuestions,
         ]);
     }
@@ -73,10 +72,10 @@ class OnboardingController extends Controller
 
             case 'profile':
                 $validated = $request->validate([
-                    'exam_date'          => 'nullable|date|after:today',
-                    'daily_minutes'      => 'required|integer|in:10,15,20,30,45,60',
+                    'exam_date' => 'nullable|date|after:today',
+                    'daily_minutes' => 'required|integer|in:10,15,20,30,45,60',
                     'learning_preference' => 'required|in:read,watch,listen',
-                    'experience_level'   => 'required|in:beginner,intermediate,advanced',
+                    'experience_level' => 'required|in:beginner,intermediate,advanced',
                     'accessibility_prefs' => 'nullable|array',
                 ]);
                 $user->update($validated);
@@ -84,13 +83,13 @@ class OnboardingController extends Controller
 
             case 'diagnostic':
                 $request->validate([
-                    'responses'        => 'required|array',
-                    'responses.*.question_id'  => 'required|integer|exists:questions,id',
-                    'responses.*.selected'     => 'required|string',
+                    'responses' => 'required|array',
+                    'responses.*.question_id' => 'required|integer|exists:questions,id',
+                    'responses.*.selected' => 'required|string',
                 ]);
 
                 $correct = 0;
-                $total   = count($request->responses);
+                $total = count($request->responses);
                 $domainScores = [];
 
                 $attempt = QuizAttempt::create([
@@ -108,19 +107,21 @@ class OnboardingController extends Controller
                     $selected = (string) $resp['selected'];
                     $correctIds = collect($question->correct_answer_ids)->map(fn ($id) => (string) $id)->sort()->values();
                     $isCorrect = $correctIds->count() === 1 && $correctIds->first() === $selected;
-                    if ($isCorrect) $correct++;
+                    if ($isCorrect) {
+                        $correct++;
+                    }
 
                     $domainScores[$question->domain]['total'] = ($domainScores[$question->domain]['total'] ?? 0) + 1;
                     $domainScores[$question->domain]['correct'] = ($domainScores[$question->domain]['correct'] ?? 0) + ($isCorrect ? 1 : 0);
 
                     QuestionResponse::create([
-                        'user_id'     => $user->id,
+                        'user_id' => $user->id,
                         'question_id' => $resp['question_id'],
                         'quiz_attempt_id' => $attempt->id,
                         'selected_answer_ids' => [$selected],
-                        'is_correct'      => $isCorrect,
+                        'is_correct' => $isCorrect,
                         'time_spent_seconds' => 30,
-                        'confidence_level'   => 'medium',
+                        'confidence_level' => 'medium',
                     ]);
                 }
 
@@ -128,6 +129,7 @@ class OnboardingController extends Controller
                 $domainScores = collect($domainScores)->map(function ($data) {
                     $totalCount = $data['total'] ?? 0;
                     $correctCount = $data['correct'] ?? 0;
+
                     return [
                         'correct' => $correctCount,
                         'total' => $totalCount,
@@ -144,9 +146,9 @@ class OnboardingController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'score'   => $total > 0 ? round(($correct / $total) * 100) : 0,
+                    'score' => $total > 0 ? round(($correct / $total) * 100) : 0,
                     'correct' => $correct,
-                    'total'   => $total,
+                    'total' => $total,
                 ]);
 
             case 'complete':

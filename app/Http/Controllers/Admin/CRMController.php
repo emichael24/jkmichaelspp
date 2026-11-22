@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\CrmActivity;
 use App\Models\CrmContact;
 use App\Models\CrmDeal;
-use App\Models\CrmActivity;
+use App\Services\CrmContactService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class CRMController extends Controller
@@ -17,13 +19,13 @@ class CRMController extends Controller
     {
         return Inertia::render('Admin/ERP/Dashboard', [
             'stats' => [
-                'total_contacts'   => CrmContact::count(),
-                'leads'            => CrmContact::where('type', 'lead')->count(),
-                'prospects'        => CrmContact::where('type', 'prospect')->count(),
-                'students'         => CrmContact::where('type', 'student')->count(),
-                'open_deals'       => CrmDeal::where('status', 'open')->count(),
-                'won_deals'        => CrmDeal::where('status', 'won')->count(),
-                'pipeline_value'   => CrmDeal::where('status', 'open')->sum('value'),
+                'total_contacts' => CrmContact::count(),
+                'leads' => CrmContact::where('type', 'lead')->count(),
+                'prospects' => CrmContact::where('type', 'prospect')->count(),
+                'students' => CrmContact::where('type', 'student')->count(),
+                'open_deals' => CrmDeal::where('status', 'open')->count(),
+                'won_deals' => CrmDeal::where('status', 'won')->count(),
+                'pipeline_value' => CrmDeal::where('status', 'open')->sum('value'),
                 'activities_today' => CrmActivity::whereDate('created_at', today())->count(),
             ],
             'recentContacts' => CrmContact::with('assignedTo')
@@ -45,9 +47,10 @@ class CRMController extends Controller
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'like', "%{$search}%")
-                  ->orWhere('last_name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhere('company', 'like', "%{$search}%");
             });
         }
 
@@ -59,15 +62,15 @@ class CRMController extends Controller
             $query->where('status', $status);
         }
 
-        if ($request->get('assigned_to_me')) {
+        if ($request->boolean('assigned_to_me')) {
             $query->where('assigned_to', auth()->id());
         }
 
-        $contacts = $query->latest()->paginate(30);
+        $contacts = $query->latest()->paginate(30)->withQueryString();
 
         return Inertia::render('Admin/ERP/Contacts/Index', [
             'contacts' => $contacts,
-            'filters'  => $request->only(['search', 'type', 'status', 'assigned_to_me']),
+            'filters' => $request->only(['search', 'type', 'status', 'assigned_to_me']),
         ]);
     }
 
@@ -80,57 +83,53 @@ class CRMController extends Controller
         ]);
     }
 
-    public function contactStore(Request $request)
+    public function contactStore(Request $request, CrmContactService $service)
     {
-        $validated = $request->validate([
-            'first_name'   => 'required|string|max:100',
-            'last_name'    => 'required|string|max:100',
-            'email'        => 'nullable|email|max:255',
-            'phone'        => 'nullable|string|max:30',
-            'whatsapp'     => 'nullable|string|max:30',
-            'company'      => 'nullable|string|max:255',
-            'job_title'    => 'nullable|string|max:255',
-            'type'         => 'required|in:lead,prospect,student,alumni,partner',
-            'source'       => 'nullable|string|max:100',
-            'notes'        => 'nullable|string',
-            'tags'         => 'nullable|array',
-            'assigned_to'  => 'nullable|exists:users,id',
-        ]);
+        $contact = $service->save($request->all());
 
-        $contact = CrmContact::create(array_merge($validated, [
-            'uuid'   => (string) Str::uuid(),
-            'status' => 'new',
-        ]));
-
-        return redirect()->route('admin.crm.contacts.show', $contact)
-            ->with('success', 'Contact created.');
+        return redirect()->route('admin.crm.contacts.show', $contact)->with('success', 'Contact created.');
     }
 
-    public function contactUpdate(Request $request, CrmContact $contact)
+    public function contactUpdate(Request $request, CrmContact $contact, CrmContactService $service)
     {
-        $validated = $request->validate([
-            'first_name'   => 'required|string|max:100',
-            'last_name'    => 'required|string|max:100',
-            'email'        => 'nullable|email|max:255',
-            'phone'        => 'nullable|string|max:30',
-            'whatsapp'     => 'nullable|string|max:30',
-            'company'      => 'nullable|string|max:255',
-            'job_title'    => 'nullable|string|max:255',
-            'type'         => 'required|in:lead,prospect,student,alumni,partner',
-            'status'       => 'required|in:new,contacted,qualified,converted,lost,inactive',
-            'source'       => 'nullable|string|max:100',
-            'notes'        => 'nullable|string',
-            'tags'         => 'nullable|array',
-            'assigned_to'  => 'nullable|exists:users,id',
+        $service->save($request->all(), $contact);
+
+        return back()->with('success', 'Contact updated.');
+    }
+
+    public function contactImportTemplate()
+    {
+        return response()->streamDownload(function () {
+            $stream = fopen('php://output', 'w');
+            fwrite($stream, "\xEF\xBB\xBF");
+            fputcsv($stream, CrmContactService::CSV_COLUMNS, ',', '"', '');
+            fclose($stream);
+        }, 'jk-michaels-contacts-template.csv', ['Content-Type' => 'text/csv; charset=UTF-8', 'Cache-Control' => 'private, no-store']);
+    }
+
+    public function contactImportPreview(Request $request, CrmContactService $service)
+    {
+        $data = $request->validate([
+            'file' => 'required|file|mimes:csv,txt|max:512',
+            'type' => ['required', Rule::in(CrmContactService::TYPES)],
         ]);
 
-        $contact->update($validated);
-        return back()->with('success', 'Contact updated.');
+        return response()->json($service->preview($data['file'], $data['type'], $request->user()))
+            ->header('Cache-Control', 'private, no-store');
+    }
+
+    public function contactImport(Request $request, CrmContactService $service)
+    {
+        $data = $request->validate(['token' => 'required|string|max:1000000']);
+        $count = $service->import($data['token'], $request->user());
+
+        return redirect()->route('admin.crm.contacts.index')->with('success', "Import complete: {$count} contacts added. No messages were sent.");
     }
 
     public function contactDestroy(CrmContact $contact)
     {
         $contact->delete();
+
         return redirect()->route('admin.crm.contacts.index')->with('success', 'Contact deleted.');
     }
 
@@ -150,28 +149,28 @@ class CRMController extends Controller
             ->groupBy('stage');
 
         return Inertia::render('Admin/ERP/Deals/Index', [
-            'deals'        => $deals,
+            'deals' => $deals,
             'pipelineData' => $pipelineData,
-            'filters'      => $request->only(['status', 'stage']),
+            'filters' => $request->only(['status', 'stage']),
         ]);
     }
 
     public function dealStore(Request $request)
     {
         $validated = $request->validate([
-            'contact_id'          => 'required|exists:crm_contacts,id',
-            'title'               => 'required|string|max:255',
-            'value'               => 'required|numeric|min:0',
-            'currency'            => 'nullable|string|size:3',
-            'stage'               => 'required|string|max:100',
+            'contact_id' => 'required|exists:crm_contacts,id',
+            'title' => 'required|string|max:255',
+            'value' => 'required|numeric|min:0',
+            'currency' => 'nullable|string|size:3',
+            'stage' => 'required|string|max:100',
             'expected_close_date' => 'nullable|date',
-            'notes'               => 'nullable|string',
-            'assigned_to'         => 'nullable|exists:users,id',
+            'notes' => 'nullable|string',
+            'assigned_to' => 'nullable|exists:users,id',
         ]);
 
         $deal = CrmDeal::create(array_merge($validated, [
-            'uuid'        => (string) Str::uuid(),
-            'status'      => 'open',
+            'uuid' => (string) Str::uuid(),
+            'status' => 'open',
             'assigned_to' => $validated['assigned_to'] ?? auth()->id(),
         ]));
 
@@ -181,13 +180,13 @@ class CRMController extends Controller
     public function dealUpdate(Request $request, CrmDeal $deal)
     {
         $deal->update($request->validate([
-            'title'               => 'required|string|max:255',
-            'value'               => 'required|numeric|min:0',
-            'stage'               => 'required|string|max:100',
-            'status'              => 'required|in:open,won,lost',
+            'title' => 'required|string|max:255',
+            'value' => 'required|numeric|min:0',
+            'stage' => 'required|string|max:100',
+            'status' => 'required|in:open,won,lost',
             'expected_close_date' => 'nullable|date',
-            'closed_date'         => 'nullable|date',
-            'notes'               => 'nullable|string',
+            'closed_date' => 'nullable|date',
+            'notes' => 'nullable|string',
         ]));
 
         return back()->with('success', 'Deal updated.');
@@ -197,18 +196,18 @@ class CRMController extends Controller
     public function activityStore(Request $request)
     {
         $validated = $request->validate([
-            'contact_id'  => 'required|exists:crm_contacts,id',
-            'deal_id'     => 'nullable|exists:crm_deals,id',
-            'type'        => 'required|in:call,email,whatsapp,meeting,note,task',
-            'subject'     => 'required|string|max:255',
+            'contact_id' => 'required|exists:crm_contacts,id',
+            'deal_id' => 'nullable|exists:crm_deals,id',
+            'type' => 'required|in:call,email,whatsapp,meeting,note,task',
+            'subject' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'direction'   => 'nullable|in:inbound,outbound',
-            'outcome'     => 'nullable|in:no_answer,left_voicemail,interested,not_interested,follow_up,completed',
-            'due_at'      => 'nullable|date',
+            'direction' => 'nullable|in:inbound,outbound',
+            'outcome' => 'nullable|in:no_answer,left_voicemail,interested,not_interested,follow_up,completed',
+            'due_at' => 'nullable|date',
         ]);
 
         $activity = CrmActivity::create(array_merge($validated, [
-            'user_id'      => auth()->id(),
+            'user_id' => auth()->id(),
             'completed_at' => $validated['type'] === 'note' ? now() : null,
         ]));
 
@@ -223,6 +222,7 @@ class CRMController extends Controller
     public function activityComplete(CrmActivity $activity)
     {
         $activity->update(['completed_at' => now()]);
+
         return back()->with('success', 'Activity marked complete.');
     }
 }

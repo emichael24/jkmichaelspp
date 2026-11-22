@@ -16,15 +16,15 @@ class AdminUserSeeder extends Seeder
         $org = Organization::firstOrCreate(
             ['slug' => 'jk-michaels'],
             [
-                'uuid'              => (string) Str::uuid(),
-                'name'              => 'JK Michaels Consulting',
-                'contact_email'     => 'admin@jkmichaels.com',
-                'industry'          => 'Professional Training',
-                'size'              => '51-200',
-                'country'           => 'NGA',
+                'uuid' => (string) Str::uuid(),
+                'name' => 'JK Michaels Consulting',
+                'contact_email' => 'admin@jkmichaels.com',
+                'industry' => 'Professional Training',
+                'size' => '51-200',
+                'country' => 'NGA',
                 'subscription_plan' => 'enterprise',
-                'max_seats'         => 500,
-                'is_active'         => true,
+                'max_seats' => 500,
+                'is_active' => true,
             ]
         );
 
@@ -32,11 +32,11 @@ class AdminUserSeeder extends Seeder
         $admin = User::firstOrCreate(
             ['email' => 'admin@jkmichaels.com'],
             [
-                'first_name'      => 'Platform',
-                'last_name'       => 'Admin',
-                'password'        => Hash::make('password'),
+                'first_name' => 'Platform',
+                'last_name' => 'Admin',
+                'password' => Hash::make('password'),
                 'organization_id' => $org->id,
-                'is_active'       => true,
+                'is_active' => true,
                 'onboarding_completed' => true,
             ]
         );
@@ -47,15 +47,15 @@ class AdminUserSeeder extends Seeder
         $learner = User::firstOrCreate(
             ['email' => 'learner@jkmichaels.com'],
             [
-                'first_name'      => 'Demo',
-                'last_name'       => 'Learner',
-                'password'        => Hash::make('password'),
+                'first_name' => 'Demo',
+                'last_name' => 'Learner',
+                'password' => Hash::make('password'),
                 'organization_id' => $org->id,
-                'is_active'       => true,
-                'goal'            => 'certification',
-                'daily_minutes'   => 30,
+                'is_active' => true,
+                'goal' => 'certification',
+                'daily_minutes' => 30,
                 'learning_preference' => 'read',
-                'experience_level'    => 'intermediate',
+                'experience_level' => 'intermediate',
             ]
         );
 

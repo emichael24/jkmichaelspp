@@ -2,6 +2,7 @@
     <Head title="WhatsApp Number Pairings" />
 
     <div class="space-y-6">
+        <p class="rounded-xl border border-surface-200 bg-surface-50 p-4 text-sm text-surface-600">This page records recipient phone numbers. To link a sending device, open <Link href="/admin/erp/whatsapp" class="font-medium text-primary-700 underline">WhatsApp connections</Link>. Session references saved here do not change the provider's outbound sender.</p>
         <!-- Header -->
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div class="flex items-center gap-3">
@@ -319,7 +320,7 @@ function parseCsv(raw) {
     for (const line of lines) {
         const parts = line.split(',').map(p => p.trim());
         if (parts.length < 2) { errors.push(`Skipped invalid line: "${line}"`); continue; }
-        pairs.push({ email: parts[0], whatsapp_number: parts[1], session: parts[2] || bulkSession.value || null });
+        pairs.push({ email: parts[0], whatsapp_number: parts[1], whatsapp_session: parts[2] || bulkSession.value || null });
     }
     return { pairs, errors };
 }

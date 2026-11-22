@@ -40,7 +40,7 @@ return new class extends Migration
             $table->string('feedback_audio_url', 500)->nullable();
             $table->foreignId('graded_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('graded_at')->nullable();
-            $table->timestamp('submitted_at');
+            $table->dateTime('submitted_at');
             $table->timestamps();
 
             $table->index(['assignment_id', 'user_id']);
@@ -58,7 +58,7 @@ return new class extends Migration
             $table->enum('platform', ['zoom', 'teams', 'google_meet', 'other'])->default('zoom');
             $table->string('meeting_url', 500)->nullable();
             $table->string('meeting_id_external')->nullable();
-            $table->timestamp('scheduled_at');
+            $table->dateTime('scheduled_at');
             $table->unsignedInteger('duration_minutes')->default(60);
             $table->text('agenda')->nullable();
             $table->text('notes')->nullable();

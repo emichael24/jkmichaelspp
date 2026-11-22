@@ -45,7 +45,7 @@ return new class extends Migration
             $table->unsignedInteger('occurrence_count')->default(1);
             $table->json('example_question_ids')->nullable();
             $table->text('suggested_fix')->nullable();
-            $table->timestamp('detected_at');
+            $table->dateTime('detected_at');
             $table->timestamps();
 
             $table->index(['user_id', 'course_id']);
@@ -60,7 +60,7 @@ return new class extends Migration
             $table->enum('pass_likelihood', ['unlikely', 'possible', 'likely', 'very_likely'])->nullable();
             $table->json('domain_breakdown');
             $table->json('weak_areas')->nullable();
-            $table->timestamp('calculated_at');
+            $table->dateTime('calculated_at');
             $table->timestamp('created_at')->nullable();
 
             $table->index(['user_id', 'course_id']);
@@ -115,7 +115,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('badge_id')->constrained()->cascadeOnDelete();
-            $table->timestamp('earned_at');
+            $table->dateTime('earned_at');
             $table->timestamp('created_at')->nullable();
 
             $table->unique(['user_id', 'badge_id']);

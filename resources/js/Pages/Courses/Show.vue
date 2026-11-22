@@ -49,7 +49,7 @@
             <div class="p-6 sm:p-8">
                 <div class="flex flex-col gap-6 sm:flex-row">
                     <div class="flex-1">
-                        <p class="leading-relaxed text-surface-600">{{ course.description }}</p>
+                        <SafeHtml :content="course.description || ''" class="text-surface-600" />
 
                         <div v-if="previewVideo" class="mt-6">
                             <h3 class="mb-3 font-semibold text-surface-900">Course Preview</h3>
@@ -113,26 +113,27 @@
                     <div class="shrink-0 sm:w-72">
                         <div class="sticky top-24 rounded-xl border border-surface-200/60 bg-surface-50 p-5">
                             <div v-if="!isEnrolled" class="text-center">
-                                <div v-if="hasEnrollment" class="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-left text-sm text-warning-800">
-                                    <p class="font-semibold">Enrollment {{ enrollmentStatus === 'suspended' ? 'paused' : 'expired' }}</p>
+                                <div v-if="hasEnrollment" class="mb-3 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-left text-sm text-warning-800">
+                                    <p class="font-semibold">{{ enrollmentStatus === 'suspended' ? 'Enrollment paused' : 'Course access unavailable' }}</p>
                                     <p class="mt-1 text-xs text-warning-700">You currently cannot access this course.</p>
                                 </div>
-                                <div v-else>
-                                    <p v-if="course.price > 0" class="mb-1 text-3xl font-bold text-surface-900">
-                                        <span v-if="course.discount_price" class="mr-2 text-lg text-surface-400 line-through">{{ displayCurrency }} {{ Number(course.price).toLocaleString() }}</span>
-                                        {{ displayCurrency }} {{ Number(course.discount_price || course.price).toLocaleString() }}
+                                <div v-if="!hasEnrollment || ['active', 'completed'].includes(enrollmentStatus)">
+                                    <p v-if="checkoutOffer.price > 0" class="mb-1 text-3xl font-bold text-surface-900">
+                                        {{ checkoutOffer.currency }} {{ Number(checkoutOffer.price).toLocaleString() }}
                                     </p>
                                     <p v-else class="mb-1 text-lg font-semibold text-success-600">Free</p>
-                                    <Button variant="primary" size="lg" class="mt-3 w-full" @click="enroll">
-                                        {{ course.price > 0 ? 'Enroll Now' : 'Start Learning' }}
+                                    <Button variant="primary" size="lg" class="mt-3 w-full" :disabled="enrolling || !checkoutOffer.purchasable || prerequisiteCourses.some(c => !c.completed)" @click="enroll">
+                                        {{ enrolling ? 'Please wait…' : !checkoutOffer.purchasable ? 'Currently unavailable' : checkoutOffer.price > 0 ? 'Continue to checkout' : 'Start Learning' }}
                                     </Button>
+                                    <p v-if="checkoutError" role="alert" class="mt-3 text-sm text-red-700">{{ checkoutError }}</p>
                                 </div>
                             </div>
 
                             <div v-else class="text-center">
                                 <CircularProgress :percentage="enrollment?.progress_pct || 0" :size="80" :stroke-width="6" color="primary" class="mx-auto mb-3" />
                                 <p class="mb-3 text-sm text-surface-500">{{ enrollment?.progress_pct || 0 }}% complete</p>
-                                <Link :href="nextLessonUrl" class="block">
+                                <p v-if="prerequisiteCourses.some(c => !c.completed)" class="rounded-xl bg-warning-50 p-3 text-sm text-warning-800">Complete the prerequisites below to continue.</p>
+                                <Link v-else :href="nextLessonUrl" class="block">
                                     <Button variant="primary" size="lg" class="w-full" :icon="Play">
                                         Continue Learning
                                     </Button>
@@ -166,6 +167,10 @@
             </div>
         </div>
 
+        <section v-if="prerequisiteCourses.length" class="rounded-2xl border border-surface-200 bg-white p-5" aria-label="Course prerequisites">
+            <h2 class="font-semibold text-surface-900">Before you start</h2><p class="mt-1 text-sm text-surface-600">Complete these courses to unlock enrollment, lessons and resources.</p>
+            <ul class="mt-3 space-y-2"><li v-for="required in prerequisiteCourses" :key="required.id" class="flex flex-wrap justify-between gap-3 text-sm"><Link v-if="required.url" :href="required.url" class="font-medium text-primary-700 underline underline-offset-4">{{ required.title }}</Link><span v-else>{{ required.title }} · currently unavailable</span><span :class="required.completed ? 'text-success-700' : 'text-surface-600'">{{ required.completed ? 'Completed' : 'Required' }}</span></li></ul>
+        </section>
         <div class="border-b border-surface-200 bg-white rounded-2xl overflow-hidden">
             <div class="scrollbar-hide flex items-center gap-1 overflow-x-auto px-4 sm:px-6">
                 <button
@@ -291,6 +296,7 @@
 </template>
 
 <script setup>
+import SafeHtml from '@/Components/SafeHtml.vue';
 import { computed, reactive, ref } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -307,9 +313,11 @@ import {
 defineOptions({ layout: AppLayout });
 
 const props = defineProps({
+    checkoutOffer: { type: Object, default: () => ({ price: 0, currency: 'NGN', purchasable: false }) },
     course: { type: Object, required: true },
     modules: { type: Array, default: () => [] },
     resources: { type: Array, default: () => [] },
+    prerequisiteCourses: { type: Array, default: () => [] },
     isEnrolled: { type: Boolean, default: false },
     hasEnrollment: { type: Boolean, default: false },
     enrollmentStatus: { type: String, default: null },
@@ -331,6 +339,8 @@ const expandedModules = reactive({});
 const ratingAverage = computed(() => Number(props.ratings?.average || 0));
 const displayCurrency = computed(() => (props.course.currency || 'NGN').toUpperCase());
 const activeTab = ref('curriculum');
+const enrolling = ref(false);
+const checkoutError = ref('');
 
 const detailTabs = computed(() => {
     const tabs = [
@@ -356,7 +366,8 @@ function lessonTypeIcon(type) {
 }
 
 function enroll() {
-    router.post(`/courses/${props.course.id}/enroll`);
+    enrolling.value = true; checkoutError.value = '';
+    router.post(`/courses/${props.course.id}/enroll`, {}, { onFinish: () => { enrolling.value = false; }, onError: errors => { checkoutError.value = Object.values(errors).join(' '); } });
 }
 
 function goToLesson(lessonId) {

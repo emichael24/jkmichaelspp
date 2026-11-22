@@ -1,181 +1,42 @@
 <template>
-  <div class="scorm-container relative h-full w-full" style="min-height: 600px;">
-    <div v-if="loading" class="absolute inset-0 z-10 flex items-center justify-center bg-gray-100">
-      <span class="text-gray-500">Loading interactive content...</span>
-    </div>
-
-    <iframe
-      :src="entryPath"
-      class="absolute inset-0 h-full w-full border-0"
-      @load="handleIframeLoad"
-    ></iframe>
-  </div>
+  <section class="relative min-h-[600px] rounded-xl border border-surface-200 overflow-hidden" aria-label="Interactive lesson">
+    <p v-if="error" role="alert" class="p-4 bg-red-50 text-red-800">{{ error }} <button class="underline font-semibold" @click="launch">Reload activity</button></p>
+    <p v-else-if="!source" role="status" class="p-6 text-surface-500">Preparing your interactive lesson…</p>
+    <iframe v-if="source" ref="frame" :src="source" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Interactive lesson activity" class="h-[600px] w-full border-0" />
+    <p class="px-4 py-2 text-xs text-surface-500" role="status">{{ saving ? 'Saving progress…' : saved ? 'Progress saved' : 'Your progress saves when the activity sends an update.' }}</p>
+  </section>
 </template>
-
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import axios from 'axios';
-
-const props = defineProps({
-  lessonId: {
-    type: [Number, String],
-    required: true,
-  },
-  entryPath: {
-    type: String,
-    required: true,
-  },
-  version: {
-    type: String,
-    default: '1.2',
-  },
-  initialStatus: {
-    type: String,
-    default: 'not attempted',
-  },
-  initialScore: {
-    type: [Number, String, null],
-    default: null,
-  },
-  initialLocation: {
-    type: String,
-    default: '',
-  },
-  initialSuspendData: {
-    type: [Object, String, null],
-    default: null,
-  },
-});
-
+const props = defineProps({ lessonId: { type: [Number, String], required: true }, entryPath: String, version: String, initialStatus: String, initialScore: [Number, String], initialLocation: String, initialSuspendData: [Object, String] });
 const emit = defineEmits(['scorm-completed', 'scorm-progress']);
-
-const loading = ref(true);
-const state = {
-  lessonStatus: props.initialStatus || 'not attempted',
-  scoreRaw: props.initialScore ?? '',
-  lessonLocation: props.initialLocation || '',
-  suspendData: typeof props.initialSuspendData === 'string'
-    ? props.initialSuspendData
-    : props.initialSuspendData?.data || '',
-};
-
-async function commitProgress() {
-  try {
-    const response = await axios.post(`/api/scorm/commit/${props.lessonId}`, {
-      cmi_core_lesson_status: state.lessonStatus,
-      cmi_core_score_raw: state.scoreRaw === '' || state.scoreRaw === null ? null : parseInt(state.scoreRaw, 10),
-      cmi_core_lesson_location: state.lessonLocation,
-      suspend_data: state.suspendData ? { data: state.suspendData } : null,
-    });
-
-    emit('scorm-progress', response.data);
-
-    if (['passed', 'completed'].includes(String(state.lessonStatus).toLowerCase())) {
-      emit('scorm-completed', response.data);
-    }
-  } catch (error) {
-    console.error('SCORM API sync failed:', error);
-  }
+const source = ref(''), frame = ref(null), error = ref(''), saving = ref(false), saved = ref(false);
+let channel = '', pending = Promise.resolve();
+async function launch() {
+  error.value = ''; source.value = '';
+  try { const {data} = await axios.get(`/lessons/${props.lessonId}/scorm-launch`); channel = data.channel; source.value = data.url; }
+  catch { error.value = 'This activity is unavailable. Your saved progress is safe.'; }
 }
-
-function buildScorm12Api() {
-  return {
-    LMSInitialize() {
-      return 'true';
-    },
-    LMSGetValue(param) {
-      if (param === 'cmi.core.lesson_status') return state.lessonStatus;
-      if (param === 'cmi.core.lesson_location') return state.lessonLocation;
-      if (param === 'cmi.core.score.raw') return state.scoreRaw;
-      if (param === 'cmi.suspend_data') return state.suspendData;
-      return '';
-    },
-    LMSSetValue(param, value) {
-      if (param === 'cmi.core.lesson_status') state.lessonStatus = value;
-      if (param === 'cmi.core.score.raw') state.scoreRaw = value;
-      if (param === 'cmi.core.lesson_location') state.lessonLocation = value;
-      if (param === 'cmi.suspend_data') state.suspendData = value;
-      return 'true';
-    },
-    LMSCommit() {
-      void commitProgress();
-      return 'true';
-    },
-    LMSFinish() {
-      void commitProgress();
-      return 'true';
-    },
-    LMSGetLastError() {
-      return '0';
-    },
-    LMSGetErrorString() {
-      return 'No Error';
-    },
-    LMSGetDiagnostic() {
-      return 'No Error';
-    },
-  };
+function receive(event) {
+  if (event.source !== frame.value?.contentWindow || event.origin !== 'null' || event.data?.type !== 'jk-scorm-commit' || event.data.channel !== channel) return;
+  const state = event.data.state;
+  if (!state || JSON.stringify(state).length > 100000) return;
+  pending = pending.then(async () => {
+    saving.value = true;
+    try {
+      const {data} = await axios.post(`/api/scorm/commit/${props.lessonId}`, {
+        cmi_core_lesson_status: state['cmi.core.lesson_status'] || 'incomplete',
+        cmi_core_score_raw: state['cmi.core.score.raw'] === '' ? null : Number(state['cmi.core.score.raw']),
+        cmi_core_lesson_location: state['cmi.core.lesson_location'] || '',
+        suspend_data: {data: state['cmi.suspend_data'] || ''},
+      });
+      saved.value = true; error.value = ''; emit('scorm-progress', data);
+      if (data.completed) emit('scorm-completed', data);
+    } catch { error.value = 'Progress could not be saved. Check your connection and save again in the activity.'; }
+    finally { saving.value = false; }
+  });
 }
-
-function buildScorm2004Api() {
-  return {
-    Initialize() {
-      return 'true';
-    },
-    GetValue(param) {
-      if (param === 'cmi.completion_status' || param === 'cmi.success_status') return state.lessonStatus;
-      if (param === 'cmi.location') return state.lessonLocation;
-      if (param === 'cmi.score.raw') return state.scoreRaw;
-      if (param === 'cmi.suspend_data') return state.suspendData;
-      return '';
-    },
-    SetValue(param, value) {
-      if (param === 'cmi.completion_status' || param === 'cmi.success_status') state.lessonStatus = value;
-      if (param === 'cmi.score.raw') state.scoreRaw = value;
-      if (param === 'cmi.location') state.lessonLocation = value;
-      if (param === 'cmi.suspend_data') state.suspendData = value;
-      return 'true';
-    },
-    Commit() {
-      void commitProgress();
-      return 'true';
-    },
-    Terminate() {
-      void commitProgress();
-      return 'true';
-    },
-    GetLastError() {
-      return '0';
-    },
-    GetErrorString() {
-      return 'No Error';
-    },
-    GetDiagnostic() {
-      return 'No Error';
-    },
-  };
-}
-
-function setupScormApi() {
-  window.API = buildScorm12Api();
-  window.API_1484_11 = buildScorm2004Api();
-}
-
-function handleIframeLoad() {
-  loading.value = false;
-}
-
-onMounted(() => {
-  setupScormApi();
-});
-
-onBeforeUnmount(() => {
-  if (window.API) {
-    delete window.API;
-  }
-
-  if (window.API_1484_11) {
-    delete window.API_1484_11;
-  }
-});
+onMounted(() => { window.addEventListener('message', receive); launch(); });
+onBeforeUnmount(() => window.removeEventListener('message', receive));
 </script>

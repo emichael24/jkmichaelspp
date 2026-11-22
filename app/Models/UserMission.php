@@ -17,8 +17,8 @@ class UserMission extends Model
     ];
 
     protected $casts = [
-        'progress'     => 'integer',
-        'target'       => 'integer',
+        'progress' => 'integer',
+        'target' => 'integer',
         'completed_at' => 'datetime',
     ];
 
@@ -55,7 +55,10 @@ class UserMission extends Model
 
     public function progressPct(): int
     {
-        if ($this->target <= 0) return 100;
+        if ($this->target <= 0) {
+            return 100;
+        }
+
         return min(100, (int) round(($this->progress / $this->target) * 100));
     }
 
@@ -64,7 +67,9 @@ class UserMission extends Model
      */
     public function advance(int $amount = 1): bool
     {
-        if ($this->status !== 'active') return false;
+        if ($this->status !== 'active') {
+            return false;
+        }
 
         $this->progress = min($this->progress + $amount, $this->target);
 

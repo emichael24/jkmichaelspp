@@ -4,8 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 class Cohort extends Model
@@ -26,8 +26,8 @@ class Cohort extends Model
 
     protected $casts = [
         'start_date' => 'date',
-        'end_date'   => 'date',
-        'settings'   => 'array',
+        'end_date' => 'date',
+        'settings' => 'array',
     ];
 
     /* ── boot ── */
@@ -62,10 +62,10 @@ class Cohort extends Model
     public function learners(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'cohort_members')
-                    ->wherePivot('role', 'learner')
-                    ->wherePivot('status', 'active')
-                    ->withPivot('role', 'status', 'joined_at')
-                    ->withTimestamps();
+            ->wherePivot('role', 'learner')
+            ->wherePivot('status', 'active')
+            ->withPivot('role', 'status', 'joined_at')
+            ->withTimestamps();
     }
 
     public function weeklyPlans(): HasMany

@@ -17,11 +17,11 @@
         </div>
 
         <!-- Status Tabs -->
-        <div class="flex gap-1 bg-surface-100 p-1 rounded-xl w-fit">
+        <div class="flex flex-wrap gap-1 bg-surface-100 p-1 rounded-xl w-fit max-w-full">
             <button
                 v-for="tab in statusTabs"
                 :key="tab.value"
-                @click="setStatus(tab.value)"
+                :aria-pressed="currentStatus === tab.value" @click="setStatus(tab.value)"
                 :class="[
                     'px-4 py-1.5 rounded-lg text-sm font-medium transition-colors',
                     currentStatus === tab.value
@@ -77,7 +77,7 @@
                             </div>
 
                             <!-- Stats + Actions -->
-                            <div class="flex items-center justify-between mt-3">
+                            <div class="flex flex-wrap items-center justify-between gap-3 mt-3">
                                 <div class="flex items-center gap-4 text-xs text-surface-400">
                                     <span class="flex items-center gap-1">
                                         <Layers class="w-3.5 h-3.5" />
@@ -87,7 +87,7 @@
                                         <FileText class="w-3.5 h-3.5" />
                                         {{ course.lessons_count || 0 }} lessons
                                     </span>
-                                    <span v-if="course.price" class="flex items-center gap-1">
+                                    <span v-if="Number(course.price) > 0" class="flex items-center gap-1">
                                         <DollarSign class="w-3.5 h-3.5" />
                                         ₦{{ Number(course.price).toLocaleString() }}
                                     </span>
@@ -112,7 +112,7 @@
                                     <!-- Edit -->
                                     <Link
                                         v-if="['draft', 'rejected'].includes(course.approval_status)"
-                                        :href="`/facilitator/courses/${course.id}/edit`"
+                                        :aria-label="`Edit ${course.title}`" :href="`/facilitator/courses/${course.id}/edit`"
                                     >
                                         <button class="p-1.5 rounded-lg hover:bg-surface-100 text-surface-400 hover:text-primary-600 transition-colors">
                                             <Pencil class="w-4 h-4" />
@@ -122,7 +122,7 @@
                                     <!-- Delete -->
                                     <button
                                         v-if="course.approval_status === 'draft'"
-                                        @click="confirmDelete(course)"
+                                        :aria-label="`Delete ${course.title}`" @click="confirmDelete(course)"
                                         class="p-1.5 rounded-lg hover:bg-surface-100 text-surface-400 hover:text-danger-600 transition-colors"
                                     >
                                         <Trash2 class="w-4 h-4" />
@@ -168,6 +168,8 @@
     </div>
 
     <!-- Delete Confirm Modal -->
+    <nav v-if="courses.last_page > 1" aria-label="Course list pages" class="mt-5 flex items-center justify-between gap-3 text-sm"><p class="text-surface-500">Showing {{ courses.from }}–{{ courses.to }} of {{ courses.total }}</p><div class="flex gap-3"><Link v-if="courses.prev_page_url" :href="courses.prev_page_url" class="rounded-lg border px-3 py-2">Previous</Link><Link v-if="courses.next_page_url" :href="courses.next_page_url" class="rounded-lg border px-3 py-2">Next</Link></div></nav>
+
     <Modal :show="showDeleteModal" @close="showDeleteModal = false">
         <div class="p-6">
             <h3 class="text-lg font-semibold text-surface-900">Delete Course</h3>
@@ -241,7 +243,7 @@ function statusBadgeClass(status) {
 // Submit for review
 function submitForReview(course) {
     if (!confirm(`Submit "${course.title}" for admin review?`)) return;
-    router.post(`/facilitator/courses/${course.id}/submit-for-review`, {}, {
+    router.post(`/facilitator/courses/${course.id}/submit-review`, {}, {
         preserveScroll: true,
     });
 }

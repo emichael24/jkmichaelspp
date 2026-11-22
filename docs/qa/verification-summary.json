@@ -1,0 +1,351 @@
+{
+  "project": "JK Michaels",
+  "root": "C:\\JK Michaels app",
+  "date": "2026-10-05",
+  "base_commit": "a1eba2381311ae98a2d7bf2e44b45f1c45caff1f",
+  "initial_baseline": {
+    "project": "JK Michaels",
+    "root": "C:\\JK Michaels app",
+    "date": "2026-10-05",
+    "base_commit": "a1eba2381311ae98a2d7bf2e44b45f1c45caff1f",
+    "tests_passed": 39,
+    "assertions": 203,
+    "workspace_get_pages": 61,
+    "routes": 421,
+    "routed_controller_files": 80,
+    "static_internal_links": 150,
+    "broken_static_internal_links": 0,
+    "missing_literal_inertia_pages": 0,
+    "frontend_build": "pass",
+    "composer_validate": "pass",
+    "composer_advisories": 0,
+    "npm_vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "repository_pint_result": "passed",
+    "repository_pint_files_remaining": 0,
+    "enterprise_release": "not_ready"
+  },
+  "current": {
+    "backend_sqlite": {
+      "tests": 153,
+      "assertions": 1208,
+      "result": "passed"
+    },
+    "backend_mariadb": {
+      "tests": 153,
+      "assertions": 1208,
+      "result": "passed",
+      "runtime": "PHP 8.2.26 / MariaDB 10.6.21",
+      "source_archive_sha256": "cbee9a842413184f184e640a262bbd48146ae6f4f50ccd34b3a1271f4d1b41c2"
+    },
+    "javascript": {
+      "tests": 12,
+      "result": "passed",
+      "evidence": "javascript-current-results.txt"
+    },
+    "frontend_build": "passed",
+    "sql_migration_rehearsal": {
+      "result": "passed",
+      "verified_at": "2026-10-05T11:21:24+00:00",
+      "source_tables_transferred": 117,
+      "source_rows_transferred": 1366,
+      "row_hashes_verified_before_pending_migrations": true,
+      "foreign_keys_verified": 204,
+      "migrations": 45,
+      "live_database_modified": false,
+      "preserved_legacy_course_classifications": 1,
+      "date_only_columns_normalized_to_schema": {
+        "cohorts.start_date": 3,
+        "cohorts.end_date": 3,
+        "internship_enrollments.start_date": 31,
+        "internship_enrollments.end_date": 31,
+        "internship_tasks.due_date": 10,
+        "user_gamification.last_activity_date": 4
+      },
+      "limits": [
+        "Protected same-server rehearsal",
+        "No production HTTP traffic redirected",
+        "No external email, payment or AI requests"
+      ]
+    },
+    "isolated_runtime": {
+      "initialize": {
+        "exit": 0
+      },
+      "schedule": {
+        "exit": 0
+      },
+      "queue": {
+        "exit": 0
+      },
+      "verify": {
+        "exit": 0
+      },
+      "heartbeats": {
+        "scheduler": true,
+        "queue": true,
+        "probe_queue_empty": true
+      },
+      "media": {
+        "exit": 0,
+        "evidence": {
+          "migration_exit": 0,
+          "remaining_public_files": 0,
+          "document_assets": 1,
+          "scanned_and_hash_verified": true
+        }
+      },
+      "reconcile": {
+        "exit": 1,
+        "evidence": {
+          "checked_at": "2026-10-05T11:22:59+00:00",
+          "applied": false,
+          "checked": 130,
+          "evidence_supported": 0,
+          "reconciled": 0,
+          "unavailable_accounts": 0,
+          "course_certificates": 0,
+          "historical_review_required": 32,
+          "private_report": "operations/learning-reconciliation-20261005-112300.json"
+        },
+        "diagnostic": ""
+      },
+      "http": [
+        {
+          "path": "/up",
+          "probe_authorized": true,
+          "synthetic_learner": false,
+          "status": 200,
+          "expected": 200,
+          "passed": true
+        },
+        {
+          "path": "/login",
+          "probe_authorized": true,
+          "synthetic_learner": false,
+          "status": 200,
+          "expected": 200,
+          "passed": true
+        },
+        {
+          "path": "/courses",
+          "probe_authorized": true,
+          "synthetic_learner": false,
+          "status": 302,
+          "expected": 302,
+          "passed": true
+        },
+        {
+          "path": "/downloads",
+          "probe_authorized": true,
+          "synthetic_learner": false,
+          "status": 302,
+          "expected": 302,
+          "passed": true
+        },
+        {
+          "path": "/courses",
+          "probe_authorized": false,
+          "synthetic_learner": false,
+          "status": 404,
+          "expected": 404,
+          "passed": true
+        },
+        {
+          "path": "/dashboard",
+          "probe_authorized": true,
+          "synthetic_learner": true,
+          "status": 200,
+          "expected": 200,
+          "passed": true
+        },
+        {
+          "path": "/courses",
+          "probe_authorized": true,
+          "synthetic_learner": true,
+          "status": 200,
+          "expected": 200,
+          "passed": true
+        },
+        {
+          "path": "/downloads",
+          "probe_authorized": true,
+          "synthetic_learner": true,
+          "status": 200,
+          "expected": 200,
+          "passed": true
+        }
+      ],
+      "result": "passed",
+      "live_resource_hashes_unchanged": true,
+      "verified_at": "2026-10-05T11:23:02.898466+00:00",
+      "live_application_changed": false,
+      "scope": "Application-owner processes; isolated migrated copy; loopback HTTP with secret probe header; heartbeat queue only; external HTTP blocked; mail array; server stopped"
+    },
+    "scanner": {
+      "clean.txt": {
+        "exit": 0,
+        "clean": true,
+        "detected": false,
+        "stderr_empty": true
+      },
+      "eicar.com": {
+        "exit": 1,
+        "clean": false,
+        "detected": true,
+        "stderr_empty": true
+      },
+      "signature_check_age_seconds": 236
+    },
+    "document_sandbox": {
+      "result": "passed",
+      "verified_at": "2026-10-05T04:49:30.180972+00:00",
+      "checks": {
+        "pdf_metadata": {
+          "passed": true,
+          "exit": 0,
+          "one_page": true
+        },
+        "pdf_raster": {
+          "passed": true,
+          "exit": 0,
+          "png_created": true
+        },
+        "pptx_conversion": {
+          "passed": true,
+          "exit": 0,
+          "pdf_created": true
+        },
+        "reject_configuration_path": {
+          "passed": true,
+          "exit": 126
+        },
+        "reject_program_arguments": {
+          "passed": true,
+          "exit": 126
+        },
+        "reject_symlink_input": {
+          "passed": true,
+          "exit": 126
+        },
+        "filesystem_network_environment_isolation": {
+          "passed": true,
+          "exit": 0
+        }
+      },
+      "application_configuration_changed": false
+    },
+    "php_formatting": {
+      "result": "passed",
+      "configuration": "pint.json",
+      "excludes": "Ignored temporary runtimes, generated bootstrap caches and compiled assets",
+      "evidence": "pint-current-results.json"
+    },
+    "organization_workflows": {
+      "implementation": "local",
+      "tests": 8,
+      "proof": "ORGANIZATION-AND-INTERNSHIP-2026-10-05.md",
+      "real_invitations_sent": 0
+    },
+    "internship_integrity": {
+      "implementation": "local",
+      "tests": 8,
+      "credential_identity": "database_unique",
+      "proof": "ORGANIZATION-AND-INTERNSHIP-2026-10-05.md",
+      "browser_result": {
+        "result": "passed",
+        "environment": "local synthetic preview; no outgoing mail",
+        "verified_at": "2026-10-05T09:55:07+00:00",
+        "enrollment_status": "completed",
+        "score": "4.50",
+        "certificate_count": 1,
+        "completion_policy": "reviewed_internship_milestones_v1",
+        "task_count": 1,
+        "review_count": 1
+      }
+    },
+    "frontend_build_evidence": "frontend-current-results.txt",
+    "commerce_provider": {
+      "verified_at": "2026-10-05T11:05:54+00:00",
+      "mode": "test",
+      "reference": "JKM-READINESS-aa5d6ebdf93a250e",
+      "scope": "Local isolated SQL fixture and real Paystack test API; pre-existing sandbox charge; no live charge or production writes.",
+      "subscription_confirmed_once": true,
+      "provider_subscriptions_found": 1,
+      "provider_subscription_linked": true,
+      "provider_cancellation_status": "non-renewing",
+      "paid_period_preserved": true,
+      "refund_request_status": "pending",
+      "refund_verified_status": "processed",
+      "payment_status": "refunded",
+      "refund_count": 1,
+      "refund_checked_at": "2026-10-05T11:16:38+00:00"
+    },
+    "crm_contacts": {
+      "implementation": "local",
+      "tests": 6,
+      "browser": "Create, edit, default/per-row typed import, mobile 390px, labels and escape recovery",
+      "proof": "CRM-AND-LEARNING-BOUNDARIES-2026-10-05.md",
+      "communications_sent": 0
+    },
+    "learning_boundaries": {
+      "tests": 12,
+      "scope": "Resource and account boundaries (5), media migration/retention (3), historical reconciliation (2), prerequisites (2)",
+      "historical_review_required": 32
+    },
+    "commerce_and_gradebook": {
+      "tests": 12,
+      "proof": "COMMERCE-AND-GRADEBOOK-2026-10-05.md",
+      "scope": "Checkout recovery (7), full Paystack refunds (4), gradebook isolation (1)"
+    },
+    "offline_origin": {
+      "origin": "http://127.0.0.1:8902",
+      "fixture": "dedicated synthetic database copy",
+      "application_server_stopped_during_read": true,
+      "fallback_reader_rendered": true,
+      "encrypted_reading_readable": true,
+      "failed_sync_retained_progress": true,
+      "receipt_count_before": 0,
+      "receipt_count_after": 1,
+      "lesson_progress": [
+        [
+          "completed",
+          100
+        ]
+      ],
+      "enrollment": [
+        [
+          "completed",
+          100
+        ]
+      ],
+      "certificates": 1,
+      "browser_tab_closed_before_sync_screenshot": true,
+      "scope_limit": "Origin unreachable test, not operating-system airplane mode or native-device acceptance.",
+      "fresh_tab_private_reading_count": 0,
+      "recovered_course_browser_progress_pct": 100,
+      "temporary_server_stopped": true
+    },
+    "source_snapshot_comparison": {
+      "files": 637,
+      "changed_files": [
+        "ops/README.md",
+        "resources/js/Layouts/WorkspaceShell.vue"
+      ],
+      "note": "After the backend SQL snapshot: operational documentation and a provider-specific test banner wording correction only; frontend rebuilt separately."
+    },
+    "frontend_manifest_sha256": "b65e2df141cc04005e1f421309766a09fa77aed3cea6757a2198769aeea339bd"
+  },
+  "production_application_release": "not_deployed",
+  "enterprise_release": "not_ready",
+  "user_deferred": [
+    "Organization SSO",
+    "Independent verification of user-confirmed daily Contabo backups"
+  ]
+}

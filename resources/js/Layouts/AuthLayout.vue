@@ -47,16 +47,16 @@
                 <!-- Stats -->
                 <div class="flex gap-8">
                     <div>
-                        <p class="text-3xl font-display font-bold text-white">5K+</p>
-                        <p class="text-white/40 text-sm mt-0.5">Active learners</p>
+                        <p class="text-2xl font-display font-bold text-white">Learn</p>
+                        <p class="text-white/70 text-sm mt-0.5">Build knowledge</p>
                     </div>
                     <div>
-                        <p class="text-3xl font-display font-bold text-white">200+</p>
-                        <p class="text-white/40 text-sm mt-0.5">Courses</p>
+                        <p class="text-2xl font-display font-bold text-white">Practice</p>
+                        <p class="text-white/70 text-sm mt-0.5">Grow confidence</p>
                     </div>
                     <div>
-                        <p class="text-3xl font-display font-bold text-white">95%</p>
-                        <p class="text-white/40 text-sm mt-0.5">Pass rate</p>
+                        <p class="text-2xl font-display font-bold text-white">Apply</p>
+                        <p class="text-white/70 text-sm mt-0.5">Develop your skills</p>
                     </div>
                 </div>
             </div>

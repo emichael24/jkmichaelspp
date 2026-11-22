@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\ExternalIntegrationException;
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Models\Course;
 use App\Services\AiContentService;
+use App\Services\CurriculumRevisionService;
 use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class AiStudioController extends Controller
 {
@@ -16,11 +20,15 @@ class AiStudioController extends Controller
     {
         $request->validate([
             'course_id' => 'required|exists:courses,id',
-            'content_text' => 'required|string|min:10',
-            'domain' => 'required|string',
+            'content_text' => 'required|string|min:10|max:7000',
+            'domain' => 'required|string|max:255',
             'difficulty' => 'nullable|in:easy,medium,hard,expert',
-            'count' => 'nullable|integer|min:1|max:10'
+            'count' => 'nullable|integer|min:1|max:10',
         ]);
+
+        $course = Course::findOrFail($request->course_id);
+        abort_unless($request->user()->hasRole('platform_admin') || $course->author_id === $request->user()->id, 403);
+        app(CurriculumRevisionService::class)->assertEditable($course);
 
         try {
             $questions = $aiService->generateQuizFromText(
@@ -34,14 +42,17 @@ class AiStudioController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => "Successfully generated {$questions->count()} questions.",
-                'data' => $questions
+                'data' => $questions,
             ]);
+        } catch (ExternalIntegrationException|ValidationException $e) {
+            throw $e;
         } catch (Exception $e) {
+            report($e);
+
             return response()->json([
                 'status' => 'error',
-                'message' => 'AI Generation failed: ' . $e->getMessage()
+                'message' => 'Content generation could not finish. Your existing course content has not changed. Please retry or contact support.',
             ], 500);
         }
     }
 }
-

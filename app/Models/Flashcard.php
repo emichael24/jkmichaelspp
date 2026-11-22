@@ -96,15 +96,15 @@ class Flashcard extends Model
         return static::firstOrCreate(
             [
                 'question_id' => $question->id,
-                'user_id'     => $userId,
-                'source'      => 'wrong_answer',
+                'user_id' => $userId,
+                'source' => 'wrong_answer',
             ],
             [
                 'course_id' => $question->course_id,
-                'front'     => $question->stem,
-                'back'      => $question->explanation_correct ?? 'Review the correct answer.',
-                'domain'    => $question->domain,
-                'tags'      => $question->tags,
+                'front' => $question->stem,
+                'back' => $question->explanation_correct ?? 'Review the correct answer.',
+                'domain' => $question->domain,
+                'tags' => $question->tags,
             ]
         );
     }
@@ -120,19 +120,21 @@ class Flashcard extends Model
             $termText = is_array($term) ? ($term['term'] ?? '') : $term;
             $definition = is_array($term) ? ($term['definition'] ?? '') : '';
 
-            if (! $termText) continue;
+            if (! $termText) {
+                continue;
+            }
 
             $cards[] = static::firstOrCreate(
                 [
                     'lesson_id' => $lesson->id,
-                    'front'     => $termText,
-                    'source'    => 'lesson_term',
-                    'user_id'   => $userId,
+                    'front' => $termText,
+                    'source' => 'lesson_term',
+                    'user_id' => $userId,
                 ],
                 [
                     'course_id' => $lesson->module->course_id,
-                    'back'      => $definition,
-                    'domain'    => null,
+                    'back' => $definition,
+                    'domain' => null,
                 ]
             );
         }

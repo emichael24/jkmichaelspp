@@ -109,6 +109,7 @@ class EventController extends Controller
     public function destroy(int $id)
     {
         Event::findOrFail($id)->delete();
+
         return redirect()->route('admin.events.index')->with('success', 'Event deleted.');
     }
 

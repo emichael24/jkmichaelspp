@@ -20,24 +20,29 @@ class ErrorPattern extends Model
 
     protected $casts = [
         'example_question_ids' => 'array',
-        'occurrence_count'     => 'integer',
-        'detected_at'          => 'datetime',
+        'occurrence_count' => 'integer',
+        'detected_at' => 'datetime',
     ];
 
     // Pattern type constants
-    public const CONCEPT_CONFUSION    = 'concept_confusion';
-    public const CARELESS_FAST        = 'careless_fast';
-    public const OVERTHINKING_SLOW    = 'overthinking_slow';
-    public const CONFIDENCE_MISMATCH  = 'confidence_mismatch';
-    public const QUALIFIER_MISREAD    = 'qualifier_misread';
-    public const ELIMINATION_FAILURE  = 'elimination_failure';
+    public const CONCEPT_CONFUSION = 'concept_confusion';
+
+    public const CARELESS_FAST = 'careless_fast';
+
+    public const OVERTHINKING_SLOW = 'overthinking_slow';
+
+    public const CONFIDENCE_MISMATCH = 'confidence_mismatch';
+
+    public const QUALIFIER_MISREAD = 'qualifier_misread';
+
+    public const ELIMINATION_FAILURE = 'elimination_failure';
 
     public const FIX_SUGGESTIONS = [
-        self::CONCEPT_CONFUSION   => 'Review the related lessons to distinguish between similar concepts.',
-        self::CARELESS_FAST       => 'Slow down and re-read each question carefully before answering.',
-        self::OVERTHINKING_SLOW   => 'Try the 30-second elimination strategy — remove obviously wrong answers first.',
+        self::CONCEPT_CONFUSION => 'Review the related lessons to distinguish between similar concepts.',
+        self::CARELESS_FAST => 'Slow down and re-read each question carefully before answering.',
+        self::OVERTHINKING_SLOW => 'Try the 30-second elimination strategy — remove obviously wrong answers first.',
         self::CONFIDENCE_MISMATCH => 'You may be confusing similar concepts. Review the underlying fundamentals.',
-        self::QUALIFIER_MISREAD   => 'Highlight qualifiers like MOST, LEAST, EXCEPT, NOT before answering.',
+        self::QUALIFIER_MISREAD => 'Highlight qualifiers like MOST, LEAST, EXCEPT, NOT before answering.',
         self::ELIMINATION_FAILURE => 'Practice the 2-pass elimination method on scenario-based items.',
     ];
 

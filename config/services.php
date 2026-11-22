@@ -39,13 +39,14 @@ return [
         'secret_key' => env('PAYSTACK_SECRET_KEY'),
         'public_key' => env('PAYSTACK_PUBLIC_KEY'),
         'payment_url' => 'https://api.paystack.co',
-        'callback_url' => env('PAYSTACK_CALLBACK_URL', env('APP_URL') . '/payments/paystack/callback'),
+        'callback_url' => env('PAYSTACK_CALLBACK_URL', env('APP_URL').'/payments/paystack/callback'),
         'webhook_secret' => env('PAYSTACK_WEBHOOK_SECRET'),
     ],
 
     'flexichurch' => [
         'api_key' => env('FLEXICHURCH_API_KEY'),
         'base_url' => env('FLEXICHURCH_BASE_URL', 'https://flexichurch.com/api/v1/external'),
+        'media_base_url' => env('FLEXICHURCH_MEDIA_BASE_URL', 'https://storage.googleapis.com/flexichurch-church-uploads'),
         'whatsapp_session' => env('FLEXICHURCH_WA_SESSION', 'jkmichaels-main'),
     ],
 

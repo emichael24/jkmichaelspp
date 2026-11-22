@@ -1,0 +1,24 @@
+{
+    "result": "passed",
+    "verified_at": "2026-10-05T11:21:24+00:00",
+    "source_tables_transferred": 117,
+    "source_rows_transferred": 1366,
+    "row_hashes_verified_before_pending_migrations": true,
+    "foreign_keys_verified": 204,
+    "migrations": 45,
+    "live_database_modified": false,
+    "preserved_legacy_course_classifications": 1,
+    "date_only_columns_normalized_to_schema": {
+        "cohorts.start_date": 3,
+        "cohorts.end_date": 3,
+        "internship_enrollments.start_date": 31,
+        "internship_enrollments.end_date": 31,
+        "internship_tasks.due_date": 10,
+        "user_gamification.last_activity_date": 4
+    },
+    "limits": [
+        "Protected same-server rehearsal",
+        "No production HTTP traffic redirected",
+        "No external email, payment or AI requests"
+    ]
+}

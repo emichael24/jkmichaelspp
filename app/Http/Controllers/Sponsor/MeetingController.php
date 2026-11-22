@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Sponsor;
 
 use App\Http\Controllers\Controller;
+use App\Models\InternshipEnrollment;
 use App\Models\Meeting;
 use App\Models\MeetingAttendee;
-use App\Models\InternshipEnrollment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -31,7 +31,7 @@ class MeetingController extends Controller
         $past = Meeting::forOrganizer($userId)
             ->where(function ($q) {
                 $q->where('scheduled_at', '<', now())
-                  ->orWhere('status', 'completed');
+                    ->orWhere('status', 'completed');
             })
             ->with('attendeeUsers:id,first_name,last_name')
             ->latest('scheduled_at')
@@ -45,15 +45,15 @@ class MeetingController extends Controller
             ->with('user:id,first_name,last_name,email')
             ->get()
             ->map(fn ($e) => [
-                'id'    => $e->user_id,
-                'name'  => $e->user->first_name . ' ' . $e->user->last_name,
+                'id' => $e->user_id,
+                'name' => $e->user->first_name.' '.$e->user->last_name,
                 'email' => $e->user->email,
             ]);
 
         return Inertia::render('Sponsor/Meetings', [
             'upcoming' => $upcoming,
-            'past'     => $past,
-            'interns'  => $interns,
+            'past' => $past,
+            'interns' => $interns,
         ]);
     }
 
@@ -63,37 +63,37 @@ class MeetingController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'title'            => 'required|string|max:255',
-            'description'      => 'nullable|string|max:1000',
-            'scheduled_at'     => 'required|date|after:now',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'scheduled_at' => 'required|date|after:now',
             'duration_minutes' => 'required|integer|min:15|max:180',
-            'platform'         => 'required|in:zoom,teams,google_meet,other',
-            'meeting_url'      => 'nullable|url|max:500',
-            'agenda'           => 'nullable|string|max:2000',
-            'attendee_ids'     => 'required|array|min:1',
-            'attendee_ids.*'   => 'integer|exists:users,id',
+            'platform' => 'required|in:zoom,teams,google_meet,other',
+            'meeting_url' => 'nullable|url|max:500',
+            'agenda' => 'nullable|string|max:2000',
+            'attendee_ids' => 'required|array|min:1',
+            'attendee_ids.*' => 'integer|exists:users,id',
         ]);
 
         $meeting = Meeting::create([
-            'title'            => $validated['title'],
-            'description'      => $validated['description'] ?? null,
-            'organizer_id'     => Auth::id(),
-            'type'             => 'review',
-            'scheduled_at'     => $validated['scheduled_at'],
+            'title' => $validated['title'],
+            'description' => $validated['description'] ?? null,
+            'organizer_id' => Auth::id(),
+            'type' => 'review',
+            'scheduled_at' => $validated['scheduled_at'],
             'duration_minutes' => $validated['duration_minutes'],
-            'platform'         => $validated['platform'],
-            'meeting_url'      => $validated['meeting_url'] ?? null,
-            'agenda'           => $validated['agenda'] ?? null,
-            'status'           => 'scheduled',
+            'platform' => $validated['platform'],
+            'meeting_url' => $validated['meeting_url'] ?? null,
+            'agenda' => $validated['agenda'] ?? null,
+            'status' => 'scheduled',
         ]);
 
         // Add attendees
         foreach ($validated['attendee_ids'] as $attendeeId) {
             MeetingAttendee::create([
                 'meeting_id' => $meeting->id,
-                'user_id'    => $attendeeId,
-                'rsvp'       => 'pending',
-                'attended'   => false,
+                'user_id' => $attendeeId,
+                'rsvp' => 'pending',
+                'attended' => false,
             ]);
         }
 
@@ -106,10 +106,11 @@ class MeetingController extends Controller
      */
     public function markAttendance(Request $request, Meeting $meeting)
     {
+        abort_unless($meeting->organizer_id === $request->user()->id, 403);
         $request->validate([
-            'attendees'              => 'required|array',
-            'attendees.*.user_id'    => 'required|integer',
-            'attendees.*.attended'   => 'required|boolean',
+            'attendees' => 'required|array',
+            'attendees.*.user_id' => 'required|integer',
+            'attendees.*.attended' => 'required|boolean',
         ]);
 
         foreach ($request->attendees as $att) {
@@ -126,16 +127,17 @@ class MeetingController extends Controller
      */
     public function saveNotes(Request $request, Meeting $meeting)
     {
+        abort_unless($meeting->organizer_id === $request->user()->id, 403);
         $validated = $request->validate([
-            'notes'        => 'nullable|string|max:5000',
+            'notes' => 'nullable|string|max:5000',
             'action_items' => 'nullable|array',
             'action_items.*' => 'string|max:500',
         ]);
 
         $meeting->update([
-            'notes'        => $validated['notes'] ?? null,
+            'notes' => $validated['notes'] ?? null,
             'action_items' => $validated['action_items'] ?? [],
-            'status'       => 'completed',
+            'status' => 'completed',
         ]);
 
         return back()->with('success', 'Meeting notes saved.');
@@ -144,24 +146,24 @@ class MeetingController extends Controller
     private function formatMeeting(Meeting $m): array
     {
         return [
-            'id'          => $m->id,
-            'title'       => $m->title,
+            'id' => $m->id,
+            'title' => $m->title,
             'description' => $m->description,
-            'date'        => $m->scheduled_at->format('M d, Y'),
-            'time'        => $m->scheduled_at->format('h:i A'),
-            'dateRaw'     => $m->scheduled_at->toISOString(),
-            'duration'    => $m->duration_minutes,
-            'platform'    => $m->platform,
-            'url'         => $m->meeting_url,
-            'agenda'      => $m->agenda,
-            'notes'       => $m->notes,
+            'date' => $m->scheduled_at->format('M d, Y'),
+            'time' => $m->scheduled_at->format('h:i A'),
+            'dateRaw' => $m->scheduled_at->toISOString(),
+            'duration' => $m->duration_minutes,
+            'platform' => $m->platform,
+            'url' => $m->meeting_url,
+            'agenda' => $m->agenda,
+            'notes' => $m->notes,
             'action_items' => $m->action_items ?? [],
-            'status'      => $m->status,
-            'attendees'   => $m->attendeeUsers->map(fn ($u) => [
-                'id'       => $u->id,
-                'name'     => $u->first_name . ' ' . $u->last_name,
+            'status' => $m->status,
+            'attendees' => $m->attendeeUsers->map(fn ($u) => [
+                'id' => $u->id,
+                'name' => $u->first_name.' '.$u->last_name,
                 'attended' => $u->pivot->attended ?? false,
-                'rsvp'     => $u->pivot->rsvp ?? 'pending',
+                'rsvp' => $u->pivot->rsvp ?? 'pending',
             ]),
         ];
     }

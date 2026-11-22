@@ -5,8 +5,12 @@ namespace App\Services;
 use App\Models\Badge;
 use App\Models\DailyActivityLog;
 use App\Models\Mission;
+use App\Models\QuizAttempt;
+use App\Models\User;
 use App\Models\UserGamification;
+use App\Models\UserMastery;
 use App\Models\UserMission;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class GamificationService
@@ -14,16 +18,16 @@ class GamificationService
     // ── XP Values per Action ─────────────────────
 
     public const XP_VALUES = [
-        'lesson_complete'    => 10,
-        'quiz_pass'          => 15,
-        'quiz_excellent'     => 25, // 90%+
-        'mock_complete'      => 50,
+        'lesson_complete' => 10,
+        'quiz_pass' => 15,
+        'quiz_excellent' => 25, // 90%+
+        'mock_complete' => 50,
         'simulation_complete' => 30,
-        'daily_login'        => 5,
+        'daily_login' => 5,
         'streak_7_day_bonus' => 50,
-        'mission_complete'   => 0,  // varies per mission
-        'internship_task'    => 20,
-        'flashcard_review'   => 10,
+        'mission_complete' => 0,  // varies per mission
+        'internship_task' => 20,
+        'flashcard_review' => 10,
     ];
 
     /**
@@ -38,6 +42,28 @@ class GamificationService
      * Returns an events array for celebration UI.
      */
     public function awardXp(int $userId, string $action, array $context = []): array
+    {
+        $source = $action === 'daily_login' ? now()->toDateString() : ($context['event_key'] ?? null);
+        if (! $source || ! array_key_exists($action, self::XP_VALUES)) {
+            throw new \InvalidArgumentException('Rewards require a known action and a stable source event.');
+        }
+
+        return DB::transaction(function () use ($userId, $action, $context, $source) {
+            User::whereKey($userId)->lockForUpdate()->firstOrFail();
+            $key = hash('sha256', $userId.'|'.$action.'|'.$source);
+            if (DB::table('gamification_events')->where('event_key', $key)->exists()) {
+                return [];
+            }
+            $before = UserGamification::forUser($userId)->total_xp;
+            $events = $this->applyReward($userId, $action, $context);
+            DB::table('gamification_events')->insert(['user_id' => $userId, 'event_key' => $key,
+                'action' => $action, 'xp' => UserGamification::forUser($userId)->total_xp - $before, 'created_at' => now()]);
+
+            return $events;
+        }, 3);
+    }
+
+    private function applyReward(int $userId, string $action, array $context): array
     {
         $events = [];
         $xp = $context['xp'] ?? (self::XP_VALUES[$action] ?? 0);
@@ -63,7 +89,7 @@ class GamificationService
 
         if ($levelledUp) {
             $events[] = [
-                'type'  => 'level_up',
+                'type' => 'level_up',
                 'level' => $gam->level,
                 'title' => $gam->levelTitle(),
             ];
@@ -73,7 +99,7 @@ class GamificationService
         $streakResult = $gam->updateStreak();
         if ($streakResult['streak_continued'] && $gam->current_streak_days % 7 === 0) {
             $events[] = [
-                'type'   => 'streak_milestone',
+                'type' => 'streak_milestone',
                 'streak' => $gam->current_streak_days,
             ];
             // Award 7-day streak bonus XP
@@ -89,12 +115,12 @@ class GamificationService
 
         // Map action to daily log fields
         match ($action) {
-            'lesson_complete'       => $log->incrementCounter('lessons_completed'),
+            'lesson_complete' => $log->incrementCounter('lessons_completed'),
             'quiz_pass', 'quiz_excellent' => $log->incrementCounter('quizzes_completed'),
-            'flashcard_review'      => $log->incrementCounter('flashcards_reviewed'),
-            'simulation_complete'   => $log->incrementCounter('simulations_completed'),
-            'daily_login'           => null,
-            default                 => null,
+            'flashcard_review' => $log->incrementCounter('flashcards_reviewed'),
+            'simulation_complete' => $log->incrementCounter('simulations_completed'),
+            'daily_login' => null,
+            default => null,
         };
 
         if (isset($context['questions_answered'])) {
@@ -134,9 +160,9 @@ class GamificationService
             if ($this->meetsBadgeCriteria($userId, $badge, $context)) {
                 // Award the badge
                 DB::table('user_badges')->insert([
-                    'user_id'    => $userId,
-                    'badge_id'   => $badge->id,
-                    'earned_at'  => now(),
+                    'user_id' => $userId,
+                    'badge_id' => $badge->id,
+                    'earned_at' => now(),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
@@ -149,11 +175,11 @@ class GamificationService
                 }
 
                 $events[] = [
-                    'type'        => 'badge_earned',
-                    'badge_id'    => $badge->id,
-                    'badge_name'  => $badge->name,
-                    'badge_icon'  => $badge->icon,
-                    'xp_reward'   => $badge->xp_reward,
+                    'type' => 'badge_earned',
+                    'badge_id' => $badge->id,
+                    'badge_name' => $badge->name,
+                    'badge_icon' => $badge->icon,
+                    'xp_reward' => $badge->xp_reward,
                 ];
             }
         }
@@ -164,17 +190,17 @@ class GamificationService
     /**
      * Get badges relevant to the action.
      */
-    private function getBadgesForAction(string $action): \Illuminate\Support\Collection
+    private function getBadgesForAction(string $action): Collection
     {
         $categoryMap = [
-            'lesson_complete'       => 'learning',
-            'quiz_pass'             => 'completion',
-            'quiz_excellent'        => ['mastery', 'completion'],
-            'mock_complete'         => 'completion',
-            'simulation_complete'   => 'completion',
-            'daily_login'           => 'streak',
-            'flashcard_review'      => 'learning',
-            'internship_task'       => 'internship',
+            'lesson_complete' => 'learning',
+            'quiz_pass' => 'completion',
+            'quiz_excellent' => ['mastery', 'completion'],
+            'mock_complete' => 'completion',
+            'simulation_complete' => 'completion',
+            'daily_login' => 'streak',
+            'flashcard_review' => 'learning',
+            'internship_task' => 'internship',
         ];
 
         $categories = $categoryMap[$action] ?? null;
@@ -201,14 +227,14 @@ class GamificationService
 
             'streak_days' => (UserGamification::forUser($userId)->current_streak_days ?? 0) >= ($criteria['count'] ?? PHP_INT_MAX),
 
-            'domain_mastery' => \App\Models\UserMastery::forUser($userId)
+            'domain_mastery' => UserMastery::forUser($userId)
                 ->where('subtopic', '')
                 ->where('accuracy_pct', '>=', ($criteria['min_accuracy'] ?? 90))
                 ->exists(),
 
             'all_domains_mastery' => $this->checkAllDomainsMastery($userId, $criteria['min_accuracy'] ?? 70),
 
-            'quizzes_passed' => \App\Models\QuizAttempt::forUser($userId)
+            'quizzes_passed' => QuizAttempt::forUser($userId)
                 ->completed()
                 ->where('score_pct', '>=', 70)
                 ->count() >= ($criteria['count'] ?? PHP_INT_MAX),
@@ -228,14 +254,14 @@ class GamificationService
      */
     private function checkAllDomainsMastery(int $userId, float $minAccuracy): bool
     {
-        $courses = \App\Models\UserMastery::forUser($userId)
+        $courses = UserMastery::forUser($userId)
             ->where('subtopic', '')
             ->select('course_id')
             ->distinct()
             ->pluck('course_id');
 
         foreach ($courses as $courseId) {
-            $allDomains = \App\Models\UserMastery::forUser($userId)
+            $allDomains = UserMastery::forUser($userId)
                 ->forCourse($courseId)
                 ->where('subtopic', '')
                 ->get();
@@ -257,13 +283,13 @@ class GamificationService
 
         // Map actions to mission criteria keys
         $criteriaKeyMap = [
-            'lesson_complete'       => 'complete_lessons',
-            'quiz_pass'             => 'pass_quiz',
-            'quiz_excellent'        => 'pass_quiz_high',
-            'mock_complete'         => 'complete_mock',
-            'flashcard_review'      => 'review_flashcards',
-            'daily_login'           => 'daily_login',
-            'simulation_complete'   => 'complete_simulation',
+            'lesson_complete' => 'complete_lessons',
+            'quiz_pass' => 'pass_quiz',
+            'quiz_excellent' => 'pass_quiz_high',
+            'mock_complete' => 'complete_mock',
+            'flashcard_review' => 'review_flashcards',
+            'daily_login' => 'daily_login',
+            'simulation_complete' => 'complete_simulation',
         ];
 
         $criteriaKey = $criteriaKeyMap[$action] ?? null;
@@ -295,10 +321,10 @@ class GamificationService
                         }
 
                         $events[] = [
-                            'type'        => 'mission_completed',
-                            'mission_id'  => $um->mission_id,
+                            'type' => 'mission_completed',
+                            'mission_id' => $um->mission_id,
                             'mission_title' => $um->mission->title,
-                            'xp_reward'   => $missionXp,
+                            'xp_reward' => $missionXp,
                         ];
                     }
                 }
@@ -343,11 +369,11 @@ class GamificationService
 
             if (! $existing) {
                 UserMission::create([
-                    'user_id'    => $userId,
+                    'user_id' => $userId,
                     'mission_id' => $mission->id,
-                    'progress'   => 0,
-                    'target'     => $mission->criteria['target'] ?? 1,
-                    'status'     => 'active',
+                    'progress' => 0,
+                    'target' => $mission->criteria['target'] ?? 1,
+                    'status' => 'active',
                 ]);
             }
         }
@@ -365,11 +391,11 @@ class GamificationService
 
             if (! $existing) {
                 UserMission::create([
-                    'user_id'    => $userId,
+                    'user_id' => $userId,
                     'mission_id' => $mission->id,
-                    'progress'   => 0,
-                    'target'     => $mission->criteria['target'] ?? 1,
-                    'status'     => 'active',
+                    'progress' => 0,
+                    'target' => $mission->criteria['target'] ?? 1,
+                    'status' => 'active',
                 ]);
             }
         }
@@ -383,13 +409,13 @@ class GamificationService
         $gam = UserGamification::forUser($userId);
 
         return [
-            'total_xp'          => $gam->total_xp,
-            'level'             => $gam->level,
-            'level_title'       => $gam->levelTitle(),
-            'xp_progress_pct'   => $gam->xpProgressPct(),
+            'total_xp' => $gam->total_xp,
+            'level' => $gam->level,
+            'level_title' => $gam->levelTitle(),
+            'xp_progress_pct' => $gam->xpProgressPct(),
             'xp_for_next_level' => $gam->xpForNextLevel(),
-            'current_streak'    => $gam->current_streak_days,
-            'longest_streak'    => $gam->longest_streak_days,
+            'current_streak' => $gam->current_streak_days,
+            'longest_streak' => $gam->longest_streak_days,
             'protection_tokens' => $gam->streak_protection_tokens,
         ];
     }
@@ -406,15 +432,15 @@ class GamificationService
             ->toArray();
 
         return $allBadges->map(fn (Badge $b) => [
-            'id'          => $b->id,
-            'name'        => $b->name,
-            'slug'        => $b->slug,
+            'id' => $b->id,
+            'name' => $b->name,
+            'slug' => $b->slug,
             'description' => $b->description,
-            'icon'        => $b->icon,
-            'category'    => $b->category,
-            'xp_reward'   => $b->xp_reward,
-            'earned'      => in_array($b->id, $earnedIds),
-            'earned_at'   => in_array($b->id, $earnedIds)
+            'icon' => $b->icon,
+            'category' => $b->category,
+            'xp_reward' => $b->xp_reward,
+            'earned' => in_array($b->id, $earnedIds),
+            'earned_at' => in_array($b->id, $earnedIds)
                 ? DB::table('user_badges')->where('user_id', $userId)->where('badge_id', $b->id)->value('earned_at')
                 : null,
         ])->groupBy('category')->toArray();
@@ -451,22 +477,22 @@ class GamificationService
             ->get();
 
         $transform = fn ($um) => [
-            'id'          => $um->id,
-            'mission_id'  => $um->mission_id,
-            'title'       => $um->mission->title,
+            'id' => $um->id,
+            'mission_id' => $um->mission_id,
+            'title' => $um->mission->title,
             'description' => $um->mission->description,
-            'type'        => $um->mission->type,
-            'progress'    => $um->progress,
-            'target'      => $um->target,
+            'type' => $um->mission->type,
+            'progress' => $um->progress,
+            'target' => $um->target,
             'progress_pct' => $um->progressPct(),
-            'xp_reward'   => $um->mission->xp_reward,
-            'status'      => $um->status,
+            'xp_reward' => $um->mission->xp_reward,
+            'status' => $um->status,
             'completed_at' => $um->completed_at?->diffForHumans(),
         ];
 
         return [
-            'daily'     => $daily->map($transform)->toArray(),
-            'weekly'    => $weekly->map($transform)->toArray(),
+            'daily' => $daily->map($transform)->toArray(),
+            'weekly' => $weekly->map($transform)->toArray(),
             'completed' => $completed->map($transform)->toArray(),
         ];
     }
@@ -476,26 +502,27 @@ class GamificationService
      */
     public function getLeaderboard(int $userId, ?int $limit = 10): array
     {
-        $top = UserGamification::with('user:id,name')
+        $peers = app(CommunityAccessService::class)->peers(User::findOrFail($userId))->select('id');
+        $top = UserGamification::whereIn('user_id', $peers)->with('user:id,first_name,last_name')
             ->orderByDesc('total_xp')
             ->limit($limit)
             ->get()
             ->map(fn ($g, $i) => [
-                'rank'   => $i + 1,
-                'name'   => $g->user->name ?? 'Unknown',
-                'xp'     => $g->total_xp,
-                'level'  => $g->level,
+                'rank' => $i + 1,
+                'name' => $g->user->name ?? 'Unknown',
+                'xp' => $g->total_xp,
+                'level' => $g->level,
                 'streak' => $g->current_streak_days,
             ])->toArray();
 
         // Current user's rank
         $userXp = UserGamification::forUser($userId)->total_xp;
-        $rank = UserGamification::where('total_xp', '>', $userXp)->count() + 1;
+        $rank = UserGamification::whereIn('user_id', $peers)->where('total_xp', '>', $userXp)->count() + 1;
 
         return [
-            'top'       => $top,
+            'top' => $top,
             'user_rank' => $rank,
-            'user_xp'   => $userXp,
+            'user_xp' => $userXp,
         ];
     }
 }

@@ -13,10 +13,10 @@ class PaystackTransaction extends Model
     ];
 
     protected $casts = [
-        'metadata'         => 'array',
+        'metadata' => 'array',
         'gateway_response' => 'array',
-        'paid_at'          => 'datetime',
-        'amount'           => 'decimal:2',
+        'paid_at' => 'datetime',
+        'amount' => 'decimal:2',
     ];
 
     public function user()

@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Product;
 use App\Models\Bundle;
-use App\Models\Category;
+use App\Models\Product;
+use App\Services\PaymentService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -13,11 +13,11 @@ class StorefrontController extends Controller
     public function index(Request $request)
     {
         $query = Product::with('productable')
-            ->active()
+            ->purchasable()
             ->search($request->search);
 
         if ($request->type) {
-            $query->where('productable_type', 'App\\Models\\' . ucfirst($request->type));
+            $query->where('productable_type', 'App\\Models\\'.ucfirst($request->type));
         }
 
         if ($request->min_price) {
@@ -57,7 +57,7 @@ class StorefrontController extends Controller
             ];
         });
 
-        $bundles = Bundle::with(['product', 'courses'])->get()->map(function ($bundle) {
+        $bundles = Bundle::with(['product', 'courses'])->whereHas('product', fn ($query) => $query->purchasable())->limit(12)->get()->map(function ($bundle) {
             return [
                 'id' => $bundle->id,
                 'name' => $bundle->name,
@@ -85,15 +85,15 @@ class StorefrontController extends Controller
     {
         $product = Product::with('productable')
             ->where('slug', $slug)
-            ->active()
+            ->purchasable()
             ->firstOrFail();
 
-        $related = Product::active()
+        $related = Product::purchasable()
             ->where('id', '!=', $product->id)
             ->where('productable_type', $product->productable_type)
             ->limit(4)
             ->get()
-            ->map(fn($p) => [
+            ->map(fn ($p) => [
                 'id' => $p->id,
                 'name' => $p->name,
                 'slug' => $p->slug,
@@ -114,9 +114,10 @@ class StorefrontController extends Controller
                 'current_price' => $product->getCurrentPrice(),
                 'savings_pct' => $product->getSavingsPercentage(),
                 'type' => class_basename($product->productable_type),
-                'productable' => $product->productable,
+                'productable' => collect($product->productable->toArray())->only(['id', 'title', 'name', 'description', 'thumbnail'])->all(),
             ],
             'related' => $related,
+            'gateways' => app(PaymentService::class)->availableGateways(),
         ]);
     }
 }

@@ -1,7 +1,8 @@
 <template>
     <div class="space-y-4">
         <!-- Video container -->
-        <div class="relative aspect-video rounded-xl overflow-hidden bg-surface-900">
+        <HostedVideo v-if="hostedVideo(videoUrl)" ref="hostedPlayer" :key="videoUrl" :url="videoUrl" :initial-position="initialPosition" @time-update="currentTime = $event" @position-update="$emit('position-update', $event)" />
+        <div v-else class="relative aspect-video rounded-xl overflow-hidden bg-surface-900">
             <video
                 ref="videoEl"
                 :src="videoUrl"
@@ -157,7 +158,7 @@
                 {{ showTranscript ? 'Hide' : 'Show' }} Transcript
             </button>
             <div v-if="showTranscript" class="mt-3 p-4 rounded-xl bg-surface-50 text-sm text-surface-700 leading-relaxed max-h-80 overflow-y-auto">
-                <div v-html="transcript" />
+                <SafeHtml :content="transcript" />
             </div>
         </div>
 
@@ -170,6 +171,9 @@
 </template>
 
 <script setup>
+import HostedVideo from './HostedVideo.vue';
+import { hostedVideo } from '@/lib/hostedVideo';
+import SafeHtml from '@/Components/SafeHtml.vue';
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 import {
     Play, Pause, Volume2, VolumeX, Maximize2, Subtitles,
@@ -187,6 +191,7 @@ const props = defineProps({
 const emit = defineEmits(['position-update']);
 
 const videoEl = ref(null);
+const hostedPlayer = ref(null);
 const isPlaying = ref(false);
 const currentTime = ref(0);
 const duration = ref(props.durationSeconds || 0);
@@ -245,6 +250,11 @@ function onEnded() {
 }
 
 function seekTo(time) {
+    if (hostedPlayer.value) {
+        hostedPlayer.value.seekTo(time);
+        currentTime.value = Number(time);
+        return;
+    }
     if (videoEl.value) {
         videoEl.value.currentTime = Number(time);
         currentTime.value = Number(time);

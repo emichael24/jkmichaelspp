@@ -134,27 +134,27 @@ class AuditService
         $query = AuditLog::with('user:id,first_name,last_name,email')
             ->orderByDesc('created_at');
 
-        if (!empty($filters['user_id'])) {
+        if (! empty($filters['user_id'])) {
             $query->byUser($filters['user_id']);
         }
 
-        if (!empty($filters['action'])) {
+        if (! empty($filters['action'])) {
             $query->byAction($filters['action']);
         }
 
-        if (!empty($filters['auditable_type'])) {
+        if (! empty($filters['auditable_type'])) {
             $query->where('auditable_type', $filters['auditable_type']);
         }
 
-        if (!empty($filters['date_from'])) {
+        if (! empty($filters['date_from'])) {
             $query->where('created_at', '>=', $filters['date_from']);
         }
 
-        if (!empty($filters['date_to'])) {
+        if (! empty($filters['date_to'])) {
             $query->where('created_at', '<=', $filters['date_to']);
         }
 
-        if (!empty($filters['days'])) {
+        if (! empty($filters['days'])) {
             $query->recent($filters['days']);
         }
 

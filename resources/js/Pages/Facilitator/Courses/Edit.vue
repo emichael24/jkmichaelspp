@@ -1,11 +1,11 @@
 <template>
     <Head :title="`Edit: ${course.title}`" />
 
-    <div class="max-w-4xl mx-auto space-y-6">
+    <div class="max-w-7xl mx-auto space-y-6">
         <!-- Header -->
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-4">
-                <Link href="/facilitator/courses" class="p-2 rounded-lg hover:bg-surface-100 transition-colors">
+                <Link aria-label="Back to courses" href="/facilitator/courses" class="p-2 rounded-lg hover:bg-surface-100 transition-colors">
                     <ArrowLeft class="w-5 h-5 text-surface-500" />
                 </Link>
                 <div>
@@ -43,10 +43,13 @@
             </div>
         </div>
 
+        <CourseRevisionBanner :course="course" workspace="facilitator" />
+        <CourseReadiness :issues="readinessIssues" :status="course.approval_status" :published="course.is_published" />
+
         <!-- Tabs -->
         <div class="flex gap-1 bg-surface-100 p-1 rounded-xl w-fit">
             <button
-                v-for="tab in ['Details', 'Modules & Lessons', 'Thumbnail']"
+                v-for="tab in ['Details', 'Modules & Lessons', 'Drip', 'Thumbnail']"
                 :key="tab"
                 @click="activeTab = tab"
                 :class="[
@@ -56,52 +59,52 @@
             >{{ tab }}</button>
         </div>
 
+        <fieldset :disabled="course.is_published || course.published_at || ['approved', 'pending_review'].includes(course.approval_status)" class="space-y-6 min-w-0">
         <!-- ─── DETAILS TAB ─── -->
         <form v-if="activeTab === 'Details'" @submit.prevent="saveDetails" class="space-y-6">
             <div class="bg-white rounded-2xl border border-surface-200/60 shadow-sm p-6 space-y-5">
                 <h2 class="font-semibold text-surface-800">Basic Information</h2>
 
                 <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1.5">Course Title *</label>
-                    <Input v-model="detailForm.title" :error="detailForm.errors.title" />
+                    <label for="detailForm-title" class="block text-sm font-medium text-surface-700 mb-1.5">Course Title *</label>
+                    <Input id="detailForm-title" v-model="detailForm.title" :error="detailForm.errors.title" />
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1.5">Subtitle</label>
-                    <Input v-model="detailForm.subtitle" />
+                    <label for="detailForm-subtitle" class="block text-sm font-medium text-surface-700 mb-1.5">Subtitle</label>
+                    <Input id="detailForm-subtitle" v-model="detailForm.subtitle" />
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-surface-700 mb-1.5">Description *</label>
-                    <textarea v-model="detailForm.description" rows="5" class="w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"></textarea>
+                    <label for="detailForm-description" class="block text-sm font-medium text-surface-700 mb-1.5">Description *</label>
+                    <RichTextEditor v-model="detailForm.description" label="Course description" placeholder="Describe the transformation learners can expect, who this course is for, and what makes it valuable." compact :disabled="course.is_published || !!course.published_at || ['approved', 'pending_review'].includes(course.approval_status)" />
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Category</label>
-                        <select v-model="detailForm.category_id" class="w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <label for="detailForm-category_id" class="block text-sm font-medium text-surface-700 mb-1.5">Category</label>
+                    <select id="detailForm-category_id" v-model="detailForm.category_id" class="w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
                             <option value="">Select category</option>
                             <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Level</label>
-                        <select v-model="detailForm.level" class="w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <label for="detailForm-level" class="block text-sm font-medium text-surface-700 mb-1.5">Level</label>
+                    <select id="detailForm-level" v-model="detailForm.level" class="w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
                             <option value="beginner">Beginner</option>
                             <option value="intermediate">Intermediate</option>
                             <option value="advanced">Advanced</option>
-                            <option value="expert">Expert</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Type</label>
-                        <select v-model="detailForm.type" class="w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <label for="detailForm-type" class="block text-sm font-medium text-surface-700 mb-1.5">Type</label>
+                    <select id="detailForm-type" v-model="detailForm.type" class="w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
                             <option value="self_paced">Self-paced</option>
-                            <option value="cohort_based">Cohort-based</option>
+                            <option value="certified">Certified</option><option value="bootcamp">Bootcamp</option>
                             <option value="live">Live</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-surface-700 mb-1.5">Duration (hours)</label>
-                        <Input v-model="detailForm.duration_hours" type="number" min="0" />
+                        <label for="detailForm-duration_hours" class="block text-sm font-medium text-surface-700 mb-1.5">Duration (hours)</label>
+                    <Input id="detailForm-duration_hours" v-model="detailForm.duration_hours" type="number" min="0" />
                     </div>
                 </div>
 
@@ -114,12 +117,12 @@
                     </div>
                     <div v-if="!isFree" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-surface-700 mb-1.5">Price (₦)</label>
-                            <Input v-model="detailForm.price" type="number" min="0" />
+                            <label for="detailForm-price" class="block text-sm font-medium text-surface-700 mb-1.5">Price (₦)</label>
+                    <Input id="detailForm-price" v-model="detailForm.price" type="number" min="0" />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-surface-700 mb-1.5">Discounted Price (₦)</label>
-                            <Input v-model="detailForm.discounted_price" type="number" min="0" />
+                            <label for="detailForm-discount_price" class="block text-sm font-medium text-surface-700 mb-1.5">Discounted Price (₦)</label>
+                    <Input id="detailForm-discount_price" v-model="detailForm.discount_price" type="number" min="0" />
                         </div>
                     </div>
                 </div>
@@ -128,8 +131,8 @@
                 <div class="pt-2 border-t border-surface-100">
                     <h3 class="font-medium text-surface-700 mb-3">Learning Outcomes</h3>
                     <div v-for="(outcome, i) in detailForm.learning_outcomes" :key="i" class="flex gap-2 mb-2">
-                        <Input v-model="detailForm.learning_outcomes[i]" :placeholder="`Outcome ${i + 1}`" class="flex-1" />
-                        <button type="button" @click="removeOutcome(i)" class="p-2 text-surface-400 hover:text-danger-600 rounded-lg hover:bg-danger-50">
+                        <Input :aria-label="`Learning outcome ${i + 1}`" v-model="detailForm.learning_outcomes[i]" :placeholder="`Outcome ${i + 1}`" class="flex-1" />
+                        <button type="button" :aria-label="`Remove outcome ${i + 1}`" @click="removeOutcome(i)" class="p-2 text-surface-400 hover:text-danger-600 rounded-lg hover:bg-danger-50">
                             <X class="w-4 h-4" />
                         </button>
                     </div>
@@ -146,95 +149,9 @@
             </div>
         </form>
 
-        <!-- ─── MODULES & LESSONS TAB ─── -->
-        <div v-else-if="activeTab === 'Modules & Lessons'" class="space-y-4">
-            <!-- Module list -->
-            <div
-                v-for="(mod, mi) in localModules"
-                :key="mod.id || mod._key"
-                class="bg-white rounded-2xl border border-surface-200/60 shadow-sm overflow-hidden"
-            >
-                <!-- Module Header -->
-                <div class="flex items-center gap-3 px-5 py-4 bg-surface-50 border-b border-surface-100">
-                    <div class="w-7 h-7 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                        {{ mi + 1 }}
-                    </div>
-                    <input
-                        v-model="mod.title"
-                        placeholder="Module title"
-                        class="flex-1 bg-transparent font-semibold text-surface-900 text-sm focus:outline-none"
-                        @blur="saveModule(mod)"
-                    />
-                    <button @click="toggleModule(mi)" class="p-1.5 rounded-lg hover:bg-surface-200 text-surface-400">
-                        <ChevronDown v-if="!mod._open" class="w-4 h-4" />
-                        <ChevronUp v-else class="w-4 h-4" />
-                    </button>
-                    <button @click="deleteModule(mod, mi)" class="p-1.5 rounded-lg hover:bg-danger-50 text-surface-400 hover:text-danger-600">
-                        <Trash2 class="w-4 h-4" />
-                    </button>
-                </div>
+        <CurriculumBuilder v-else-if="activeTab === 'Modules & Lessons'" :course="course" workspace="facilitator" :disabled="course.is_published || !!course.published_at || ['approved', 'pending_review'].includes(course.approval_status)" />
 
-                <!-- Lessons -->
-                <div v-if="mod._open" class="divide-y divide-surface-100">
-                    <div
-                        v-for="(lesson, li) in mod.lessons"
-                        :key="lesson.id || lesson._key"
-                        class="flex items-center gap-3 px-5 py-3"
-                    >
-                        <GripVertical class="w-4 h-4 text-surface-300 flex-shrink-0" />
-                        <div class="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <input
-                                v-model="lesson.title"
-                                placeholder="Lesson title"
-                                class="text-sm text-surface-800 focus:outline-none border-b border-transparent focus:border-surface-300"
-                                @blur="saveLesson(mod, lesson)"
-                            />
-                            <select
-                                v-model="lesson.content_type"
-                                class="text-xs border border-surface-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                                @change="saveLesson(mod, lesson)"
-                            >
-                                <option value="video">Video</option>
-                                <option value="text">Text/Article</option>
-                                <option value="pdf">PDF</option>
-                                <option value="audio">Audio</option>
-                                <option value="quiz">Quiz</option>
-                            </select>
-                            <Input
-                                v-model="lesson.content_url"
-                                placeholder="Content URL"
-                                class="text-xs"
-                                @blur="saveLesson(mod, lesson)"
-                            />
-                        </div>
-                        <label class="flex items-center gap-1 text-xs text-surface-500 cursor-pointer">
-                            <input type="checkbox" v-model="lesson.is_free_preview" class="rounded text-primary-600" @change="saveLesson(mod, lesson)" />
-                            Free preview
-                        </label>
-                        <button @click="deleteLesson(mod, lesson, li)" class="p-1.5 rounded-lg hover:bg-danger-50 text-surface-400 hover:text-danger-600">
-                            <Trash2 class="w-3.5 h-3.5" />
-                        </button>
-                    </div>
-
-                    <!-- Add Lesson -->
-                    <button
-                        @click="addLesson(mod)"
-                        class="w-full px-5 py-3 flex items-center gap-2 text-sm text-primary-600 hover:bg-primary-50 transition-colors font-medium"
-                    >
-                        <Plus class="w-4 h-4" /> Add Lesson
-                    </button>
-                </div>
-            </div>
-
-            <!-- Add Module -->
-            <button
-                @click="addModule"
-                class="w-full py-4 border-2 border-dashed border-surface-300 rounded-2xl flex items-center justify-center gap-2 text-sm text-surface-500 hover:border-primary-400 hover:text-primary-600 hover:bg-primary-50 transition-all font-medium"
-            >
-                <Plus class="w-4 h-4" />
-                Add Module
-            </button>
-        </div>
+        <DripSettings v-else-if="activeTab === 'Drip'" :course="course" :disabled="course.is_published || !!course.published_at || ['approved', 'pending_review'].includes(course.approval_status)" />
 
         <!-- ─── THUMBNAIL TAB ─── -->
         <div v-else-if="activeTab === 'Thumbnail'" class="bg-white rounded-2xl border border-surface-200/60 shadow-sm p-6 space-y-4">
@@ -251,7 +168,7 @@
 
             <form @submit.prevent="saveThumbnail" class="space-y-4">
                 <input
-                    type="file"
+                    type="file" aria-label="Course thumbnail"
                     accept="image/*"
                     @change="handleThumbnailChange"
                     class="block w-full text-sm text-surface-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
@@ -261,12 +178,18 @@
                 </Button>
             </form>
         </div>
+        </fieldset>
     </div>
 </template>
 
 <script setup>
+import CurriculumBuilder from '@/Components/Authoring/CurriculumBuilder.vue';
+import DripSettings from '@/Components/Authoring/DripSettings.vue';
+import RichTextEditor from '@/Components/Authoring/RichTextEditor.vue';
+import CourseRevisionBanner from '@/Components/Admin/CourseRevisionBanner.vue';
+import CourseReadiness from '@/Components/Admin/CourseReadiness.vue';
 import { ref, computed, watch } from 'vue';
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import FacilitatorLayout from '@/Layouts/FacilitatorLayout.vue';
 import Button from '@/Components/UI/Button.vue';
 import Input from '@/Components/UI/Input.vue';
@@ -279,11 +202,12 @@ import {
 defineOptions({ layout: FacilitatorLayout });
 
 const props = defineProps({
+    readinessIssues: { type: Array, default: () => [] },
     course: { type: Object, required: true },
     categories: { type: Array, default: () => [] },
 });
 
-const activeTab = ref('Details');
+const activeTab = ref({ curriculum: 'Modules & Lessons', drip: 'Drip' }[new URL(usePage().url, window.location.origin).searchParams.get('tab')] || 'Details');
 const isFree = ref(!props.course.price || Number(props.course.price) === 0);
 
 // ─── Detail Form ───
@@ -295,12 +219,12 @@ const detailForm = useForm({
     level: props.course.level || 'beginner',
     type: props.course.type || 'self_paced',
     duration_hours: props.course.duration_hours || '',
-    price: props.course.price || '',
-    discounted_price: props.course.discounted_price || '',
+    price: props.course.price ?? 0,
+    discount_price: props.course.discount_price || '',
     learning_outcomes: props.course.learning_outcomes?.length ? [...props.course.learning_outcomes] : [''],
 });
 
-watch(isFree, v => { if (v) { detailForm.price = ''; detailForm.discounted_price = ''; } });
+watch(isFree, v => { if (v) { detailForm.price = 0; detailForm.discount_price = ''; } });
 
 function addOutcome() { detailForm.learning_outcomes.push(''); }
 function removeOutcome(i) { detailForm.learning_outcomes.splice(i, 1); }
@@ -321,7 +245,7 @@ const approvalLabel = computed(() => ({
 
 function submitForReview() {
     if (!confirm('Submit this course for admin review? You will not be able to edit it until reviewed.')) return;
-    router.post(`/facilitator/courses/${props.course.id}/submit-for-review`, {}, { preserveScroll: true });
+    router.post(`/facilitator/courses/${props.course.id}/submit-review`, {}, { preserveScroll: true });
 }
 
 // ─── Modules & Lessons ───
@@ -354,36 +278,17 @@ function saveModule(mod) {
 
 function deleteModule(mod, mi) {
     if (!confirm('Delete this module and all its lessons?')) return;
-    localModules.value.splice(mi, 1);
-    if (mod.id) router.delete(`/facilitator/courses/${props.course.id}/modules/${mod.id}`, { preserveState: true });
+    if (mod.id) router.delete(`/facilitator/courses/${props.course.id}/modules/${mod.id}`, { preserveState: false });
 }
 
 function addLesson(mod) {
-    const lesson = { id: null, title: 'New Lesson', content_type: 'video', content_url: '', is_free_preview: false, _key: ++_keyCounter };
-    if (!mod.lessons) mod.lessons = [];
-    mod.lessons.push(lesson);
-    if (mod.id) {
-        router.post(`/facilitator/courses/${props.course.id}/modules/${mod.id}/lessons`, {
-            title: 'New Lesson', content_type: 'video', order: mod.lessons.length,
-        }, { preserveState: false });
-    }
-}
-
-function saveLesson(mod, lesson) {
-    if (!lesson.id || !mod.id) return;
-    router.put(`/facilitator/courses/${props.course.id}/lessons/${lesson.id}`, {
-        title: lesson.title,
-        content_type: lesson.content_type,
-        content_url: lesson.content_url,
-        is_free_preview: lesson.is_free_preview,
-    }, { preserveState: true });
+    router.visit(`/facilitator/courses/${props.course.id}/modules/${mod.id}/lessons/create`);
 }
 
 function deleteLesson(mod, lesson, li) {
     if (!confirm('Delete this lesson?')) return;
-    mod.lessons.splice(li, 1);
     if (lesson.id && mod.id) {
-        router.delete(`/facilitator/courses/${props.course.id}/lessons/${lesson.id}`, { preserveState: true });
+        router.delete(`/facilitator/courses/${props.course.id}/modules/${mod.id}/lessons/${lesson.id}`, { preserveState: false });
     }
 }
 

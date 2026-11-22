@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\AI;
 
+use App\Exceptions\ExternalIntegrationException;
 use App\Http\Controllers\Controller;
 use App\Models\AiJob;
-use App\Models\VoiceClone;
 use App\Models\Lesson;
+use App\Services\AiMediaInput;
 use App\Services\AIService;
+use App\Services\ExternalApiClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -15,208 +17,125 @@ class FacilitatorAIController extends Controller
 {
     public function __construct(protected AIService $ai) {}
 
-    // ─── AI Content Studio page ───────────────────────────────────────────────────
     public function index()
     {
-        $recentJobs = AiJob::where('user_id', auth()->id())
-            ->whereIn('job_type', ['tts', 'avatar_video', 'content_repurpose'])
-            ->latest()
-            ->limit(10)
-            ->get();
-
-        $voiceClones = VoiceClone::where('user_id', auth()->id())
-            ->where('is_active', true)
-            ->get();
-
         return Inertia::render('Facilitator/AI/ContentStudio', [
-            'recentJobs'  => $recentJobs,
-            'voiceClones' => $voiceClones,
+            'recentJobs' => AiJob::where('user_id', auth()->id())
+                ->whereIn('job_type', ['tts', 'avatar_video', 'content_repurpose', 'transcription'])
+                ->latest()->limit(10)->get()->map(fn ($job) => $this->presentJob($job)),
         ]);
     }
 
-    // ─── Text-to-Speech ───────────────────────────────────────────────────────────
     public function generateTTS(Request $request)
     {
-        $request->validate([
-            'text'     => 'required|string|max:10000',
-            'voice_id' => 'required|string',
-            'language' => 'nullable|string|max:10',
-            'speed'    => 'nullable|numeric|min:0.5|max:2.0',
+        $data = $request->validate([
+            'text' => 'required|string|max:10000',
+            'voice_id' => 'required|in:aaliyah,angelo,helena,orion',
+            'language' => 'sometimes|required|string|max:10',
+            'speed' => 'sometimes|required|numeric|min:0.5|max:2',
         ]);
 
-        $job = AiJob::create([
-            'uuid'          => (string) Str::uuid(),
-            'user_id'       => auth()->id(),
-            'job_type'      => 'tts',
-            'status'        => 'processing',
-            'input_payload' => $request->only(['text', 'voice_id', 'language', 'speed']),
-        ]);
+        return $this->runJob('tts', $request->only(['voice_id', 'language', 'speed']), function () use ($data) {
+            $url = $this->ai->textToSpeech($data['text'], $data['voice_id'], $data['language'] ?? 'en', $data['speed'] ?? 1.0);
 
-        try {
-            $audioPath = $this->ai->textToSpeech(
-                $request->input('text'),
-                $request->input('voice_id'),
-                $request->input('language', 'en'),
-                $request->input('speed', 1.0),
-            );
-
-            $job->update([
-                'status'           => 'completed',
-                'output_file_path' => $audioPath,
-                'completed_at'     => now(),
-            ]);
-
-            return response()->json(['job' => $job->fresh(), 'audio_path' => $audioPath]);
-        } catch (\Throwable $e) {
-            $job->update(['status' => 'failed', 'error_message' => $e->getMessage()]);
-            return response()->json(['error' => $e->getMessage()], 422);
-        }
+            return ['audio_url' => $url, 'audio_path' => $url];
+        });
     }
 
-    // ─── Voice Cloning ────────────────────────────────────────────────────────────
     public function cloneVoice(Request $request)
     {
-        $request->validate([
-            'audio_url' => 'required|url|max:500',
-            'name'      => 'required|string|max:100',
-        ]);
-
-        $result = $this->ai->cloneVoice(
-            $request->input('audio_url'),
-            $request->input('name'),
-        );
-
-        $voiceClone = VoiceClone::create([
-            'user_id'          => auth()->id(),
-            'name'             => $request->input('name'),
-            'voice_id'         => $result['voice_id'],
-            'sample_audio_url' => $request->input('audio_url'),
-        ]);
-
-        return response()->json(['voice_clone' => $voiceClone]);
+        throw new ExternalIntegrationException('Voice cloning is not supported by this integration. Choose a managed voice in Text-to-Speech.', 422);
     }
 
-    // ─── Avatar Video Generation ──────────────────────────────────────────────────
-    public function generateAvatar(Request $request)
+    public function generateAvatar(Request $request, AiMediaInput $media)
     {
-        $request->validate([
-            'photo_url'        => 'nullable|url|max:500',
-            'photo_base64'     => 'nullable|string',
-            'audio_url'        => 'nullable|url|max:500',
-            'audio_base64'     => 'nullable|string',
-            'engine'           => 'nullable|in:sadtalker,liveportrait',
-            'resolution'       => 'nullable|in:256,512',
-            'still_mode'       => 'nullable|boolean',
-            'expression_scale' => 'nullable|numeric|min:0.1|max:3.0',
+        $data = $request->validate([
+            'photo' => 'required_without:photo_url|nullable|file|mimetypes:image/jpeg,image/png,image/webp|max:5120',
+            'photo_url' => 'required_without:photo|nullable|url|max:500',
+            'audio' => 'required_without:audio_url|nullable|file|mimetypes:audio/mpeg,audio/wav,audio/x-wav,audio/ogg,audio/mp4,audio/x-m4a,audio/flac,audio/x-flac,audio/webm,video/webm|max:10240',
+            'audio_url' => 'required_without:audio|nullable|url|max:500',
+            'engine' => 'required|in:live-avatar,stable-avatar,ai-avatar',
+            'prompt' => 'nullable|string|max:2000',
+            'render_tier' => 'sometimes|required|in:standard,premium,ultra',
+            'still_mode' => 'sometimes|boolean',
+            'expression_scale' => 'sometimes|numeric|min:0.5|max:1.5',
+            'photo_base64' => 'prohibited', 'audio_base64' => 'prohibited',
         ]);
+        $payload = [...$request->only(['engine', 'render_tier', 'still_mode', 'expression_scale']),
+            'prompt' => $data['prompt'] ?? 'A professional instructor presenting naturally to camera, with subtle movement and a clear, welcoming expression.',
+            ...$media->fromRequest($request, 'photo'), ...$media->fromRequest($request, 'audio')];
 
-        // Must provide at least photo and audio via URL or base64
-        if (! $request->filled('photo_url') && ! $request->filled('photo_base64')) {
-            return response()->json(['error' => 'Provide photo_url or photo_base64.'], 422);
-        }
-        if (! $request->filled('audio_url') && ! $request->filled('audio_base64')) {
-            return response()->json(['error' => 'Provide audio_url or audio_base64.'], 422);
-        }
-
-        $job = AiJob::create([
-            'uuid'          => (string) Str::uuid(),
-            'user_id'       => auth()->id(),
-            'job_type'      => 'avatar_video',
-            'status'        => 'processing',
-            'input_payload' => $request->except(['photo_base64', 'audio_base64']), // don't store large base64
-        ]);
-
-        try {
-            $result = $this->ai->generateAvatarVideo($request->all());
-
-            $job->update([
-                'status'           => 'completed',
-                'output_file_path' => $result['video_path'] ?? null,
-                'output'           => json_encode($result),
-                'processing_seconds' => (int) ($result['video_duration'] ?? 0),
-                'completed_at'     => now(),
-            ]);
-
-            return response()->json(['job' => $job->fresh(), 'result' => $result]);
-        } catch (\Throwable $e) {
-            $job->update(['status' => 'failed', 'error_message' => $e->getMessage()]);
-            return response()->json(['error' => $e->getMessage()], 422);
-        }
+        return $this->runJob('avatar_video', ['engine' => $data['engine']], fn () => ['result' => $this->ai->generateAvatarVideo($payload)]);
     }
 
-    // ─── Content Repurposing ──────────────────────────────────────────────────────
     public function repurposeContent(Request $request)
     {
-        $request->validate([
-            'content'       => 'required|string|min:50',
+        $data = $request->validate([
+            'content' => 'required|string|min:50|max:7000',
             'target_format' => 'required|in:video_script,blog_post,social_linkedin,social_twitter,email_lesson,infographic_outline,podcast_script',
-            'tone'          => 'nullable|in:professional,casual,encouraging,academic',
-            'lesson_id'     => 'nullable|exists:lessons,id',
+            'tone' => 'sometimes|required|in:professional,casual,encouraging,academic',
+            'lesson_id' => 'nullable|exists:lessons,id',
         ]);
-
-        $job = AiJob::create([
-            'uuid'          => (string) Str::uuid(),
-            'user_id'       => auth()->id(),
-            'job_type'      => 'content_repurpose',
-            'status'        => 'processing',
-            'input_payload' => $request->only(['target_format', 'tone', 'lesson_id']),
-        ]);
-
-        try {
-            $result = $this->ai->repurposeContent(
-                $request->input('content'),
-                $request->input('target_format'),
-                $request->input('tone', 'professional'),
-            );
-
-            $job->update([
-                'status'       => 'completed',
-                'output'       => $result,
-                'completed_at' => now(),
-            ]);
-
-            return response()->json(['job' => $job->fresh(), 'result' => $result]);
-        } catch (\Throwable $e) {
-            $job->update(['status' => 'failed', 'error_message' => $e->getMessage()]);
-            return response()->json(['error' => $e->getMessage()], 422);
+        if ($request->filled('lesson_id')) {
+            $lesson = Lesson::with('module.course')->findOrFail($data['lesson_id']);
+            abort_unless($request->user()->hasRole('platform_admin') || $lesson->module->course->author_id === $request->user()->id, 403);
         }
+
+        return $this->runJob('content_repurpose', $request->only(['target_format', 'tone', 'lesson_id']),
+            fn () => ['result' => $this->ai->repurposeContent($data['content'], $data['target_format'], $data['tone'] ?? 'professional')]);
     }
 
-    // ─── Transcribe Audio (for turning recordings into lesson content) ────────────
-    public function transcribeAudio(Request $request)
+    public function transcribeAudio(Request $request, AiMediaInput $media)
     {
         $request->validate([
-            'audio_url' => 'required|url|max:500',
+            'audio' => 'required_without:audio_url|nullable|file|mimetypes:audio/mpeg,audio/wav,audio/x-wav,audio/ogg,audio/mp4,audio/x-m4a,audio/flac,audio/x-flac,audio/webm,video/webm|max:10240',
+            'audio_url' => 'required_without:audio|nullable|url|max:500',
+            'audio_base64' => 'prohibited',
         ]);
+        $payload = $media->fromRequest($request, 'audio');
 
-        $job = AiJob::create([
-            'uuid'          => (string) Str::uuid(),
-            'user_id'       => auth()->id(),
-            'job_type'      => 'transcription',
-            'status'        => 'processing',
-            'input_payload' => ['audio_url' => $request->input('audio_url')],
-        ]);
-
-        try {
-            $text = $this->ai->transcribeAudio($request->input('audio_url'));
-
-            $job->update([
-                'status'       => 'completed',
-                'output'       => $text,
-                'completed_at' => now(),
-            ]);
-
-            return response()->json(['job' => $job->fresh(), 'text' => $text]);
-        } catch (\Throwable $e) {
-            $job->update(['status' => 'failed', 'error_message' => $e->getMessage()]);
-            return response()->json(['error' => $e->getMessage()], 422);
-        }
+        return $this->runJob('transcription', [], fn () => ['text' => $this->ai->transcribeAudio($payload['audio_url'] ?? '', $payload['audio_base64'] ?? null)]);
     }
 
-    // ─── Job status polling ───────────────────────────────────────────────────────
     public function jobStatus(AiJob $job)
     {
         abort_unless($job->user_id === auth()->id(), 403);
-        return response()->json(['job' => $job]);
+
+        return response()->json(['job' => $this->presentJob($job)]);
+    }
+
+    private function runJob(string $type, array $metadata, callable $operation)
+    {
+        $job = AiJob::create(['uuid' => (string) Str::uuid(), 'user_id' => auth()->id(), 'job_type' => $type,
+            'status' => 'processing', 'input_payload' => $metadata]);
+        try {
+            $result = $operation();
+            $job->update(['status' => 'completed', 'completed_at' => now(),
+                'output_file_path' => $result['audio_url'] ?? (is_array($result['result'] ?? null) ? ($result['result']['video_url'] ?? null) : null),
+                'output' => isset($result['result']) ? (is_string($result['result']) ? $result['result'] : json_encode($result['result'])) : ($result['text'] ?? null)]);
+
+            return response()->json(['job' => $this->presentJob($job->fresh()), ...$result]);
+        } catch (ExternalIntegrationException $e) {
+            $job->update(['status' => 'failed', 'error_message' => $e->getMessage()]);
+            throw $e;
+        } catch (\Throwable $e) {
+            $job->update(['status' => 'failed', 'error_message' => 'Generation could not finish. Please retry or contact support.']);
+            throw $e;
+        }
+    }
+
+    private function presentJob(AiJob $job): array
+    {
+        $data = $job->only(['id', 'uuid', 'job_type', 'status', 'output', 'created_at', 'error_message']);
+        $data['output_file_path'] = null;
+        if ($job->output_file_path) {
+            try {
+                $data['output_file_path'] = app(ExternalApiClient::class)->mediaUrl($job->output_file_path);
+            } catch (ExternalIntegrationException) {
+                $data['error_message'] = 'This older media link is unavailable. Generate a new version.';
+            }
+        }
+
+        return $data;
     }
 }

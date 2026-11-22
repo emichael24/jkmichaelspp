@@ -3,7 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ContentApproval;
 use App\Models\Course;
+use App\Notifications\CourseApproved;
+use App\Notifications\CourseRejected;
+use App\Services\ContentWorkflowService;
+use App\Services\CourseReadinessService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -26,16 +31,16 @@ class CourseApprovalController extends Controller
         $courses = $query->latest('submitted_for_review_at')->paginate(20);
 
         $counts = [
-            'pending'  => Course::where('created_by_role', 'facilitator')->where('approval_status', 'pending_review')->count(),
+            'pending' => Course::where('created_by_role', 'facilitator')->where('approval_status', 'pending_review')->count(),
             'approved' => Course::where('created_by_role', 'facilitator')->where('approval_status', 'approved')->count(),
             'rejected' => Course::where('created_by_role', 'facilitator')->where('approval_status', 'rejected')->count(),
-            'draft'    => Course::where('created_by_role', 'facilitator')->where('approval_status', 'draft')->count(),
+            'draft' => Course::where('created_by_role', 'facilitator')->where('approval_status', 'draft')->count(),
         ];
 
         return Inertia::render('Admin/CourseApproval/Index', [
-            'courses'        => $courses,
-            'counts'         => $counts,
-            'currentStatus'  => $request->get('status', 'pending_review'),
+            'courses' => $courses,
+            'counts' => $counts,
+            'currentStatus' => $request->get('status', 'pending_review'),
         ]);
     }
 
@@ -58,7 +63,7 @@ class CourseApprovalController extends Controller
     {
         $request->validate([
             'publish_immediately' => 'boolean',
-            'notes'               => 'nullable|string|max:1000',
+            'notes' => 'nullable|string|max:1000',
         ]);
 
         if ($course->approval_status !== 'pending_review') {
@@ -67,20 +72,17 @@ class CourseApprovalController extends Controller
 
         $publishNow = $request->boolean('publish_immediately', true);
 
-        $course->update([
-            'approval_status' => 'approved',
-            'approved_by'     => auth()->id(),
-            'approved_at'     => now(),
-            'rejection_reason' => null,
-            'is_published'    => $publishNow,
-            'published_at'    => $publishNow ? now() : null,
-        ]);
+        abort_if($course->author_id === auth()->id(), 403, 'A different reviewer must approve this course.');
+        app(CourseReadinessService::class)->assertReady($course);
+
+        $approval = ContentApproval::forContent(Course::class, $course->id)->pending()->latest('id')->firstOrFail();
+        app(ContentWorkflowService::class)->approve($approval, $request->user(), $request->input('notes'), $publishNow);
 
         // Notify the facilitator
-        $course->author->notify(new \App\Notifications\CourseApproved($course, $request->input('notes')));
+        $course->author->notify(new CourseApproved($course, $request->input('notes')));
 
         return redirect()->route('admin.course-approvals.index')
-            ->with('success', "Course \"{$course->title}\" approved" . ($publishNow ? ' and published' : '') . '.');
+            ->with('success', "Course \"{$course->title}\" approved".($publishNow ? ' and published' : '').'.');
     }
 
     /**
@@ -96,16 +98,11 @@ class CourseApprovalController extends Controller
             return back()->with('error', 'This course is not pending review.');
         }
 
-        $course->update([
-            'approval_status'  => 'rejected',
-            'approved_by'      => auth()->id(),
-            'approved_at'      => now(),
-            'rejection_reason' => $request->input('rejection_reason'),
-            'is_published'     => false,
-        ]);
+        $approval = ContentApproval::forContent(Course::class, $course->id)->pending()->latest('id')->firstOrFail();
+        app(ContentWorkflowService::class)->reject($approval, $request->user(), $request->input('rejection_reason'));
 
         // Notify the facilitator with the reason
-        $course->author->notify(new \App\Notifications\CourseRejected($course, $request->input('rejection_reason')));
+        $course->author->notify(new CourseRejected($course, $request->input('rejection_reason')));
 
         return redirect()->route('admin.course-approvals.index')
             ->with('success', "Course \"{$course->title}\" rejected. The facilitator has been notified.");
@@ -118,9 +115,8 @@ class CourseApprovalController extends Controller
     {
         $course->update([
             'is_published' => false,
-            'published_at' => null,
         ]);
 
-        return back()->with('success', "Course unpublished.");
+        return back()->with('success', 'Course unpublished.');
     }
 }

@@ -11,6 +11,7 @@ class Assignment extends Model
     protected $fillable = [
         'cohort_id',
         'course_id',
+        'lesson_id',
         'title',
         'description',
         'instructions',
@@ -21,11 +22,18 @@ class Assignment extends Model
         'max_resubmissions',
         'created_by',
         'is_published',
+        'prompts',
+        'passing_score',
+        'allow_file_upload',
     ];
 
     protected $casts = [
-        'rubric'     => 'array',
-        'due_date'   => 'datetime',
+        'rubric' => 'array',
+        'prompts' => 'array',
+        'allow_file_upload' => 'boolean',
+        'max_score' => 'integer',
+        'passing_score' => 'integer',
+        'due_date' => 'datetime',
         'allow_late' => 'boolean',
         'is_published' => 'boolean',
     ];
@@ -40,6 +48,11 @@ class Assignment extends Model
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
+    }
+
+    public function lesson(): BelongsTo
+    {
+        return $this->belongsTo(Lesson::class);
     }
 
     public function creator(): BelongsTo

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class NotificationPreference extends Model
 {
     protected $fillable = [
-        'user_id',
+        'user_id', 'marketing_email', 'marketing_whatsapp',
         'push_enabled',
         'email_enabled',
         'quiet_hours_start',
@@ -20,6 +20,7 @@ class NotificationPreference extends Model
     ];
 
     protected $casts = [
+        'marketing_email' => 'boolean', 'marketing_whatsapp' => 'boolean',
         'push_enabled' => 'boolean',
         'email_enabled' => 'boolean',
         'learning_reminders' => 'boolean',
@@ -38,11 +39,11 @@ class NotificationPreference extends Model
 
     public function isInQuietHours(): bool
     {
-        if (!$this->quiet_hours_start || !$this->quiet_hours_end) {
+        if (! $this->quiet_hours_start || ! $this->quiet_hours_end) {
             return false;
         }
 
-        $now = now()->format('H:i:s');
+        $now = now()->setTimezone($this->user?->timezone ?: 'UTC')->format('H:i:s');
         $start = $this->quiet_hours_start;
         $end = $this->quiet_hours_end;
 
@@ -56,18 +57,26 @@ class NotificationPreference extends Model
 
     public function shouldSendPush(string $category = 'learning'): bool
     {
-        if (!$this->push_enabled) return false;
-        if ($this->isInQuietHours()) return false;
+        if (! $this->push_enabled) {
+            return false;
+        }
+        if ($this->isInQuietHours()) {
+            return false;
+        }
+
         return $this->isCategoryEnabled($category);
     }
 
     public function shouldSendEmail(string $category = 'learning'): bool
     {
-        if (!$this->email_enabled) return false;
+        if (! $this->email_enabled) {
+            return false;
+        }
+
         return $this->isCategoryEnabled($category);
     }
 
-    private function isCategoryEnabled(string $category): bool
+    public function isCategoryEnabled(string $category): bool
     {
         return match ($category) {
             'learning' => $this->learning_reminders,

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Bookmark;
+use App\Models\Lesson;
+use App\Services\LearningAccessService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -11,7 +13,7 @@ class BookmarkController extends Controller
     public function index()
     {
         $bookmarks = Auth::user()->bookmarks()
-            ->with('bookmarkable')
+            ->with(['bookmarkable' => fn ($q) => $q->select(['id', 'title', 'slug'])])
             ->latest()
             ->paginate(20);
 
@@ -24,10 +26,16 @@ class BookmarkController extends Controller
     {
         $validated = $request->validate([
             'bookmarkable_type' => 'required|string|in:App\\Models\\Course,App\\Models\\Lesson',
-            'bookmarkable_id'   => 'required|integer',
-            'note'              => 'nullable|string|max:500',
+            'bookmarkable_id' => 'required|integer',
+            'note' => 'nullable|string|max:500',
         ]);
 
+        $target = $validated['bookmarkable_type']::findOrFail($validated['bookmarkable_id']);
+        if ($target instanceof Lesson) {
+            app(LearningAccessService::class)->assertLesson($target, Auth::user(), true);
+        } else {
+            abort_unless($target->is_published, 404);
+        }
         $validated['user_id'] = Auth::id();
 
         // Prevent duplicates

@@ -4,7 +4,6 @@ namespace App\Models\Traits;
 
 use App\Models\Plan;
 use App\Models\Subscription;
-use App\Models\PlanFeature;
 
 trait HasSubscriptions
 {
@@ -36,13 +35,14 @@ trait HasSubscriptions
     public function plan()
     {
         $subscription = $this->activeSubscription();
+
         return $subscription ? $subscription->plan : null;
     }
 
     public function hasFeature($featureSlug)
     {
         $plan = $this->plan();
-        if (!$plan) {
+        if (! $plan) {
             return false;
         }
 
@@ -52,11 +52,12 @@ trait HasSubscriptions
     public function getFeatureValue($featureSlug)
     {
         $plan = $this->plan();
-        if (!$plan) {
+        if (! $plan) {
             return null;
         }
 
         $feature = $plan->features()->where('slug', $featureSlug)->first();
+
         return $feature ? $feature->value : null;
     }
 
@@ -69,7 +70,7 @@ trait HasSubscriptions
             'ends_at' => now(), // Or end of cycle
         ]);
 
-        $hasTrial = (int) $plan->trial_period_days > 0;
+        $hasTrial = (float) $plan->price === 0.0 && (int) $plan->trial_period_days > 0 && ! $this->subscriptions()->exists();
         $startsAt = now();
         $trialEndsAt = $hasTrial ? $startsAt->copy()->addDays((int) $plan->trial_period_days) : null;
         $endsAt = $trialEndsAt

@@ -18,7 +18,7 @@ return new class extends Migration
             $table->json('file_urls')->nullable();
             $table->unsignedInteger('time_log_minutes')->nullable();
             $table->enum('status', ['submitted', 'in_review', 'approved', 'revision_requested'])->default('submitted');
-            $table->timestamp('submitted_at');
+            $table->dateTime('submitted_at');
             $table->timestamps();
         });
 
@@ -45,7 +45,7 @@ return new class extends Migration
             $table->text('feedback')->nullable();
             $table->string('feedback_audio_url', 500)->nullable();
             $table->json('risk_flags')->nullable();
-            $table->timestamp('reviewed_at');
+            $table->dateTime('reviewed_at');
             $table->timestamps();
         });
 
@@ -72,7 +72,7 @@ return new class extends Migration
             $table->nullableMorphs('certifiable'); // Course | InternshipTrack
             $table->string('title');
             $table->string('certificate_number', 50)->unique();
-            $table->timestamp('issued_at');
+            $table->dateTime('issued_at');
             $table->timestamp('expires_at')->nullable();
             $table->string('pdf_url', 500);
             $table->string('qr_code_url', 500);

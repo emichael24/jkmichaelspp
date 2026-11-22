@@ -1,0 +1,58 @@
+[
+  {
+    "file": "JK Michaels Integrated App Specification.docx",
+    "sha256": "c1ee67b6d260e005aa0fb3b039178f14dfccfb7352109f7ef49f1d016dd17a66"
+  },
+  {
+    "file": "MasterStudy LMS Features vs. Your Current Project.pdf",
+    "sha256": "b356e8e2dcfdd96d4f8416a370e422fddf3cd67df56233841441a3b90b73eb09"
+  },
+  {
+    "file": "01-PROJECT-OVERVIEW.md",
+    "sha256": "8ac06dbd79f6ebdf95f353ea5e3a282f9eb20c8f1279aa65e2467893a63707b6"
+  },
+  {
+    "file": "02-DATABASE-SCHEMA.md",
+    "sha256": "8a3b4b198aa1f4968da1b36797fafd61803acde422f7c129e15b33d5042003c7"
+  },
+  {
+    "file": "03-API-SPECIFICATION.md",
+    "sha256": "031f8642da468cdf797b595305561522be700456482bd883d4dd993d9a005e85"
+  },
+  {
+    "file": "04-FEATURE-SPECIFICATIONS.md",
+    "sha256": "7049e7ade0cf784ba1f0c184788150dff0677a3f58d88eec24bffedcde8145e8"
+  },
+  {
+    "file": "05-FRONTEND-ARCHITECTURE.md",
+    "sha256": "479f74f02f7fdfecead9c62b7a5f2073c43ac4ce8aeb960e2b1b11b9c9f027bd"
+  },
+  {
+    "file": "06-DEPLOYMENT-DEVOPS.md",
+    "sha256": "916cd321ee9bc671f0abe914e44f2b6fb400e27de9abb7357950ed92397ffe7b"
+  },
+  {
+    "file": "07-EXECUTION-PLAN.md",
+    "sha256": "c7672fb07f8eb64305026ac7baa7f81b2066c098302fca5e242850c6ef75e59b"
+  },
+  {
+    "file": "08-MARKET-READINESS-ROADMAP.md",
+    "sha256": "7c4c20a341d5cfaa4841400523f3c2dcb1f951e6c3cc89e1321e877b41fc8910"
+  },
+  {
+    "file": "09-MASTERSTUDY-FEATURE-PARITY-MATRIX.md",
+    "sha256": "91a12c074d4f0629c88404aae10f0015e8e9f736bf5434a0550ac0d380a0dddf"
+  },
+  {
+    "file": "10-SPRINT-BACKLOG.md",
+    "sha256": "6ebf6d76a14f5b329be522633d1e163aed2c177358c950c68e4c2fc7f722c13e"
+  },
+  {
+    "file": "CAPACITOR-SETUP.md",
+    "sha256": "08001eaf72babcb747bc468b49b5db143c22ae09b2820e76facd57b3fd010ba6"
+  },
+  {
+    "file": "GAP-ANALYSIS-REPORT.md",
+    "sha256": "c23e447634720c754387733326e015abbc76404a7fccd314487561392f6a6448"
+  }
+]
