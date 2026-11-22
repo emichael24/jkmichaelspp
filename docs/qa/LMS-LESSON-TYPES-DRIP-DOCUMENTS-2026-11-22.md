@@ -29,6 +29,10 @@ Root causes found on the live server:
 
 `php artisan enterprise:check` passes 27 of 28 checks; `restore_drill` still needs a real isolated restore within 30 days.
 
+Follow-up release `20261122T190105Z-lms` (live, commit `3c00093`), after the first author test on production:
+- The reader returned "Server Error": production PHP-FPM runs with `open_basedir` (`/var/www/vhosts/jkmichaelspm.com/:/tmp/`), so checking the converter wrappers in `/usr/local/bin` threw. Paths PHP may not inspect are now treated as available. Verified by running the author-preview controller with that `open_basedir` against the uploaded 98-page PDF: manifest 200, page 1 rendered.
+- PowerPoint uploads were refused with "Remove macros, embedded objects…" whenever the deck had charts, because native charts store their data as `ppt/embeddings/*.xlsx`. Macro-free embedded Office files are now accepted; macros, ActiveX and OLE objects are refused with messages naming the object.
+
 ## Deploying to app.jkmichaelspm.com
 
 1. Upload the code, then on the server in the app directory:
