@@ -33,6 +33,10 @@ Follow-up release `20261122T190105Z-lms` (live, commit `3c00093`), after the fir
 - The reader returned "Server Error": production PHP-FPM runs with `open_basedir` (`/var/www/vhosts/jkmichaelspm.com/:/tmp/`), so checking the converter wrappers in `/usr/local/bin` threw. Paths PHP may not inspect are now treated as available. Verified by running the author-preview controller with that `open_basedir` against the uploaded 98-page PDF: manifest 200, page 1 rendered.
 - PowerPoint uploads were refused with "Remove macros, embedded objects…" whenever the deck had charts, because native charts store their data as `ppt/embeddings/*.xlsx`. Macro-free embedded Office files are now accepted; macros, ActiveX and OLE objects are refused with messages naming the object.
 
+Release `20261122T191513Z-lms` (live, commit `e5855e8`): page 1 displayed but page 2 failed. `plesk-php82-fpm.service` runs with `RestrictNamespaces=yes` and `PrivateDevices=yes`, so the bubblewrap sandbox cannot start from a web request (page 1 had been cached by a command-line check). The systemd hardening was left unchanged. Conversion now runs in `jkm-queue.service` (namespaces allowed): web requests serve cached pages or reply `202` while `PrepareDocument` / `RenderDocumentPages` work, and the reader polls. Verified on production: an uncached page returned 202 and queued one job, the worker rendered pages 5–9 in 3 seconds, and pages 5 and 9 were then served as watermarked PNGs with no failed jobs.
+
+When verifying production, test the web path with `php -d open_basedir=/var/www/vhosts/jkmichaelspm.com/:/tmp/`. Command-line PHP has neither that restriction nor the FPM service's namespace restriction.
+
 ## Deploying to app.jkmichaelspm.com
 
 1. Upload the code, then on the server in the app directory:
