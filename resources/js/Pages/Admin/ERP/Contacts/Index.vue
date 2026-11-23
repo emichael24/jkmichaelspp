@@ -150,7 +150,7 @@
                 <Input v-model="quickSendForm.subject" label="Email subject" :error="quickSendForm.errors.subject" />
             </div>
             <div v-if="Object.keys(quickSendForm.errors).length" role="alert" class="rounded-xl bg-danger-50 p-3 text-sm text-danger-700"><p v-for="(error, key) in quickSendForm.errors" :key="key">{{ error }}</p></div>
-            <EmailEditor v-if="quickSendChannel === 'email'" v-model="quickSendForm.message" :error="quickSendForm.errors.message" :disabled="quickSendForm.processing" />
+            <EmailEditor v-if="quickSendChannel === 'email'" v-model="quickSendForm.message" :subject="quickSendForm.subject" :error="quickSendForm.errors.message" :disabled="quickSendForm.processing" @apply-template="template => quickSendForm.subject = template.subject" />
             <div v-else><label for="crm-quick-message" class="mb-1 block text-sm font-medium">Message</label><textarea id="crm-quick-message" v-model="quickSendForm.message" rows="6" maxlength="3500" class="w-full rounded-xl border border-surface-200 px-3 py-2 text-sm" /></div>
             <p class="text-xs text-surface-500">This sends individual correspondence. Use a bulk campaign to contact an audience.</p>
             <div class="flex justify-end gap-3">

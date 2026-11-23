@@ -69,6 +69,10 @@ class LessonAuthoringService
             }
         }
 
+        if (array_key_exists('video_url', $validated)) {
+            $validated['video_provider'] = self::videoProvider($validated['video_url'] ?? null);
+        }
+
         // Uploaded images embedded by the visual editor retain the same ownership
         // boundary as the main lesson media; a guessed asset ID is never enough.
         preg_match_all('~/media/([a-f0-9-]{36})~i', $validated['text_content'] ?? '', $matches);
@@ -99,6 +103,23 @@ class LessonAuthoringService
      * Create or update a lesson together with its quiz/assignment settings so
      * one "Save lesson" never leaves the lesson and its activity out of step.
      */
+    /** youtube | vimeo | upload | url, or null without a video. */
+    public static function videoProvider(?string $url): ?string
+    {
+        if (! $url) {
+            return null;
+        }
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        if (preg_match('~(^|\.)(youtube\.com|youtube-nocookie\.com|youtu\.be)$~', $host)) {
+            return 'youtube';
+        }
+        if (preg_match('~(^|\.)vimeo\.com$~', $host)) {
+            return 'vimeo';
+        }
+
+        return preg_match('~/media/[a-f0-9-]{36}$~i', $url) ? 'upload' : 'url';
+    }
+
     public function persist(Module $module, ?Lesson $lesson, array $validated, User $actor): Lesson
     {
         $module->loadMissing('course');

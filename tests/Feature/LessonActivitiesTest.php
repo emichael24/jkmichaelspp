@@ -220,6 +220,19 @@ class LessonActivitiesTest extends TestCase
         $this->assertSame(['test', 'test-2', 'test-3'], Course::withTrashed()->where('title', 'Test')->orderBy('id')->pluck('slug')->all());
     }
 
+    public function test_video_lessons_accept_youtube_and_vimeo_links(): void
+    {
+        $admin = $this->actor('platform_admin');
+        [, $module] = $this->draftCourse($admin);
+        foreach (['https://youtu.be/dQw4w9WgXcQ?si=abc' => 'youtube', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' => 'youtube',
+            'https://vimeo.com/76979871' => 'vimeo', 'https://cdn.example.test/intro.mp4' => 'url'] as $url => $provider) {
+            $this->actingAs($admin)->post("/admin/modules/{$module->id}/lessons", ['title' => 'Video '.$provider, 'content_type' => 'video', 'video_url' => $url, 'is_published' => true])
+                ->assertSessionHasNoErrors();
+            $this->assertSame($provider, Lesson::latest('id')->first()->video_provider);
+        }
+        $this->post("/admin/modules/{$module->id}/lessons", ['title' => 'Bad', 'content_type' => 'video', 'video_url' => 'javascript:alert(1)'])->assertSessionHasErrors('video_url');
+    }
+
     public function test_readiness_flags_empty_activities_and_switching_type_retires_the_quiz(): void
     {
         $admin = $this->actor('platform_admin');

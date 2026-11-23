@@ -4,7 +4,7 @@ import axios from 'axios';
 import EmailEditor from '@/Components/Messaging/EmailEditor.vue';
 import AudiencePicker from '@/Components/Messaging/AudiencePicker.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { Plus, Mail, Search, ArrowRight, Users } from 'lucide-vue-next';
+import { Plus, Mail, Search, ArrowRight, Users, Palette } from 'lucide-vue-next';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import Modal from '@/Components/UI/Modal.vue';
 import Input from '@/Components/UI/Input.vue';
@@ -46,7 +46,7 @@ const statuses = { draft: 'Draft', scheduled: 'Scheduled', sending: 'Queued / se
     <div class="mx-auto max-w-6xl space-y-7">
         <header class="flex flex-wrap items-center justify-between gap-4">
             <div><p class="text-xs font-semibold uppercase tracking-widest text-primary-700">Communications</p><h1 class="mt-2 text-3xl font-display font-bold text-surface-950">Reach the right audience</h1><p class="mt-2 text-sm text-surface-600">Send email, WhatsApp and private inbox campaigns to users and CRM contacts.</p></div>
-            <Button @click="open = true"><Plus class="mr-2 h-4 w-4" />New campaign</Button>
+            <div class="flex flex-wrap gap-2"><Link href="/admin/erp/email-design" class="inline-flex items-center gap-2 rounded-xl border border-surface-200 bg-white px-4 py-2 text-sm font-semibold text-surface-700 hover:bg-surface-50"><Palette class="h-4 w-4" />Email design &amp; templates</Link><Button @click="open = true"><Plus class="mr-2 h-4 w-4" />New campaign</Button></div>
         </header>
         <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <section v-for="metric in [{ label: 'Campaigns', value: campaigns.total }, { label: 'Sent / inbox delivered', value: stats.total_sent }, { label: 'Confirmed delivered', value: stats.total_delivered }, { label: 'Needs review', value: stats.total_failed }]" :key="metric.label" class="rounded-2xl border border-surface-200 bg-white p-5"><p class="text-xs font-medium text-surface-500">{{ metric.label }}</p><p class="mt-3 text-3xl font-semibold tracking-tight">{{ Number(metric.value || 0).toLocaleString() }}</p></section>
@@ -79,7 +79,7 @@ const statuses = { draft: 'Draft', scheduled: 'Scheduled', sending: 'Queued / se
                 <div v-if="preview" class="mt-4 space-y-3" aria-live="polite"><div class="flex flex-wrap gap-4 text-xs"><span class="font-semibold text-primary-800">{{ preview.eligible.toLocaleString() }} recipients</span><span>{{ preview.excluded }} excluded by preferences or contact details</span><span>{{ preview.duplicates }} duplicates removed</span></div><p v-if="!preview.eligible" class="text-sm text-surface-600">No eligible recipients. Check the audience filters, contact details and channel preferences.</p><ul v-else class="space-y-1 text-xs text-surface-600"><li v-for="(person, index) in preview.sample" :key="index">{{ person.name }} · {{ form.channel === 'inbox' ? person.source : person.recipient }}</li></ul><p class="text-xs text-surface-500">Preview shows up to five recipients. Eligibility is checked again when the campaign starts and before delivery.</p></div>
             </div>
             <Input v-if="form.channel !== 'whatsapp'" v-model="form.subject" :label="form.channel === 'email' ? 'Email subject' : 'Message title'" required :error="form.errors.subject" />
-            <EmailEditor v-if="form.channel === 'email'" v-model="form.body" :error="form.errors.body" :disabled="form.processing" />
+            <EmailEditor v-if="form.channel === 'email'" v-model="form.body" :subject="form.subject" :error="form.errors.body" :disabled="form.processing" @apply-template="template => { form.subject = template.subject; if (!form.name) form.name = template.name; }" />
             <div v-else><label for="campaign-body" class="mb-1.5 block text-sm font-medium">Message</label><textarea id="campaign-body" v-model="form.body" required rows="7" maxlength="3500" class="w-full rounded-xl border-surface-300 text-sm" placeholder="Write a clear, helpful message…" /><p class="mt-1.5 text-xs text-surface-500">{{ form.body.length }}/3,500 characters · {{ form.channel === 'inbox' ? 'Each person receives a private message in their platform inbox.' : 'Sent through your configured WhatsApp connection.' }}</p></div>
             <Input v-model="form.scheduled_at" type="datetime-local" label="Schedule (optional)" hint="Uses your device’s time zone. Leave empty to save a draft." />
             <div class="flex justify-end gap-3 border-t border-surface-200 pt-4"><Button type="button" variant="secondary" @click="open = false">Cancel</Button><Button type="submit" :disabled="form.processing">{{ form.processing ? 'Saving…' : form.scheduled_at ? 'Schedule campaign' : 'Save draft' }}</Button></div>

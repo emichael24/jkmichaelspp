@@ -138,18 +138,22 @@ class NotificationDeliveryService
         try {
             $providerId = null;
             if ($first->channel === 'mail') {
-                $body = $batch->map(fn ($row) => $this->plainMessage($row->payload, $this->preferencesUrl($row)))->implode("\n\n———\n\n");
+                [$firstName, $fullName] = $this->recipientName($first);
+                $payloads = $batch->map(fn ($row) => [...$row->payload,
+                    'title' => EmailBranding::personalize((string) ($row->payload['title'] ?? 'JK Michaels'), $firstName, $fullName),
+                    'body' => EmailBranding::personalize((string) ($row->payload['body'] ?? ''), $firstName, $fullName, ($row->payload['body_format'] ?? 'text') === 'html'),
+                ]);
+                $body = $payloads->map(fn ($payload) => $this->plainMessage($payload, $this->preferencesUrl($first)))->implode("\n\n———\n\n");
+                $branding = app(EmailBranding::class);
+                $subject = $batch->count() > 1 ? 'Your '.$branding->get()['brand_name'].' updates' : $payloads->first()['title'];
                 $recipient = $first->messaging_log_id ? MessagingLog::findOrFail($first->messaging_log_id)->recipient : $user->email;
-                $configure = function ($message) use ($recipient, $first, $batch, $body) {
-                    $message->to($recipient)->subject($batch->count() > 1 ? 'Your JK Michaels updates' : ($first->payload['title'] ?? 'JK Michaels update'));
+                $configure = function ($message) use ($recipient, $first, $subject, $body) {
+                    $message->to($recipient)->subject($subject);
                     $message->getSymfonyMessage()->text($body);
                     $message->getSymfonyMessage()->getHeaders()->addIdHeader('Message-ID', $first->id.'@'.parse_url(config('app.url'), PHP_URL_HOST));
                 };
-                if ($batch->count() === 1 && ($first->payload['body_format'] ?? 'text') === 'html') {
-                    Mail::html(view('mail.composed-message', ['content' => app(EmailContent::class)->sanitize($first->payload['body']), 'preferencesUrl' => $this->preferencesUrl($first)])->render(), $configure);
-                } else {
-                    Mail::raw($body, $configure);
-                }
+                // Every email uses the branded layout; a plain-text alternative is always included.
+                Mail::html($branding->render($this->htmlContent($payloads), $this->preferencesUrl($first)), $configure);
             } elseif ($first->channel === 'inbox') {
                 $campaign = MessagingCampaign::find($first->campaign_id);
                 $sender = $campaign?->createdBy;
@@ -260,6 +264,41 @@ class NotificationDeliveryService
         $host = strtolower($url['host'] ?? '');
         $allowed = collect(config('notifications.push_hosts'))->contains(fn ($pattern) => str_starts_with($pattern, '*.') ? str_ends_with($host, substr($pattern, 1)) : $host === $pattern);
         abort_unless(($url['scheme'] ?? '') === 'https' && ! isset($url['user']) && ! isset($url['pass']) && ! isset($url['fragment']) && ($url['port'] ?? 443) === 443 && $allowed, 422, 'Unsupported push endpoint.');
+    }
+
+    /** @return array{0: ?string, 1: ?string} first and full name of the recipient, for merge tags */
+    private function recipientName(NotificationDelivery $row): array
+    {
+        $person = $row->contact_id ? CrmContact::find($row->contact_id) : $row->user;
+        if (! $person) {
+            return [null, null];
+        }
+        $first = trim((string) ($person->first_name ?? ''));
+        $full = trim($first.' '.trim((string) ($person->last_name ?? '')));
+
+        return [$first ?: null, $full ?: ($person->name ?? null)];
+    }
+
+    /** Branded HTML for one message or a digest of several (titles become headings). */
+    private function htmlContent(Collection $payloads): string
+    {
+        $content = app(EmailContent::class);
+        $sections = $payloads->map(function (array $payload) use ($content, $payloads) {
+            $html = ($payload['body_format'] ?? 'text') === 'html'
+                ? $content->sanitize((string) ($payload['body'] ?? ''))
+                : collect(preg_split("/\R{2,}/", trim(html_entity_decode(strip_tags((string) ($payload['body'] ?? '')), ENT_QUOTES | ENT_HTML5, 'UTF-8'))))
+                    ->filter(fn ($paragraph) => trim($paragraph) !== '')
+                    ->map(fn ($paragraph) => '<p>'.nl2br(e(trim($paragraph)), false).'</p>')->implode('');
+            $path = $payload['action_url'] ?? null;
+            if (is_string($path) && str_starts_with($path, '/') && ! str_starts_with($path, '//') && ! str_contains($path, '\\')) {
+                $html .= '<p><a href="'.e(rtrim(config('app.url'), '/').$path).'">Open in '.e(app(EmailBranding::class)->get()['brand_name']).'</a></p>';
+            }
+            $heading = $payloads->count() > 1 || ($payload['body_format'] ?? 'text') !== 'html' ? '<h3>'.e($payload['title'] ?? '').'</h3>' : '';
+
+            return $heading.$html;
+        });
+
+        return $sections->implode('<hr>');
     }
 
     private function plainMessage(array $data, ?string $preferencesUrl = null): string

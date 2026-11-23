@@ -10,6 +10,8 @@ import MediaUpload from '@/Components/Authoring/MediaUpload.vue';
 import QuizBuilder from '@/Components/Authoring/QuizBuilder.vue';
 import CourseRevisionBanner from './CourseRevisionBanner.vue';
 import LessonPreview from '@/Components/Authoring/LessonPreview.vue';
+import HostedVideo from '@/Components/Lesson/HostedVideo.vue';
+import { hostedVideo } from '@/lib/hostedVideo';
 import { lessonTypes, lessonIcon } from '@/Components/Authoring/lessonTypes';
 
 const props = defineProps({
@@ -128,7 +130,7 @@ onUnmounted(() => { window.removeEventListener('beforeunload', leaveWarning); wi
                         <label class="flex items-center gap-2 self-end pb-2 text-xs font-medium text-surface-600"><input v-model="form.activity.allow_file_upload" type="checkbox" class="h-4 w-4 accent-primary-700" />Allow file attachments</label>
                         <p class="text-[11px] leading-5 text-surface-500 sm:col-span-2 lg:col-span-4">The lesson counts as complete when the learner submits. If you return work for revision, learners can resubmit up to the allowance.</p>
                     </div>
-                    <div v-for="field in mediaFields" :key="field.field" class="space-y-3"><h3 class="text-sm font-semibold">{{ field.title }}</h3><MediaUpload v-model="form[field.field]" :type="field.type" :allow-link="!['pdf', 'slides'].includes(field.type)" :course-id="course.id" :disabled="locked" @busy="uploadStates[field.field] = $event" /><p v-if="form.errors[field.field]" role="alert" class="text-xs text-rose-700">{{ form.errors[field.field] }}</p><video v-if="field.type === 'video' && form[field.field]?.includes('/media/')" :src="form[field.field]" controls preload="metadata" class="max-h-80 w-full rounded-xl bg-black" /><audio v-if="field.type === 'audio' && form[field.field]" :src="form[field.field]" controls preload="metadata" class="w-full" /></div>
+                    <div v-for="field in mediaFields" :key="field.field" class="space-y-3"><h3 class="text-sm font-semibold">{{ field.title }}</h3><MediaUpload v-model="form[field.field]" :type="field.type" :allow-link="!['pdf', 'slides'].includes(field.type)" :course-id="course.id" :disabled="locked" @busy="uploadStates[field.field] = $event" /><p v-if="form.errors[field.field]" role="alert" class="text-xs text-rose-700">{{ form.errors[field.field] }}</p><HostedVideo v-if="field.type === 'video' && hostedVideo(form[field.field] || '')" :key="form[field.field]" :url="form[field.field]" /><video v-else-if="field.type === 'video' && (form[field.field]?.includes('/media/') || /\.(mp4|webm|mov)(\?|$)/i.test(form[field.field] || ''))" :src="form[field.field]" controls preload="metadata" class="max-h-80 w-full rounded-xl bg-black" /><audio v-if="field.type === 'audio' && form[field.field]" :src="form[field.field]" controls preload="metadata" class="w-full" /></div>
                     <div v-if="['video', 'mixed'].includes(type)"><label for="lesson-transcript" class="mb-1.5 block text-sm font-medium text-surface-700">Video transcript</label><textarea id="lesson-transcript" v-model="form.video_transcript" rows="5" class="w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-100" placeholder="Include a transcript for learners who prefer reading or need an accessible alternative." /></div>
                 </div>
             </section>

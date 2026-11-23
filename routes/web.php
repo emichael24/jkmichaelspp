@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AuditLogController as AdminAuditLogController;
 use App\Http\Controllers\Admin\BillingController as AdminBillingController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
+use App\Http\Controllers\Admin\ContactImportController;
 use App\Http\Controllers\Admin\CourseApprovalController;
 use App\Http\Controllers\Admin\CourseController as AdminCourseController;
 use App\Http\Controllers\Admin\CourseEnrollmentController;
@@ -10,12 +11,16 @@ use App\Http\Controllers\Admin\CourseMediaController;
 use App\Http\Controllers\Admin\CRMController;
 use App\Http\Controllers\Admin\CrmPipelineController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\EmailDesignController;
 use App\Http\Controllers\Admin\EventController as AdminEventController;
 use App\Http\Controllers\Admin\InternshipTrackController as AdminInternshipTrackController;
 use App\Http\Controllers\Admin\LaunchChecklistController;
 use App\Http\Controllers\Admin\LearningRuleController;
 use App\Http\Controllers\Admin\MessagingController;
 use App\Http\Controllers\Admin\MockExamController as AdminMockExamController;
+use App\Http\Controllers\Admin\OrganizationController;
+use App\Http\Controllers\Admin\OrganizationLicenseController;
+use App\Http\Controllers\Admin\PaymentSettingsController;
 use App\Http\Controllers\Admin\QuestionController as AdminQuestionController;
 use App\Http\Controllers\Admin\QuizController as AdminQuizController;
 use App\Http\Controllers\Admin\ReportController as AdminReportController;
@@ -38,6 +43,7 @@ use App\Http\Controllers\AuthoringCurriculumController;
 use App\Http\Controllers\AuthoringMediaController;
 use App\Http\Controllers\BookmarkController;
 use App\Http\Controllers\CertificateController;
+use App\Http\Controllers\ContactMessagePreferenceController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\CourseRatingController;
 use App\Http\Controllers\CourseRevisionController;
@@ -68,6 +74,8 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OfflineLearningController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\Organization\BillingController;
+use App\Http\Controllers\Organization\CourseLicenseController;
 use App\Http\Controllers\Organization\DepartmentController;
 use App\Http\Controllers\Organization\InvitationController;
 use App\Http\Controllers\Organization\PeopleController;
@@ -117,15 +125,15 @@ Route::get('/offline', fn () => response()->view('offline'));
 Route::get('/organization', App\Http\Controllers\Organization\DashboardController::class)
     ->middleware(['auth', 'role:org_admin'])->name('organization.dashboard');
 Route::middleware(['auth', 'role:org_admin', 'throttle:60,1'])->prefix('organization')->group(function () {
-    Route::get('/courses', [App\Http\Controllers\Organization\CourseLicenseController::class, 'index']);
-    Route::get('/courses/catalog', [App\Http\Controllers\Organization\CourseLicenseController::class, 'catalog']);
-    Route::post('/courses/{course}/purchase', [App\Http\Controllers\Organization\CourseLicenseController::class, 'purchase'])->middleware('throttle:10,1');
-    Route::get('/licenses/{license}', [App\Http\Controllers\Organization\CourseLicenseController::class, 'show']);
-    Route::get('/licenses/{license}/members', [App\Http\Controllers\Organization\CourseLicenseController::class, 'members']);
-    Route::post('/licenses/{license}/assign', [App\Http\Controllers\Organization\CourseLicenseController::class, 'assign'])->middleware('throttle:15,1');
-    Route::delete('/licenses/{license}/assignments/{assignment}', [App\Http\Controllers\Organization\CourseLicenseController::class, 'release']);
-    Route::get('/billing', [App\Http\Controllers\Organization\BillingController::class, 'index']);
-    Route::get('/billing/{uuid}', [App\Http\Controllers\Organization\BillingController::class, 'show']);
+    Route::get('/courses', [CourseLicenseController::class, 'index']);
+    Route::get('/courses/catalog', [CourseLicenseController::class, 'catalog']);
+    Route::post('/courses/{course}/purchase', [CourseLicenseController::class, 'purchase'])->middleware('throttle:10,1');
+    Route::get('/licenses/{license}', [CourseLicenseController::class, 'show']);
+    Route::get('/licenses/{license}/members', [CourseLicenseController::class, 'members']);
+    Route::post('/licenses/{license}/assign', [CourseLicenseController::class, 'assign'])->middleware('throttle:15,1');
+    Route::delete('/licenses/{license}/assignments/{assignment}', [CourseLicenseController::class, 'release']);
+    Route::get('/billing', [BillingController::class, 'index']);
+    Route::get('/billing/{uuid}', [BillingController::class, 'show']);
     Route::get('/people', [PeopleController::class, 'index'])->name('organization.people');
     Route::post('/invitations', [PeopleController::class, 'invite'])->middleware('throttle:10,1');
     Route::post('/people/import', [PeopleController::class, 'import'])->middleware('throttle:5,1');
@@ -437,12 +445,12 @@ Route::middleware(['auth', 'role:platform_admin'])
     ->group(function () {
         Route::get('/', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
 
-        Route::get('/organizations/administrator-candidates', [\App\Http\Controllers\Admin\OrganizationController::class, 'candidates'])->middleware('throttle:60,1')->name('admin.organizations.candidates');
-        Route::resource('organizations', \App\Http\Controllers\Admin\OrganizationController::class)->only(['index', 'create', 'store', 'edit', 'update'])->names('admin.organizations');
-        Route::get('/organization-license-courses', [App\Http\Controllers\Admin\OrganizationLicenseController::class, 'courses']);
-        Route::get('/organizations/{organization}/licenses', [App\Http\Controllers\Admin\OrganizationLicenseController::class, 'index']);
-        Route::post('/organizations/{organization}/licenses', [App\Http\Controllers\Admin\OrganizationLicenseController::class, 'store']);
-        Route::patch('/organizations/{organization}/licenses/{license}', [App\Http\Controllers\Admin\OrganizationLicenseController::class, 'update']);
+        Route::get('/organizations/administrator-candidates', [OrganizationController::class, 'candidates'])->middleware('throttle:60,1')->name('admin.organizations.candidates');
+        Route::resource('organizations', OrganizationController::class)->only(['index', 'create', 'store', 'edit', 'update'])->names('admin.organizations');
+        Route::get('/organization-license-courses', [OrganizationLicenseController::class, 'courses']);
+        Route::get('/organizations/{organization}/licenses', [OrganizationLicenseController::class, 'index']);
+        Route::post('/organizations/{organization}/licenses', [OrganizationLicenseController::class, 'store']);
+        Route::patch('/organizations/{organization}/licenses/{license}', [OrganizationLicenseController::class, 'update']);
 
         // B2B CRM Pipelines
         Route::get('/crm/pipeline', [CrmPipelineController::class, 'index'])->name('admin.crm.pipeline');
@@ -552,8 +560,8 @@ Route::middleware(['auth', 'role:platform_admin'])
         // Settings
         Route::get('/settings', [AdminSettingsController::class, 'index'])->name('admin.settings.index');
         Route::put('/settings', [AdminSettingsController::class, 'update'])->name('admin.settings.update');
-        Route::get('/settings/payments', [App\Http\Controllers\Admin\PaymentSettingsController::class, 'index'])->name('admin.settings.payments');
-        Route::put('/settings/payments', [App\Http\Controllers\Admin\PaymentSettingsController::class, 'update'])->middleware('throttle:5,1')->name('admin.settings.payments.update');
+        Route::get('/settings/payments', [PaymentSettingsController::class, 'index'])->name('admin.settings.payments');
+        Route::put('/settings/payments', [PaymentSettingsController::class, 'update'])->middleware('throttle:5,1')->name('admin.settings.payments.update');
         // WhatsApp Number Pairings
         Route::get('/settings/whatsapp-pairings', [AdminSettingsController::class, 'waPairings'])->name('admin.settings.wa-pairings');
         Route::patch('/settings/whatsapp-pairings/{user}/pair', [AdminSettingsController::class, 'pairUser'])->name('admin.settings.wa-pair');
@@ -764,11 +772,11 @@ Route::middleware(['auth', 'role:platform_admin'])
         Route::get('/contacts', [CRMController::class, 'contactsIndex'])->name('admin.crm.contacts.index');
         Route::post('/contacts', [CRMController::class, 'contactStore'])->name('admin.crm.contacts.store');
         Route::get('/contacts/import/template', [CRMController::class, 'contactImportTemplate'])->name('admin.crm.contacts.import.template');
-        Route::get('/contacts/imports', [\App\Http\Controllers\Admin\ContactImportController::class, 'index'])->name('admin.crm.contact-imports.index');
-        Route::post('/contacts/imports', [\App\Http\Controllers\Admin\ContactImportController::class, 'store'])->middleware('throttle:10,1')->name('admin.crm.contact-imports.store');
-        Route::post('/contacts/imports/{id}/retry', [\App\Http\Controllers\Admin\ContactImportController::class, 'retry'])->middleware('throttle:10,1');
-        Route::post('/contacts/imports/{id}/cancel', [\App\Http\Controllers\Admin\ContactImportController::class, 'cancel']);
-        Route::get('/contacts/imports/{id}/errors', [\App\Http\Controllers\Admin\ContactImportController::class, 'errors']);
+        Route::get('/contacts/imports', [ContactImportController::class, 'index'])->name('admin.crm.contact-imports.index');
+        Route::post('/contacts/imports', [ContactImportController::class, 'store'])->middleware('throttle:10,1')->name('admin.crm.contact-imports.store');
+        Route::post('/contacts/imports/{id}/retry', [ContactImportController::class, 'retry'])->middleware('throttle:10,1');
+        Route::post('/contacts/imports/{id}/cancel', [ContactImportController::class, 'cancel']);
+        Route::get('/contacts/imports/{id}/errors', [ContactImportController::class, 'errors']);
         Route::post('/contacts/import/preview', [CRMController::class, 'contactImportPreview'])->middleware('throttle:10,1')->name('admin.crm.contacts.import.preview');
         Route::post('/contacts/import', [CRMController::class, 'contactImport'])->middleware('throttle:10,1')->name('admin.crm.contacts.import');
         Route::get('/contacts/{contact}', [CRMController::class, 'contactShow'])->name('admin.crm.contacts.show');
@@ -788,6 +796,14 @@ Route::middleware(['auth', 'role:platform_admin'])
         Route::get('/messaging', [MessagingController::class, 'index'])->name('admin.messaging.index');
         Route::post('/messaging', [MessagingController::class, 'store'])->name('admin.messaging.store');
         Route::post('/messaging/audience-preview', [MessagingController::class, 'audiencePreview'])->middleware('throttle:30,1')->name('admin.messaging.audiencePreview');
+        Route::get('/email-design', [EmailDesignController::class, 'index'])->name('admin.email-design');
+        Route::post('/email-design/branding', [EmailDesignController::class, 'updateBranding'])->name('admin.email-design.branding');
+        Route::post('/email-design/preview', [EmailDesignController::class, 'preview'])->middleware('throttle:60,1')->name('admin.email-design.preview');
+        Route::post('/email-design/test', [EmailDesignController::class, 'sendTest'])->middleware('throttle:6,1')->name('admin.email-design.test');
+        Route::get('/email-templates', [EmailDesignController::class, 'templatesJson'])->name('admin.email-templates.index');
+        Route::post('/email-templates', [EmailDesignController::class, 'storeTemplate'])->name('admin.email-templates.store');
+        Route::put('/email-templates/{template}', [EmailDesignController::class, 'updateTemplate'])->name('admin.email-templates.update');
+        Route::delete('/email-templates/{template}', [EmailDesignController::class, 'destroyTemplate'])->name('admin.email-templates.destroy');
         Route::get('/messaging/{campaign}', [MessagingController::class, 'show'])->name('admin.messaging.show');
         Route::post('/messaging/{campaign}/cancel', [MessagingController::class, 'cancel'])->name('admin.messaging.cancel');
         Route::post('/messaging/{campaign}/send', [MessagingController::class, 'send'])->name('admin.messaging.send');
@@ -996,5 +1012,5 @@ Route::middleware(['auth', 'throttle:30,1'])->group(function () {
 });
 
 // Signed preference links for CRM recipients who do not have a platform login.
-Route::get('/message-preferences/{contact}/{channel}', [\App\Http\Controllers\ContactMessagePreferenceController::class, 'show'])->middleware(['signed', 'throttle:30,1'])->name('messaging.unsubscribe');
-Route::post('/message-preferences/{contact}/{channel}', [\App\Http\Controllers\ContactMessagePreferenceController::class, 'update'])->middleware(['signed', 'throttle:30,1']);
+Route::get('/message-preferences/{contact}/{channel}', [ContactMessagePreferenceController::class, 'show'])->middleware(['signed', 'throttle:30,1'])->name('messaging.unsubscribe');
+Route::post('/message-preferences/{contact}/{channel}', [ContactMessagePreferenceController::class, 'update'])->middleware(['signed', 'throttle:30,1']);

@@ -86,7 +86,7 @@ class NotificationDeliveryTest extends TestCase
     {
         $user = User::factory()->create();
         app(NotificationService::class)->sendPaymentReceipt($user, 'ambiguous', 10, 'NGN');
-        Mail::shouldReceive('raw')->once()->andThrow(new \RuntimeException('Simulated transport timeout'));
+        Mail::shouldReceive('html')->once()->andThrow(new \RuntimeException('Simulated transport timeout'));
         $row = NotificationDelivery::firstOrFail();
         $delivery = app(NotificationDeliveryService::class);
         $delivery->deliver($row->id);

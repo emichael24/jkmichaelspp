@@ -1,7 +1,8 @@
 <script setup>
 import { computed, onBeforeUnmount, ref } from 'vue';
 import axios from 'axios';
-import { UploadCloud, FileCheck2, RotateCcw, X, LoaderCircle, Link2 } from 'lucide-vue-next';
+import { UploadCloud, FileCheck2, RotateCcw, X, LoaderCircle, Link2, Youtube } from 'lucide-vue-next';
+import { hostedVideo } from '@/lib/hostedVideo';
 
 const props = defineProps({ type: { type: String, required: true }, courseId: [Number, String], modelValue: String, disabled: Boolean, allowLink: { type: Boolean, default: true } });
 const emit = defineEmits(['update:modelValue', 'uploaded', 'busy']);
@@ -56,21 +57,41 @@ async function upload() {
         error.value = axios.isCancel(exception) ? 'Upload paused. Retry to continue.' : Object.values(exception.response?.data?.errors || {}).flat()[0] || exception.response?.data?.message || exception.message || 'Upload failed. Please retry.';
     } finally { setBusy(false); }
 }
+// Videos can come from YouTube/Vimeo or a direct MP4/WebM link as well as an upload.
+const videoSource = ref(props.type === 'video' && props.modelValue && !props.modelValue.includes('/media/') ? 'link' : 'upload');
+const hosted = computed(() => hostedVideo(props.modelValue || ''));
+const attachedLabel = computed(() => hosted.value ? `${hosted.value.provider === 'youtube' ? 'YouTube' : 'Vimeo'} video` : file.value?.name || (props.modelValue && !props.modelValue.includes('/media/') ? 'Linked media' : 'Media attached'));
 function useLink() {
-    try { const url = new URL(link.value); if (!['https:', 'http:'].includes(url.protocol)) throw new Error(); emit('update:modelValue', url.href); error.value = ''; linkMode.value = false; }
-    catch { error.value = 'Enter a complete HTTPS or HTTP URL.'; }
+    try {
+        const url = new URL(link.value.trim());
+        if (!['https:', 'http:'].includes(url.protocol)) throw new Error();
+        if (props.type === 'video' && !hostedVideo(url.href) && !/\.(mp4|webm|mov|m3u8)(\?|$)/i.test(url.pathname)) {
+            error.value = 'Paste a YouTube or Vimeo video link (for example https://www.youtube.com/watch?v=…), or a direct .mp4/.webm file link.';
+            return;
+        }
+        emit('update:modelValue', url.href); error.value = ''; linkMode.value = false; link.value = '';
+    } catch { error.value = 'Enter a complete HTTPS or HTTP URL.'; }
 }
 onBeforeUnmount(() => { controller?.abort(); emit('busy', false); });
 </script>
 
 <template>
     <div class="space-y-3">
+        <div v-if="type === 'video' && !modelValue && !busy" class="inline-flex rounded-xl bg-surface-100 p-1" role="group" aria-label="Video source">
+            <button type="button" :disabled="disabled" :aria-pressed="videoSource === 'upload'" :class="['inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold', videoSource === 'upload' ? 'bg-white shadow-sm' : 'text-surface-500']" @click="videoSource = 'upload'; error = ''"><UploadCloud class="h-4 w-4" />Upload a video</button>
+            <button type="button" :disabled="disabled" :aria-pressed="videoSource === 'link'" :class="['inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold', videoSource === 'link' ? 'bg-white shadow-sm' : 'text-surface-500']" @click="videoSource = 'link'; error = ''"><Youtube class="h-4 w-4" />YouTube or Vimeo link</button>
+        </div>
+        <div v-if="type === 'video' && videoSource === 'link' && !modelValue && !busy" class="rounded-2xl border-2 border-dashed border-surface-200 bg-surface-50/60 p-5">
+            <label for="video-link" class="text-sm font-semibold text-surface-800">Video link</label>
+            <div class="mt-2 flex flex-wrap gap-2"><input id="video-link" v-model="link" type="url" placeholder="https://www.youtube.com/watch?v=… or https://vimeo.com/…" :disabled="disabled" class="min-w-0 flex-1 rounded-xl border border-surface-300 bg-white px-3 py-2.5 text-sm" @keydown.enter.prevent="useLink" /><button type="button" :disabled="disabled || !link.trim()" @click="useLink" class="rounded-xl bg-primary-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40">Add video</button></div>
+            <p class="mt-2 text-xs leading-5 text-surface-500">Plays inside the lesson with the academy's own controls, privacy-enhanced mode and no suggested-video wall at the end. Use an unlisted or public video that allows embedding.</p>
+        </div>
         <div v-if="modelValue && !busy && !error" class="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
             <FileCheck2 class="h-6 w-6 shrink-0 text-emerald-600" aria-hidden="true" />
-            <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold text-emerald-950">{{ file?.name || 'Media attached' }}</p><p class="mt-1 text-xs text-emerald-700">{{ size || 'Ready for this lesson' }}</p></div>
+            <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold text-emerald-950">{{ attachedLabel }}</p><p class="mt-1 truncate text-xs text-emerald-700">{{ size || (hosted || !modelValue.includes('/media/') ? modelValue : 'Ready for this lesson') }}</p></div>
             <button type="button" :disabled="disabled" @click="emit('update:modelValue', ''); file = null; progress = 0" aria-label="Remove media from lesson" class="rounded-lg p-2 text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"><X class="h-4 w-4" /></button>
         </div>
-        <div v-else class="rounded-2xl border-2 border-dashed p-6 transition-colors" :class="dragging ? 'border-primary-600 bg-primary-50' : 'border-surface-200 bg-surface-50/60'" @dragover.prevent="dragging = true" @dragleave.prevent="dragging = false" @drop.prevent="dragging = false; selectFile($event.dataTransfer.files[0])">
+        <div v-else-if="type !== 'video' || videoSource === 'upload' || busy" class="rounded-2xl border-2 border-dashed p-6 transition-colors" :class="dragging ? 'border-primary-600 bg-primary-50' : 'border-surface-200 bg-surface-50/60'" @dragover.prevent="dragging = true" @dragleave.prevent="dragging = false" @drop.prevent="dragging = false; selectFile($event.dataTransfer.files[0])">
             <input ref="input" type="file" :accept="format.accept" class="sr-only" tabindex="-1" :disabled="disabled || busy" @change="selectFile($event.target.files[0]); $event.target.value = ''" />
             <div v-if="busy" class="space-y-3" role="status" aria-live="polite">
                 <div class="flex items-center gap-3"><LoaderCircle class="h-5 w-5 animate-spin text-primary-600" /><span class="min-w-0 flex-1 truncate text-sm font-medium">{{ progress >= 99 ? 'Checking and securing your file…' : `Uploading ${file.name}` }}</span><button type="button" @click="controller?.abort()" class="text-xs font-semibold text-surface-600">Cancel</button></div>
@@ -80,7 +101,7 @@ onBeforeUnmount(() => { controller?.abort(); emit('busy', false); });
             <div v-else class="text-center"><div class="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-xl border border-surface-200 bg-white"><UploadCloud class="h-6 w-6 text-primary-600" /></div><button type="button" :disabled="disabled" @click="input.click()" class="rounded-lg px-3 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-600 disabled:opacity-50">Choose {{ type === 'image' || type === 'audio' ? 'an' : 'a' }} {{ type === 'scorm' ? 'SCORM package' : `${type} file` }}</button><p class="mt-1 text-xs text-surface-500">or drag and drop here</p><p class="mt-3 text-xs text-surface-500">{{ format.label }} · up to {{ format.max }} MB</p></div>
         </div>
         <div v-if="error" role="alert" class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800"><p>{{ error }}</p><button v-if="file" type="button" @click="upload" :disabled="busy || disabled" class="mt-2 inline-flex items-center gap-2 font-semibold"><RotateCcw class="h-4 w-4" />Retry upload</button></div>
-        <button v-if="allowLink && !busy && !modelValue && type !== 'scorm'" type="button" :disabled="disabled" @click="linkMode = !linkMode" class="inline-flex items-center gap-2 text-xs font-medium text-surface-600"><Link2 class="h-3.5 w-3.5" />{{ linkMode ? 'Close link entry' : 'Use an existing media link' }}</button>
+        <button v-if="allowLink && !busy && !modelValue && !['scorm', 'video'].includes(type)" type="button" :disabled="disabled" @click="linkMode = !linkMode" class="inline-flex items-center gap-2 text-xs font-medium text-surface-600"><Link2 class="h-3.5 w-3.5" />{{ linkMode ? 'Close link entry' : 'Use an existing media link' }}</button>
         <div v-if="linkMode" class="flex flex-wrap gap-2"><input v-model="link" :aria-label="`${type} URL`" type="url" placeholder="https://…" class="min-w-0 flex-1 rounded-xl border border-surface-300 px-3 py-2 text-sm" @keydown.enter.prevent="useLink" /><button type="button" @click="useLink" class="rounded-xl bg-surface-900 px-4 py-2 text-sm font-medium text-white">Attach link</button></div>
     </div>
 </template>
